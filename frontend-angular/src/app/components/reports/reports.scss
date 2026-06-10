@@ -1,0 +1,10 @@
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi { text-align: center; padding: 4px 0; }
+.kpi-label { font-size: 0.68rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.kpi-value { font-size: 1.3rem; font-weight: 800; color: var(--text); }
+.kpi-green { color: var(--green); }
+
+.row-pending { background: var(--amber-bg); }
+
+@media (max-width: 1024px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .kpi-row { grid-template-columns: 1fr; } }

@@ -1,0 +1,26 @@
+<div class="card">
+  <div class="card-header"><h3>Inventario</h3><span class="pill">{{ store.products.length }} productos</span></div>
+  <div class="card-content no-pad">
+    <table class="table">
+      <thead><tr><th>Producto</th><th>SKU</th><th>Stock</th><th>Precio</th><th>Accion</th></tr></thead>
+      <tbody>
+        @for (p of store.products; track p.id) {
+          <tr>
+            <td class="td-primary">{{ p.name }}</td>
+            <td>{{ p.sku || '—' }}</td>
+            <td>
+              <span class="pill" [class.pill-red]="p.stock <= 2" [class.pill-amber]="p.stock <= 5 && p.stock > 2">{{ p.stock }} uds</span>
+            </td>
+            <td class="td-mono">{{ store.formatMoney(p.salePrice) }}</td>
+            <td>
+              <div class="action-group">
+                <button class="btn btn-outline btn-xs" (click)="store.reduceStock(p)">−1</button>
+                <button class="btn btn-primary btn-xs" (click)="store.restock(p, 1)">+1</button>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+target/
+*.mv.db
+*.trace.db
+data/
+.DS_Store
+Thumbs.db
+*.log
+.angular/

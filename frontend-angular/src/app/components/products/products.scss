@@ -1,0 +1,12 @@
+.dual-col { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+@media (min-width: 900px) { .dual-col { grid-template-columns: 340px 1fr; } }
+@media (max-width: 1024px) { .dual-col { grid-template-columns: 1fr; } }
+
+.card-form { max-width: 100%; }
+
+.product-form-vertical { display: grid; gap: 6px; }
+.product-form-vertical .field { display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; }
+.product-form-vertical .field span { font-size: 0.72rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; text-align: right; }
+.product-form-vertical .field input { min-height: 30px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 10px; font-size: 0.8rem; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.12s, box-shadow 0.12s; }
+.product-form-vertical .field input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+.btn-form { margin-top: 6px; min-height: 32px; font-size: 0.8rem; }

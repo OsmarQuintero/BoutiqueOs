@@ -1,0 +1,39 @@
+<div class="dual-col">
+  <div class="card card-form">
+    <div class="card-header"><h3>Nuevo producto</h3></div>
+    <div class="card-content">
+      <div class="product-form-vertical">
+        <label class="field"><span>Nombre</span><input [(ngModel)]="store.productForm.name" placeholder="Nombre"></label>
+        <label class="field"><span>Categoria</span><input [(ngModel)]="store.productForm.category" placeholder="Vestidos, Blusas..."></label>
+        <label class="field"><span>Talla</span><input [(ngModel)]="store.productForm.size" placeholder="S, M, L, 28"></label>
+        <label class="field"><span>Color</span><input [(ngModel)]="store.productForm.color" placeholder="Azul, Negro..."></label>
+        <label class="field"><span>Costo ($)</span><input type="number" [(ngModel)]="store.productForm.costPrice" placeholder="0.00"></label>
+        <label class="field"><span>Precio ($)</span><input type="number" [(ngModel)]="store.productForm.salePrice" placeholder="0.00"></label>
+        <label class="field"><span>Stock</span><input type="number" [(ngModel)]="store.productForm.stock" placeholder="0"></label>
+        <label class="field"><span>SKU</span><input [(ngModel)]="store.productForm.sku" placeholder="Opcional"></label>
+        <button class="btn btn-primary btn-form" (click)="store.createProduct()">Guardar</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Catalogo</h3><span class="pill">{{ store.products.length }} productos</span></div>
+    <div class="card-content no-pad">
+      <table class="table">
+        <thead><tr><th>Nombre</th><th>Categoria</th><th>Talla</th><th>Color</th><th>SKU</th><th>Precio</th><th>Stock</th></tr></thead>
+        <tbody>
+          @for (p of store.products; track p.id) {
+            <tr>
+              <td class="td-primary">{{ p.name }}</td>
+              <td>{{ p.category || '—' }}</td>
+              <td>{{ p.size || '—' }}</td>
+              <td>{{ p.color || '—' }}</td>
+              <td class="td-sku">{{ p.sku || '—' }}</td>
+              <td class="td-mono">{{ store.formatMoney(p.salePrice) }}</td>
+              <td><span class="pill" [class.pill-red]="p.stock <= 2">{{ p.stock }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,86 @@
+@if (store.loggedIn) {
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="/logo.png" alt="Logo" class="brand-logo">
+        <div class="brand-name">Boutique OS</div>
+      </div>
+      <nav class="nav">
+        @for (item of store.navItems; track item.id) {
+          <button type="button" class="nav-item" [class.active]="store.activeView === item.id" (click)="store.setView(item.id)">
+            <span class="nav-item-icon">{{ item.icon }}</span>
+            <span class="nav-item-label">{{ item.label }}</span>
+          </button>
+        }
+      </nav>
+      <div class="sidebar-footer">
+        @for (task of store.tasks; track task) {
+          <div class="task-item">{{ task }}</div>
+        }
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title">{{ store.pageTitle }}</h1>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-outline btn-sm" (click)="store.newSale()"><span>+</span> Nueva venta</button>
+          <div class="user-badge">
+            <span class="user-avatar">A</span>
+            <span class="user-label">Admin</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" (click)="store.logout()">Salir</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="metrics">
+          @for (stat of store.stats; track stat.label) {
+            <div class="metric">
+              <div class="metric-body">
+                <div class="metric-label">{{ stat.label }}</div>
+                <div class="metric-value">{{ stat.value }}</div>
+              </div>
+              <div class="metric-trend">{{ stat.trend }}</div>
+            </div>
+          }
+        </div>
+
+        @switch (store.activeView) {
+          @case ('pos') { <app-pos /> }
+          @case ('products') { <app-products /> }
+          @case ('inventory') { <app-inventory /> }
+          @case ('customers') { <app-customers /> }
+          @case ('reports') { <app-reports /> }
+        }
+      </div>
+    </div>
+  </main>
+} @else {
+  <div class="login-screen">
+    <div class="login-bg-pattern"></div>
+    <div class="login-card">
+      <div class="login-header">
+        <img src="/logo.png" alt="Logo" class="login-logo">
+        <div class="login-title">Boutique OS</div>
+        <div class="login-subtitle">Sistema de punto de venta</div>
+      </div>
+      <form class="login-form" (ngSubmit)="store.login()">
+        <div class="login-field">
+          <input [(ngModel)]="store.loginUser" name="user" id="user" placeholder=" " autocomplete="off">
+          <label for="user">Usuario</label>
+        </div>
+        <div class="login-field">
+          <input type="password" [(ngModel)]="store.loginPass" name="pass" id="pass" placeholder=" ">
+          <label for="pass">Contraseña</label>
+        </div>
+        @if (store.loginError) {
+          <div class="login-error">{{ store.loginError }}</div>
+        }
+        <button type="submit" class="login-btn">Entrar</button>
+      </form>
+    </div>
+  </div>
+}

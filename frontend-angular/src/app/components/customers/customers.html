@@ -1,0 +1,52 @@
+<div class="dual-col">
+  <div class="card">
+    <div class="card-header"><h3>Nuevo cliente</h3></div>
+    <div class="card-content">
+      <div class="form-compact">
+        <label class="field"><span>Nombre</span><input [(ngModel)]="store.newCustomerName" placeholder="Nombre"></label>
+        <label class="field"><span>WhatsApp</span><input [(ngModel)]="store.newCustomerPhone" placeholder="+52 555 1234 567"></label>
+        <label class="field"><span>Notas</span><input [(ngModel)]="store.newCustomerNotes" placeholder="Opcional"></label>
+      </div>
+      <button class="btn btn-primary" (click)="store.addCustomer()">Guardar</button>
+    </div>
+  </div>
+  <div class="card">
+    @if (store.selectedCustomerHistory) {
+      <div class="card-header">
+        <h3>{{ store.selectedCustomerHistory.name }} — Compras</h3>
+        <button class="btn btn-ghost btn-xs" (click)="store.clearCustomerHistory()">Cerrar</button>
+      </div>
+      <div class="card-content no-pad">
+        <table class="table">
+          <thead><tr><th>#</th><th>Metodo</th><th>Total</th></tr></thead>
+          <tbody>
+            @for (s of store.customerSales; track s.id) {
+              <tr>
+                <td class="td-primary">#{{ s.id }}</td>
+                <td><span class="pill" [class.pill-green]="s.paymentMethod === 'CASH'" [class.pill-blue]="s.paymentMethod === 'TRANSFER'" [class.pill-purple]="s.paymentMethod === 'CARD'">{{ s.paymentMethod === 'CASH' ? 'Efectivo' : s.paymentMethod === 'TRANSFER' ? 'Transferencia' : 'Tarjeta' }}</span></td>
+                <td class="td-mono">{{ store.formatMoney(s.total) }}</td>
+              </tr>
+            } @empty { <tr><td colspan="3" class="empty-cell">Sin compras registradas</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div class="card-header"><h3>Clientes</h3><span class="pill">{{ store.customers.length }}</span></div>
+      <div class="card-content no-pad">
+        <table class="table">
+          <thead><tr><th>Nombre</th><th>Contacto</th><th>Notas</th><th></th></tr></thead>
+          <tbody>
+            @for (c of store.customers; track c.id) {
+              <tr>
+                <td class="td-primary"><button class="link-btn" (click)="store.showCustomerSales(c)">{{ c.name }}</button></td>
+                <td>{{ c.phone || '—' }}</td>
+                <td class="td-notes">{{ c.notes || '—' }}</td>
+                <td><button class="btn btn-ghost btn-xs" (click)="store.deleteCustomer(c)">Eliminar</button></td>
+              </tr>
+            } @empty { <tr><td colspan="4" class="empty-cell">Sin clientes registrados</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,51 @@
+<div class="card">
+  <div class="card-header"><h3>Corte del dia</h3></div>
+  <div class="card-content">
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Total vendido</div>
+        <div class="kpi-value">{{ store.formatMoney(store.todayTotal) }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ganancia</div>
+        <div class="kpi-value kpi-green">{{ store.formatMoney(store.todayProfit) }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ventas</div>
+        <div class="kpi-value">{{ store.salesToday.length }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Margen</div>
+        <div class="kpi-value">{{ store.todayTotal > 0 ? ((store.todayProfit / store.todayTotal) * 100).toFixed(1) : '0.0' }}%</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card" style="margin-top: 12px;">
+  <div class="card-header"><h3>Ventas de hoy</h3><span class="pill">{{ store.salesToday.length }} registros</span></div>
+  <div class="card-content no-pad">
+    <table class="table">
+      <thead><tr><th>#</th><th>Cliente</th><th>Metodo</th><th>Estado</th><th>Total</th><th>Ganancia</th><th></th></tr></thead>
+      <tbody>
+        @for (s of store.salesToday; track s.id) {
+          <tr [class.row-pending]="s.status === 'PENDING'">
+            <td class="td-primary">#{{ s.id }}</td>
+            <td>{{ s.customerName || 'Mostrador' }}</td>
+            <td>
+              <span class="pill" [class.pill-green]="s.paymentMethod === 'CASH'" [class.pill-blue]="s.paymentMethod === 'TRANSFER'" [class.pill-purple]="s.paymentMethod === 'CARD'">
+                {{ s.paymentMethod === 'CASH' ? 'Efectivo' : s.paymentMethod === 'TRANSFER' ? 'Transferencia' : 'Tarjeta' }}
+              </span>
+            </td>
+            <td>
+              @if (s.status === 'PENDING') { <span class="pill pill-amber">Pendiente</span> }
+              @else { <span class="pill pill-green">Confirmado</span> }
+            </td>
+            <td class="td-mono">{{ store.formatMoney(s.total) }}</td>
+            <td class="td-mono">{{ store.formatMoney(s.estimatedProfit) }}</td>
+            <td>@if (s.status === 'PENDING') { <button class="btn btn-primary btn-xs" (click)="store.confirmSale(s.id)">Confirmar</button> }</td>
+          </tr>
+        } @empty { <tr><td colspan="7" class="empty-cell">Sin ventas hoy</td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>

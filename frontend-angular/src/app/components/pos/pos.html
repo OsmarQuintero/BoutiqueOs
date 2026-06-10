@@ -1,0 +1,78 @@
+<div class="pos-grid">
+  <div class="card">
+    <div class="card-header">
+      <h3>Productos</h3>
+      <div class="search-field">
+        <input [(ngModel)]="store.searchTerm" placeholder="Buscar nombre, categoria o SKU..." class="input-sm">
+      </div>
+    </div>
+    <div class="card-content no-pad">
+      <div class="product-grid">
+        @for (p of store.filteredProducts; track p.id) {
+          <button class="product-tile" (click)="store.addToCart(p)">
+            <div class="tile-avatar">{{ p.name.charAt(0) }}</div>
+            <div class="tile-body">
+              <div class="tile-name">{{ p.name }}</div>
+              <div class="tile-meta">{{ p.size }} / {{ p.color }}</div>
+            </div>
+            <div class="tile-right">
+              <div class="tile-price">{{ store.formatMoney(p.salePrice) }}</div>
+              <div class="tile-stock" [class.critical]="p.stock <= 2">{{ p.stock }} uds</div>
+            </div>
+            <div class="tile-add">+</div>
+          </button>
+        } @empty {
+          <div class="empty-state">No hay productos que coincidan</div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="card cart-card">
+    <div class="card-header">
+      <h3>Venta</h3>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearCart()">Limpiar</button>
+    </div>
+    <div class="customer-select-row">
+      <label class="customer-label">Cliente</label>
+      <select class="customer-select" [(ngModel)]="store.selectedCustomerId" (change)="store.selectCustomer(store.selectedCustomerId)">
+        <option [ngValue]="null">Mostrador</option>
+        @for (c of store.customers; track c.id) {
+          <option [ngValue]="c.id">{{ c.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="cart-items">
+      @for (item of store.cart; track item.name) {
+        <div class="cart-row">
+          <div class="cart-row-body">
+            <div class="cart-row-name">{{ item.name }}</div>
+            <div class="cart-row-qty">{{ item.qty }} × {{ store.formatMoney(item.price) }}</div>
+          </div>
+          <div class="cart-row-right">
+            <span class="cart-row-total">{{ store.formatMoney(item.qty * item.price) }}</span>
+            <button class="btn btn-icon btn-icon-sm" (click)="store.removeFromCart(item.productId)">−</button>
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-state-sm">Agrega productos</div>
+      }
+    </div>
+    <div class="cart-footer">
+      <div class="payment-row">
+        <div class="payment-label">Metodo de pago</div>
+        <div class="payment-group">
+          @for (m of store.paymentMethods; track m.value) {
+            <button class="btn btn-payment" [class.active]="store.selectedPayment === m.value" (click)="store.selectPayment(m.value)">{{ m.label }}</button>
+          }
+        </div>
+      </div>
+      <div class="cart-total-row">
+        <span>Total</span>
+        <strong>{{ store.formatMoney(store.cartTotal) }}</strong>
+      </div>
+      <button class="btn btn-primary btn-block" [disabled]="store.isCharging || !store.cart.length" (click)="store.checkout()">{{ store.isCharging ? 'Cobrando...' : 'Cobrar' }}</button>
+      <div class="status-line">{{ store.statusMessage }}</div>
+    </div>
+  </div>
+</div>
