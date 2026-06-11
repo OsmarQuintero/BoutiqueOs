@@ -1,26 +1,176 @@
-<div class="card">
-  <div class="card-header"><h3>Inventario</h3><span class="pill">{{ store.products.length }} productos</span></div>
-  <div class="card-content no-pad">
-    <table class="table">
-      <thead><tr><th>Producto</th><th>SKU</th><th>Stock</th><th>Precio</th><th>Accion</th></tr></thead>
-      <tbody>
-        @for (p of store.products; track p.id) {
-          <tr>
-            <td class="td-primary">{{ p.name }}</td>
-            <td>{{ p.sku || '—' }}</td>
-            <td>
-              <span class="pill" [class.pill-red]="p.stock <= 2" [class.pill-amber]="p.stock <= 5 && p.stock > 2">{{ p.stock }} uds</span>
-            </td>
-            <td class="td-mono">{{ store.formatMoney(p.salePrice) }}</td>
-            <td>
-              <div class="action-group">
-                <button class="btn btn-outline btn-xs" (click)="store.reduceStock(p)">−1</button>
-                <button class="btn btn-primary btn-xs" (click)="store.restock(p, 1)">+1</button>
+<div class="inventory-layout">
+  <div class="inventory-side">
+    <div class="card">
+      <div class="card-header"><h3>Registrar compra</h3></div>
+      <div class="card-content">
+        <div class="form-compact">
+          <label class="field">
+            <span>Producto</span>
+            <select [(ngModel)]="store.purchaseForm.productId">
+              <option [ngValue]="null">Selecciona producto</option>
+              @for (p of store.products; track p.id) {
+                <option [ngValue]="p.id">{{ p.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="field"><span>Proveedor</span><input [(ngModel)]="store.purchaseForm.supplierName" placeholder="Opcional"></label>
+          <label class="field"><span>Cantidad</span><input type="number" min="1" [(ngModel)]="store.purchaseForm.quantity" placeholder="1"></label>
+          <label class="field"><span>Costo unitario</span><input type="number" min="0" step="0.01" [(ngModel)]="store.purchaseForm.unitCost" placeholder="0.00"></label>
+          <label class="field"><span>Nota</span><input [(ngModel)]="store.purchaseForm.note" placeholder="Compra de reposicion, nueva coleccion..."></label>
+        </div>
+        <button class="btn btn-primary btn-block" (click)="store.registerPurchase()">Guardar compra</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="inventory-main">
+    <div class="card">
+      <div class="card-header inventory-shell-header">
+        <div>
+          <h3>Inventario</h3>
+          <small class="muted-line">Selecciona fecha y luego el panel que quieres revisar</small>
+        </div>
+        <label class="inventory-date-picker">
+          <span>Fecha</span>
+          <input type="date" [ngModel]="store.inventoryDate" (ngModelChange)="store.changeInventoryDate($event)">
+        </label>
+      </div>
+      <div class="card-content inventory-toolbar">
+        <div class="date-quick-actions">
+          <button class="btn btn-ghost btn-xs" (click)="store.shiftInventoryDate(-1)">Ayer</button>
+          <button class="btn btn-ghost btn-xs" (click)="store.goToTodayInventory()">Hoy</button>
+          <button class="btn btn-ghost btn-xs" (click)="store.shiftInventoryDate(1)">Mañana</button>
+        </div>
+        <div class="panel-switch">
+          @for (panel of store.inventoryPanels; track panel.id) {
+            <button class="btn btn-outline" [class.active]="store.inventoryPanel === panel.id" (click)="store.setInventoryPanel(panel.id)">
+              {{ panel.label }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 12px;">
+      <div class="card-header"><h3>Stock actual</h3><span class="pill">{{ store.products.length }} productos</span></div>
+      <div class="card-content no-pad">
+        <table class="table">
+          <thead><tr><th>Producto</th><th>SKU</th><th>Estado</th><th>Stock</th><th>Precio</th><th>Accion</th></tr></thead>
+          <tbody>
+            @for (p of store.products; track p.id) {
+              <tr>
+                <td class="td-primary">{{ p.name }}</td>
+                <td>{{ p.sku || '—' }}</td>
+                <td>
+                  <span class="pill" [class.pill-red]="p.status === 'ARCHIVED'" [class.pill-amber]="p.status === 'OUT_OF_STOCK'" [class.pill-green]="p.status === 'ACTIVE'">
+                    {{ store.productStatusLabel(p.status) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="pill" [class.pill-red]="p.stock <= 2" [class.pill-amber]="p.stock <= 5 && p.stock > 2">{{ p.stock }} uds</span>
+                </td>
+                <td class="td-mono">{{ store.formatMoney(p.salePrice) }}</td>
+                <td>
+                  <div class="action-group">
+                    <button class="btn btn-outline btn-xs" (click)="store.reduceStock(p)">−1</button>
+                    <button class="btn btn-primary btn-xs" (click)="store.restock(p, 1)">+1</button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="empty-cell">Sin productos cargados</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    @if (store.inventoryPanel === 'summary') {
+      <div class="inventory-kpis">
+        <div class="card">
+          <div class="card-content inventory-kpi">
+            <div class="kpi-label">Compras del dia</div>
+            <div class="kpi-value">{{ store.recentPurchases.length }}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-content inventory-kpi">
+            <div class="kpi-label">Total comprado</div>
+            <div class="kpi-value">{{ store.formatMoney(store.inventoryPurchasesTotal) }}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-content inventory-kpi">
+            <div class="kpi-label">Movimientos</div>
+            <div class="kpi-value">{{ store.inventoryMovements.length }}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-content inventory-kpi">
+            <div class="kpi-label">Ajustes</div>
+            <div class="kpi-value">{{ store.inventoryMovementCounts.adjustments }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-grid inventory-summary-grid">
+        <div class="card"><div class="card-content payment-card"><div class="payment-card-top"><span class="pill pill-green">Compras</span></div><div class="payment-total">{{ store.inventoryMovementCounts.purchases }}</div></div></div>
+        <div class="card"><div class="card-content payment-card"><div class="payment-card-top"><span class="pill pill-blue">Salidas</span></div><div class="payment-total">{{ store.inventoryMovementCounts.sales }}</div></div></div>
+        <div class="card"><div class="card-content payment-card"><div class="payment-card-top"><span class="pill pill-amber">Ajustes</span></div><div class="payment-total">{{ store.inventoryMovementCounts.adjustments }}</div></div></div>
+        <div class="card"><div class="card-content payment-card"><div class="payment-card-top"><span class="pill pill-purple">Devoluciones</span></div><div class="payment-total">{{ store.inventoryMovementCounts.returns }}</div></div></div>
+      </div>
+    }
+
+    @if (store.inventoryPanel === 'purchases') {
+      <div class="card" style="margin-top: 12px;">
+        <div class="card-header"><h3>Compras del {{ store.inventoryDate }}</h3><span class="pill">{{ store.recentPurchases.length }}</span></div>
+        <div class="card-content recent-list">
+          @for (purchase of store.recentPurchases; track purchase.id) {
+            <div class="recent-item">
+              <div>
+                <strong>{{ purchase.productName }}</strong>
+                <span>{{ purchase.quantity }} uds · {{ purchase.supplierName || 'Sin proveedor' }}</span>
+                <span>{{ purchase.note || 'Sin nota' }}</span>
               </div>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+              <div class="recent-right">
+                <strong>{{ store.formatMoney(purchase.totalCost) }}</strong>
+                <span>{{ store.formatDateTime(purchase.createdAt) }}</span>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-cell">Sin compras registradas para esta fecha</div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (store.inventoryPanel === 'movements') {
+      <div class="card" style="margin-top: 12px;">
+        <div class="card-header"><h3>Movimientos del {{ store.inventoryDate }}</h3><span class="pill">{{ store.inventoryMovements.length }}</span></div>
+        <div class="card-content no-pad">
+          <table class="table">
+            <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Costo</th><th>Nota</th></tr></thead>
+            <tbody>
+              @for (movement of store.inventoryMovements; track movement.id) {
+                <tr>
+                  <td>{{ store.formatDateTime(movement.createdAt) }}</td>
+                  <td class="td-primary">{{ movement.productName }}</td>
+                  <td>
+                    <span class="pill" [class.pill-green]="movement.type === 'PURCHASE'" [class.pill-blue]="movement.type === 'SALE'" [class.pill-amber]="movement.type === 'ADJUSTMENT'" [class.pill-purple]="movement.type === 'RETURN'">
+                      {{ store.inventoryMovementLabel(movement.type) }}
+                    </span>
+                  </td>
+                  <td class="td-mono">{{ movement.quantity }}</td>
+                  <td class="td-mono">{{ movement.unitCost ? store.formatMoney(movement.unitCost) : '—' }}</td>
+                  <td>{{ movement.note || '—' }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="6" class="empty-cell">Sin movimientos para la fecha seleccionada</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
   </div>
 </div>

@@ -45,12 +45,20 @@ public class Sale {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal estimatedProfit = BigDecimal.ZERO;
 
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal refundedTotal = BigDecimal.ZERO;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal refundedProfit = BigDecimal.ZERO;
+
     private Long customerId;
 
     private String customerName;
 
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
+
+    private Instant refundedAt;
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<SaleItem> items = new ArrayList<>();
@@ -102,6 +110,22 @@ public class Sale {
         this.estimatedProfit = estimatedProfit;
     }
 
+    public BigDecimal getRefundedTotal() {
+        return refundedTotal;
+    }
+
+    public void setRefundedTotal(BigDecimal refundedTotal) {
+        this.refundedTotal = refundedTotal;
+    }
+
+    public BigDecimal getRefundedProfit() {
+        return refundedProfit;
+    }
+
+    public void setRefundedProfit(BigDecimal refundedProfit) {
+        this.refundedProfit = refundedProfit;
+    }
+
     public Long getCustomerId() { return customerId; }
     public void setCustomerId(Long customerId) { this.customerId = customerId; }
 
@@ -110,6 +134,14 @@ public class Sale {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getRefundedAt() {
+        return refundedAt;
+    }
+
+    public void setRefundedAt(Instant refundedAt) {
+        this.refundedAt = refundedAt;
     }
 
     public List<SaleItem> getItems() {

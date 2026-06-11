@@ -67,6 +67,18 @@
           }
         </div>
       </div>
+      <div class="discount-row">
+        <label class="payment-label" for="discount">Descuento</label>
+        <input id="discount" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.checkoutDiscount" placeholder="0">
+      </div>
+      <div class="cart-total-row summary-row">
+        <span>Subtotal</span>
+        <strong>{{ store.formatMoney(store.cartSubtotal) }}</strong>
+      </div>
+      <div class="cart-total-row summary-row">
+        <span>Descuento</span>
+        <strong class="discount-value">-{{ store.formatMoney(store.cartDiscount) }}</strong>
+      </div>
       <div class="cart-total-row">
         <span>Total</span>
         <strong>{{ store.formatMoney(store.cartTotal) }}</strong>
@@ -76,3 +88,35 @@
     </div>
   </div>
 </div>
+
+@if (store.lastTicket) {
+  <div class="card ticket-card">
+    <div class="card-header">
+      <h3>Ticket listo</h3>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearTicket()">Cerrar</button>
+    </div>
+    <div class="card-content ticket-actions">
+      <div class="ticket-meta">
+        <div>
+          <strong>Venta #{{ store.lastTicket.id }}</strong>
+          <span>{{ store.formatDateTime(store.lastTicket.createdAt) }}</span>
+        </div>
+        <div class="pill" [class.pill-amber]="store.lastTicket.status === 'PENDING'" [class.pill-blue]="store.lastTicket.status === 'PARTIALLY_REFUNDED'" [class.pill-red]="store.lastTicket.status === 'CANCELLED' || store.lastTicket.status === 'REFUNDED'" [class.pill-green]="store.lastTicket.status === 'CONFIRMED'">
+          {{ store.saleStatusLabel(store.lastTicket.status) }}
+        </div>
+      </div>
+      <div class="ticket-summary">
+        <div>Cliente: <strong>{{ store.lastTicket.customerName || 'Mostrador' }}</strong></div>
+        <div>Total: <strong>{{ store.formatMoney(store.lastTicket.total) }}</strong></div>
+        <div>Pago: <strong>{{ store.paymentLabel(store.lastTicket.paymentMethod) }}</strong></div>
+      </div>
+      <div class="ticket-hint">
+        El PDF se abre al cobrar. Si no apareció, puedes volver a abrirlo aquí.
+      </div>
+      <div class="ticket-buttons">
+        <button class="btn btn-primary" (click)="store.openLastTicketPdf()">Abrir PDF</button>
+        <button class="btn btn-ghost" (click)="store.clearTicket()">Ocultar</button>
+      </div>
+    </div>
+  </div>
+}

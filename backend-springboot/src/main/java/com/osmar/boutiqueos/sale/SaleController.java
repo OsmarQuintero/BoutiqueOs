@@ -7,9 +7,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -23,8 +25,18 @@ public class SaleController {
     }
 
     @GetMapping("/today")
-    public List<SaleResponse> today() {
-        return saleService.listToday().stream().map(SaleResponse::from).toList();
+    public List<SaleResponse> today(@RequestParam(required = false) LocalDate date) {
+        return saleService.listByDate(date).stream().map(SaleResponse::from).toList();
+    }
+
+    @GetMapping
+    public List<SaleResponse> all(@RequestParam(required = false) LocalDate date) {
+        return (date == null ? saleService.listAll() : saleService.listByDate(date)).stream().map(SaleResponse::from).toList();
+    }
+
+    @GetMapping("/refunds/today")
+    public List<SaleRefundResponse> refundsToday(@RequestParam(required = false) LocalDate date) {
+        return saleService.listRefundsByDate(date).stream().map(SaleRefundResponse::from).toList();
     }
 
     @GetMapping("/pending")
@@ -32,9 +44,24 @@ public class SaleController {
         return saleService.listPending().stream().map(SaleResponse::from).toList();
     }
 
+    @GetMapping("/customer/{customerId}")
+    public List<SaleResponse> byCustomer(@PathVariable Long customerId) {
+        return saleService.listByCustomer(customerId).stream().map(SaleResponse::from).toList();
+    }
+
     @PostMapping("/{id}/confirm")
     public SaleResponse confirm(@PathVariable Long id) {
         return SaleResponse.from(saleService.confirm(id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public SaleResponse cancel(@PathVariable Long id) {
+        return SaleResponse.from(saleService.cancel(id));
+    }
+
+    @PostMapping("/{id}/refund")
+    public SaleResponse refund(@PathVariable Long id, @Valid @RequestBody(required = false) SaleRefundRequest request) {
+        return SaleResponse.from(saleService.refund(id, request));
     }
 
     @PostMapping

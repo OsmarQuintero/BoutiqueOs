@@ -1,0 +1,97 @@
+.inventory-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; align-items: start; }
+.inventory-side,
+.inventory-main { min-width: 0; }
+.inventory-shell-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+.inventory-date-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+}
+.inventory-date-picker span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inventory-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.date-quick-actions,
+.panel-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.panel-switch .btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+.inventory-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.inventory-kpi {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+.inventory-summary-grid {
+  margin-top: 12px;
+}
+
+.field select,
+.field input {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+}
+
+.recent-list { display: grid; gap: 10px; }
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+.recent-item span,
+.recent-right span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.recent-right {
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .inventory-layout { grid-template-columns: 1fr; }
+  .inventory-shell-header { flex-direction: column; }
+  .inventory-date-picker { min-width: 100%; }
+  .inventory-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .inventory-kpis { grid-template-columns: 1fr; }
+}

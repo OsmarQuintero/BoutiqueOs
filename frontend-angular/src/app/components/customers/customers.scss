@@ -4,3 +4,8 @@
 .link-btn { background: none; border: none; color: var(--primary); font-weight: 600; font-size: inherit; cursor: pointer; padding: 0; text-align: left; }
 .link-btn:hover { text-decoration: underline; }
 .td-notes { font-size: 0.72rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.history-stat { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: #f8fafc; }
+.history-stat span { font-size: 0.72rem; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+.history-stat strong { font-size: 1rem; color: var(--text); }
+@media (max-width: 640px) { .history-summary { grid-template-columns: 1fr; } }

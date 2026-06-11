@@ -12,9 +12,12 @@ public record SaleResponse(
         BigDecimal discount,
         BigDecimal total,
         BigDecimal estimatedProfit,
+        BigDecimal refundedTotal,
+        BigDecimal refundedProfit,
         Long customerId,
         String customerName,
         Instant createdAt,
+        Instant refundedAt,
         List<Item> items
 ) {
     public static SaleResponse from(Sale sale) {
@@ -26,9 +29,12 @@ public record SaleResponse(
                 sale.getDiscount(),
                 sale.getTotal(),
                 sale.getEstimatedProfit(),
+                sale.getRefundedTotal(),
+                sale.getRefundedProfit(),
                 sale.getCustomerId(),
                 sale.getCustomerName(),
                 sale.getCreatedAt(),
+                sale.getRefundedAt(),
                 sale.getItems().stream().map(Item::from).toList()
         );
     }
@@ -38,6 +44,7 @@ public record SaleResponse(
             Long productId,
             String productName,
             int quantity,
+            int refundedQuantity,
             BigDecimal unitPrice,
             BigDecimal lineTotal
     ) {
@@ -47,6 +54,7 @@ public record SaleResponse(
                     item.getProductId(),
                     item.getProductName(),
                     item.getQuantity(),
+                    item.getRefundedQuantity(),
                     item.getUnitPrice(),
                     item.getLineTotal()
             );

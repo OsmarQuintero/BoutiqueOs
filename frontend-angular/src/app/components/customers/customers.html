@@ -13,20 +13,36 @@
   <div class="card">
     @if (store.selectedCustomerHistory) {
       <div class="card-header">
-        <h3>{{ store.selectedCustomerHistory.name }} — Compras</h3>
+        <h3>{{ store.selectedCustomerHistory.name }} — Historial</h3>
         <button class="btn btn-ghost btn-xs" (click)="store.clearCustomerHistory()">Cerrar</button>
+      </div>
+      <div class="card-content history-summary">
+        <div class="history-stat">
+          <span>Compras registradas</span>
+          <strong>{{ store.customerSales.length }}</strong>
+        </div>
+        <div class="history-stat">
+          <span>Total confirmado</span>
+          <strong>{{ store.formatMoney(store.customerHistoryTotal) }}</strong>
+        </div>
       </div>
       <div class="card-content no-pad">
         <table class="table">
-          <thead><tr><th>#</th><th>Metodo</th><th>Total</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>#</th><th>Metodo</th><th>Estado</th><th>Total</th></tr></thead>
           <tbody>
             @for (s of store.customerSales; track s.id) {
               <tr>
+                <td>{{ store.formatDateTime(s.createdAt) }}</td>
                 <td class="td-primary">#{{ s.id }}</td>
                 <td><span class="pill" [class.pill-green]="s.paymentMethod === 'CASH'" [class.pill-blue]="s.paymentMethod === 'TRANSFER'" [class.pill-purple]="s.paymentMethod === 'CARD'">{{ s.paymentMethod === 'CASH' ? 'Efectivo' : s.paymentMethod === 'TRANSFER' ? 'Transferencia' : 'Tarjeta' }}</span></td>
+                <td>
+                  <span class="pill" [class.pill-green]="s.status === 'CONFIRMED'" [class.pill-blue]="s.status === 'PARTIALLY_REFUNDED'" [class.pill-amber]="s.status === 'PENDING'" [class.pill-red]="s.status === 'CANCELLED' || s.status === 'REFUNDED'">
+                    {{ store.saleStatusLabel(s.status) }}
+                  </span>
+                </td>
                 <td class="td-mono">{{ store.formatMoney(s.total) }}</td>
               </tr>
-            } @empty { <tr><td colspan="3" class="empty-cell">Sin compras registradas</td></tr> }
+            } @empty { <tr><td colspan="5" class="empty-cell">Sin compras registradas</td></tr> }
           </tbody>
         </table>
       </div>

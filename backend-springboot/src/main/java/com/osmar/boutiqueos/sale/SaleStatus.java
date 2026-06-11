@@ -2,5 +2,8 @@ package com.osmar.boutiqueos.sale;
 
 public enum SaleStatus {
     PENDING,
-    CONFIRMED
+    CONFIRMED,
+    PARTIALLY_REFUNDED,
+    CANCELLED,
+    REFUNDED
 }

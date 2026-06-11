@@ -12,16 +12,19 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "sale_items")
-public class SaleItem {
+@Table(name = "sale_refund_items")
+public class SaleRefundItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "sale_id")
-    private Sale sale;
+    @JoinColumn(name = "refund_id")
+    private SaleRefund refund;
+
+    @Column(nullable = false)
+    private Long saleItemId;
 
     @Column(nullable = false)
     private Long productId;
@@ -36,24 +39,29 @@ public class SaleItem {
     private BigDecimal unitPrice;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal unitCost;
+    private BigDecimal total;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal lineTotal;
-
-    @Column(nullable = false)
-    private int refundedQuantity;
+    private BigDecimal estimatedProfit;
 
     public Long getId() {
         return id;
     }
 
-    public Sale getSale() {
-        return sale;
+    public SaleRefund getRefund() {
+        return refund;
     }
 
-    public void setSale(Sale sale) {
-        this.sale = sale;
+    public void setRefund(SaleRefund refund) {
+        this.refund = refund;
+    }
+
+    public Long getSaleItemId() {
+        return saleItemId;
+    }
+
+    public void setSaleItemId(Long saleItemId) {
+        this.saleItemId = saleItemId;
     }
 
     public Long getProductId() {
@@ -88,27 +96,19 @@ public class SaleItem {
         this.unitPrice = unitPrice;
     }
 
-    public BigDecimal getUnitCost() {
-        return unitCost;
+    public BigDecimal getTotal() {
+        return total;
     }
 
-    public void setUnitCost(BigDecimal unitCost) {
-        this.unitCost = unitCost;
+    public void setTotal(BigDecimal total) {
+        this.total = total;
     }
 
-    public BigDecimal getLineTotal() {
-        return lineTotal;
+    public BigDecimal getEstimatedProfit() {
+        return estimatedProfit;
     }
 
-    public void setLineTotal(BigDecimal lineTotal) {
-        this.lineTotal = lineTotal;
-    }
-
-    public int getRefundedQuantity() {
-        return refundedQuantity;
-    }
-
-    public void setRefundedQuantity(int refundedQuantity) {
-        this.refundedQuantity = refundedQuantity;
+    public void setEstimatedProfit(BigDecimal estimatedProfit) {
+        this.estimatedProfit = estimatedProfit;
     }
 }

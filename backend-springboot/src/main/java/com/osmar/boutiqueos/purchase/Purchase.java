@@ -1,27 +1,24 @@
-package com.osmar.boutiqueos.sale;
+package com.osmar.boutiqueos.purchase;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
-@Table(name = "sale_items")
-public class SaleItem {
+@Table(name = "purchases")
+public class Purchase {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "sale_id")
-    private Sale sale;
+    private String supplierName;
 
     @Column(nullable = false)
     private Long productId;
@@ -33,27 +30,26 @@ public class SaleItem {
     private int quantity;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal unitPrice;
+    private BigDecimal unitCost = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal unitCost;
+    private BigDecimal totalCost = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal lineTotal;
+    private String note;
 
     @Column(nullable = false)
-    private int refundedQuantity;
+    private Instant createdAt = Instant.now();
 
     public Long getId() {
         return id;
     }
 
-    public Sale getSale() {
-        return sale;
+    public String getSupplierName() {
+        return supplierName;
     }
 
-    public void setSale(Sale sale) {
-        this.sale = sale;
+    public void setSupplierName(String supplierName) {
+        this.supplierName = supplierName;
     }
 
     public Long getProductId() {
@@ -80,14 +76,6 @@ public class SaleItem {
         this.quantity = quantity;
     }
 
-    public BigDecimal getUnitPrice() {
-        return unitPrice;
-    }
-
-    public void setUnitPrice(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
-    }
-
     public BigDecimal getUnitCost() {
         return unitCost;
     }
@@ -96,19 +84,23 @@ public class SaleItem {
         this.unitCost = unitCost;
     }
 
-    public BigDecimal getLineTotal() {
-        return lineTotal;
+    public BigDecimal getTotalCost() {
+        return totalCost;
     }
 
-    public void setLineTotal(BigDecimal lineTotal) {
-        this.lineTotal = lineTotal;
+    public void setTotalCost(BigDecimal totalCost) {
+        this.totalCost = totalCost;
     }
 
-    public int getRefundedQuantity() {
-        return refundedQuantity;
+    public String getNote() {
+        return note;
     }
 
-    public void setRefundedQuantity(int refundedQuantity) {
-        this.refundedQuantity = refundedQuantity;
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }
