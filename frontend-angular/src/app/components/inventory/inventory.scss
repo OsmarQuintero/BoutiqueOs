@@ -1,6 +1,9 @@
-.inventory-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; align-items: start; }
-.inventory-side,
-.inventory-main { min-width: 0; }
+.inventory-stock-card,
+.inventory-purchases-layout,
+.inventory-kpis,
+.inventory-summary-grid {
+  margin-top: 12px;
+}
 .inventory-shell-header {
   display: flex;
   justify-content: space-between;
@@ -32,24 +35,35 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.panel-switch-cards .btn {
+  border-radius: var(--radius-sm);
+}
 .panel-switch .btn.active {
-  background: var(--primary);
+  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
   color: white;
-  border-color: var(--primary);
+  border-color: #274f80;
 }
 .inventory-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-top: 12px;
 }
 .inventory-kpi {
   display: grid;
   gap: 6px;
   text-align: center;
 }
-.inventory-summary-grid {
-  margin-top: 12px;
+.inventory-category-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 12px 0;
+}
+
+.inventory-category-filter .btn.active {
+  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
+  color: #fff;
+  border-color: #274f80;
 }
 
 .field select,
@@ -60,11 +74,17 @@
   padding: 0 10px;
   font-size: 0.8rem;
   color: var(--text);
-  background: var(--surface);
+  background: #fff;
   outline: none;
 }
 
 .recent-list { display: grid; gap: 10px; }
+.inventory-purchases-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
 .recent-item {
   display: flex;
   justify-content: space-between;
@@ -72,7 +92,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: var(--surface-soft);
 }
 .recent-item span,
 .recent-right span {
@@ -86,9 +106,9 @@
 }
 
 @media (max-width: 1024px) {
-  .inventory-layout { grid-template-columns: 1fr; }
   .inventory-shell-header { flex-direction: column; }
   .inventory-date-picker { min-width: 100%; }
+  .inventory-purchases-layout { grid-template-columns: 1fr; }
   .inventory-kpis { grid-template-columns: repeat(2, 1fr); }
 }
 

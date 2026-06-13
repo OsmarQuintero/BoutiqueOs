@@ -1,0 +1,76 @@
+<div class="categories-stack">
+  <div class="card card-form" id="categories-form-section">
+    <div class="card-header">
+      <h3>{{ store.editingCategoryId ? 'Editar categoria' : 'Nueva categoria' }}</h3>
+      @if (store.editingCategoryId) {
+        <button class="btn btn-ghost btn-xs" (click)="store.cancelCategoryEdit()">Cancelar</button>
+      }
+    </div>
+    <div class="card-content">
+      <div class="category-form">
+        <label class="field">
+          <span>Tipo base</span>
+          <select [(ngModel)]="store.categoryForm.presetName" (ngModelChange)="store.selectCategoryPreset($event)">
+            @for (preset of store.categoryPresets; track preset.name) {
+              <option [ngValue]="preset.name">{{ preset.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="field"><span>Nombre</span><input [(ngModel)]="store.categoryForm.name" placeholder="Tenis, Gorras, Accesorios"></label>
+        <label class="field field-area">
+          <span>Descripcion</span>
+          <textarea [(ngModel)]="store.categoryForm.description" rows="4" placeholder="Descripcion de la categoria"></textarea>
+        </label>
+        <label class="field">
+          <span>Activa</span>
+          <select [(ngModel)]="store.categoryForm.active">
+            <option [ngValue]="true">Si</option>
+            <option [ngValue]="false">No</option>
+          </select>
+        </label>
+        <button class="btn btn-primary btn-form" (click)="store.createCategory()">{{ store.editingCategoryId ? 'Actualizar' : 'Guardar' }}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="categories-list-section">
+    <div class="card-header">
+      <h3>Categorias</h3>
+      <span class="pill">{{ store.productCategories.length }} categorias</span>
+    </div>
+    <div class="card-content">
+      <div class="category-grid">
+        @for (category of store.categorySummary; track category.id) {
+          <div class="category-card">
+            <div class="category-top">
+              <div>
+                <div class="category-name">{{ category.name }}</div>
+                <div class="category-meta">{{ category.productCount }} producto(s) ligados</div>
+              </div>
+              <span class="pill" [class.pill-green]="category.active" [class.pill-red]="!category.active">
+                {{ category.active ? 'Activa' : 'Inactiva' }}
+              </span>
+            </div>
+            <div class="category-body">
+              <div><strong>Campo de talla:</strong> {{ category.sizeLabel || 'Talla' }}</div>
+              <div>{{ category.description || 'Sin descripcion' }}</div>
+              <div><strong>Stock ligado:</strong> {{ category.stock }} uds</div>
+              <div><strong>Valor a precio venta:</strong> {{ store.formatMoney(category.value) }}</div>
+            </div>
+            <div class="category-actions">
+              <button class="btn btn-primary btn-xs" (click)="store.applyCategoryToProduct(category.name)">Usar en producto</button>
+              @if (category.id > 0) {
+                <button class="btn btn-outline btn-xs" (click)="store.editCategory(category)">Editar</button>
+                <button class="btn btn-ghost btn-xs" (click)="store.deleteCategory(category)">Eliminar</button>
+              } @else {
+                <button class="btn btn-outline btn-xs" (click)="store.applyCategoryPreset(category)">Guardar tipo</button>
+              }
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-card">Sin categorias registradas</div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

@@ -20,6 +20,29 @@ export interface Product {
   status: ProductStatus;
 }
 
+export interface ProductCategory {
+  id: number;
+  name: string;
+  description: string | null;
+  sizeLabel: string;
+  active: boolean;
+  createdAt: string;
+}
+
+interface CategoryPreset {
+  name: string;
+  description: string;
+  sizeLabel: string;
+  productHint: string;
+}
+
+interface CategoryFormState {
+  presetName: string;
+  name: string;
+  description: string;
+  active: boolean;
+}
+
 export interface CartItem {
   productId: number;
   name: string;
@@ -92,8 +115,14 @@ export interface DailyCashCount {
 }
 
 export type InventoryMovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'RETURN';
-export type ReportPanel = 'summary' | 'sales' | 'tickets' | 'refunds';
-export type InventoryPanel = 'summary' | 'purchases' | 'movements';
+export type ReportPanel = 'summary' | 'sales' | 'tickets' | 'refunds' | 'movements';
+export type InventoryPanel = 'summary' | 'purchases';
+export type PosSection = 'products' | 'sale' | 'ticket';
+export type ProductsSection = 'form' | 'catalog';
+export type CatalogSection = 'products';
+export type CategoriesSection = 'categories';
+export type CustomersSection = 'form' | 'list' | 'history';
+export type ViewSectionId = PosSection | ProductsSection | CatalogSection | CategoriesSection | CustomersSection | ReportPanel | InventoryPanel;
 
 export interface InventoryMovement {
   id: number;
@@ -118,17 +147,29 @@ export interface PurchaseRecord {
   createdAt: string;
 }
 
-export type ViewId = 'pos' | 'products' | 'inventory' | 'customers' | 'reports';
+export type ViewId = 'pos' | 'products' | 'catalog' | 'categories' | 'inventory' | 'customers' | 'reports';
 
 @Injectable({ providedIn: 'root' })
 export class StoreService {
+  private readonly apiBase = this.resolveApiBase();
+
   loggedIn = false;
   loginUser = '';
   loginPass = '';
   loginError = '';
 
   activeView: ViewId = 'pos';
+  activeSections: Record<ViewId, ViewSectionId> = {
+    pos: 'products',
+    products: 'form',
+    catalog: 'products',
+    categories: 'categories',
+    inventory: 'summary',
+    customers: 'list',
+    reports: 'summary'
+  };
   products: Product[] = [];
+  productCategories: ProductCategory[] = [];
   cart: CartItem[] = [];
   salesToday: SaleRecord[] = [];
   allSales: SaleRecord[] = [];
@@ -142,9 +183,12 @@ export class StoreService {
   searchTerm = '';
   customers: Customer[] = [];
   inventoryMovements: InventoryMovement[] = [];
+  reportInventoryMovements: InventoryMovement[] = [];
   recentPurchases: PurchaseRecord[] = [];
   inventoryDate = this.todayDateString();
   inventoryPanel: InventoryPanel = 'summary';
+  posCategoryFilter = 'ALL';
+  inventoryCategoryFilter = 'ALL';
   selectedCustomerId: number | null = null;
   newCustomerName = '';
   newCustomerPhone = '';
@@ -159,7 +203,9 @@ export class StoreService {
   cashCountNotes = '';
   cashCountUpdatedAt: string | null = null;
   isSavingCashCount = false;
+  showProductForm = false;
   editingProductId: number | null = null;
+  editingCategoryId: number | null = null;
   purchaseForm = {
     productId: null as number | null,
     supplierName: '',
@@ -179,6 +225,12 @@ export class StoreService {
     stock: 0,
     status: 'ACTIVE' as ProductStatus
   };
+  categoryForm = {
+    presetName: 'Tenis',
+    name: '',
+    description: '',
+    active: true
+  };
   productImageFileName = '';
 
   readonly paymentMethods = [
@@ -195,7 +247,8 @@ export class StoreService {
 
   readonly navItems = [
     { id: 'pos' as ViewId, label: 'Punto de venta', icon: '🛒' },
-    { id: 'products' as ViewId, label: 'Productos', icon: '📦' },
+    { id: 'catalog' as ViewId, label: 'Catalogos', icon: '🏷️' },
+    { id: 'categories' as ViewId, label: 'Categorias', icon: '🗂️' },
     { id: 'inventory' as ViewId, label: 'Inventario', icon: '📋' },
     { id: 'customers' as ViewId, label: 'Clientes', icon: '👥' },
     { id: 'reports' as ViewId, label: 'Corte diario', icon: '📊' }
@@ -205,25 +258,122 @@ export class StoreService {
     { id: 'summary' as ReportPanel, label: 'Resumen' },
     { id: 'sales' as ReportPanel, label: 'Ventas' },
     { id: 'tickets' as ReportPanel, label: 'Tickets' },
-    { id: 'refunds' as ReportPanel, label: 'Devoluciones' }
+    { id: 'refunds' as ReportPanel, label: 'Devoluciones' },
+    { id: 'movements' as ReportPanel, label: 'Movimientos' }
   ];
 
   readonly inventoryPanels = [
     { id: 'summary' as InventoryPanel, label: 'Resumen' },
-    { id: 'purchases' as InventoryPanel, label: 'Compras' },
-    { id: 'movements' as InventoryPanel, label: 'Movimientos' }
+    { id: 'purchases' as InventoryPanel, label: 'Compras' }
+  ];
+
+  readonly categoryPresets: CategoryPreset[] = [
+    {
+      name: 'Tenis',
+      description: 'Calzado casual y deportivo',
+      sizeLabel: 'Numero',
+      productHint: 'Ej. 26, 27, 28.5'
+    },
+    {
+      name: 'Gorras',
+      description: 'Gorras y cachuchas con ajuste por talla o broche',
+      sizeLabel: 'Ajuste',
+      productHint: 'Ej. Unitalla, Snapback'
+    },
+    {
+      name: 'Accesorios',
+      description: 'Bolsos, cinturones, lentes y joyeria',
+      sizeLabel: 'Medida',
+      productHint: 'Ej. Unitalla, 90 cm'
+    }
   ];
 
   constructor(private readonly http: HttpClient) {}
 
   get filteredProducts(): Product[] {
-    if (!this.searchTerm.trim()) return this.products;
-    const q = this.searchTerm.toLowerCase();
-    return this.products.filter(
-      (p) =>
+    const q = this.searchTerm.trim().toLowerCase();
+    return this.products.filter((p) => {
+      const matchesCategory = this.posCategoryFilter === 'ALL' || this.sameCategory(p.category, this.posCategoryFilter);
+      const matchesSearch = !q ||
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
-        (p.sku && p.sku.toLowerCase().includes(q))
+        (p.sku && p.sku.toLowerCase().includes(q));
+      return matchesCategory && matchesSearch;
+    });
+  }
+
+  get activeProductCategories(): ProductCategory[] {
+    return this.productCategories.filter((category) => category.active);
+  }
+
+  get productCategoryOptions(): ProductCategory[] {
+    const map = new Map<string, ProductCategory>();
+    for (const category of this.activeProductCategories) {
+      map.set(category.name.trim().toLowerCase(), category);
+    }
+    for (const preset of this.categoryPresets) {
+      const key = preset.name.trim().toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          id: -map.size - 1,
+          name: preset.name,
+          description: preset.description,
+          sizeLabel: preset.sizeLabel,
+          active: true,
+          createdAt: ''
+        });
+      }
+    }
+    return [...map.values()];
+  }
+
+  get currentProductCategory(): ProductCategory | null {
+    const selected = this.productForm.category.trim().toLowerCase();
+    if (!selected) return null;
+    return this.productCategoryOptions.find((category) => category.name.trim().toLowerCase() === selected) ?? null;
+  }
+
+  get productSizeLabel(): string {
+    return this.currentProductCategory?.sizeLabel || 'Talla';
+  }
+
+  get productSizePlaceholder(): string {
+    const category = this.currentProductCategory?.name.trim().toLowerCase();
+    if (category === 'tenis') return '26, 27, 28';
+    if (category === 'gorras') return 'Unitalla, Snapback';
+    if (category === 'accesorios') return 'Unitalla, 90 cm';
+    return 'S, M, L, 28';
+  }
+
+  get categorySummary() {
+    return this.productCategoryOptions.map((category) => {
+      const products = this.products.filter((product) => this.sameCategory(product.category, category.name));
+      const stock = products.reduce((sum, product) => sum + product.stock, 0);
+      const value = products.reduce((sum, product) => sum + product.stock * product.salePrice, 0);
+      return {
+        ...category,
+        productCount: products.length,
+        stock,
+        value
+      };
+    });
+  }
+
+  get selectedCategoryPreset(): CategoryPreset | null {
+    return this.findCategoryPreset(this.categoryForm.presetName);
+  }
+
+  get categorySizeLabelPreview(): string {
+    return this.selectedCategoryPreset?.sizeLabel || 'Talla';
+  }
+
+  get categoryProductHintPreview(): string {
+    return this.selectedCategoryPreset?.productHint || 'S, M, L, 28';
+  }
+
+  get filteredInventoryProducts(): Product[] {
+    return this.products.filter((product) =>
+      this.inventoryCategoryFilter === 'ALL' || this.sameCategory(product.category, this.inventoryCategoryFilter)
     );
   }
 
@@ -347,10 +497,53 @@ export class StoreService {
 
   setReportPanel(panel: ReportPanel): void {
     this.reportPanel = panel;
+    this.activeSections = { ...this.activeSections, reports: panel };
   }
 
   setInventoryPanel(panel: InventoryPanel): void {
     this.inventoryPanel = panel;
+    this.activeSections = { ...this.activeSections, inventory: panel };
+  }
+
+  isActiveSection(view: ViewId, section: ViewSectionId): boolean {
+    return this.activeView === view && this.activeSections[view] === section;
+  }
+
+  sectionLabel(view: ViewId, section: ViewSectionId): string {
+    const labels: Record<ViewId, Record<string, string>> = {
+      pos: {
+        products: 'Productos',
+        sale: 'Venta actual',
+        ticket: 'Ticket listo'
+      },
+      products: {
+        form: 'Alta de producto',
+        catalog: 'Catalogo'
+      },
+      catalog: {
+        products: 'Productos'
+      },
+      categories: {
+        categories: 'Categorias'
+      },
+      inventory: {
+        summary: 'Resumen',
+        purchases: 'Compras'
+      },
+      customers: {
+        form: 'Nuevo cliente',
+        list: 'Listado',
+        history: 'Historial'
+      },
+      reports: {
+        summary: 'Resumen',
+        sales: 'Ventas',
+        tickets: 'Tickets',
+        refunds: 'Devoluciones',
+        movements: 'Movimientos'
+      }
+    };
+    return labels[view][section] ?? '';
   }
 
   changeReportDate(date: string): void {
@@ -431,11 +624,20 @@ export class StoreService {
     const titles: Record<ViewId, string> = {
       pos: 'Punto de venta',
       products: 'Productos',
+      catalog: 'Productos',
+      categories: 'Categorias',
       inventory: 'Inventario',
       customers: 'Clientes',
       reports: 'Corte diario'
     };
     return titles[this.activeView];
+  }
+
+  get pageTitleDetail(): string {
+    const section = this.activeSections[this.activeView];
+    if (!section) return '';
+    const label = this.sectionLabel(this.activeView, section);
+    return label && label !== this.pageTitle ? label : '';
   }
 
   get tasks(): string[] {
@@ -467,11 +669,20 @@ export class StoreService {
     ];
   }
 
+  setPosCategoryFilter(category: string): void {
+    this.posCategoryFilter = category;
+  }
+
+  setInventoryCategoryFilter(category: string): void {
+    this.inventoryCategoryFilter = category;
+  }
+
   login(): void {
     if (this.loginUser === 'admin' && this.loginPass === 'admin') {
       this.loggedIn = true;
       this.loginError = '';
       this.loadProducts();
+      this.loadProductCategories();
       this.loadSalesToday();
       this.loadCustomers();
       this.loadPendingSales();
@@ -492,14 +703,31 @@ export class StoreService {
     this.lastTicket = null;
   }
 
-  setView(view: ViewId): void {
+  setView(view: ViewId, section?: ViewSectionId): void {
     this.activeView = view;
+    if (section) {
+      this.activeSections = { ...this.activeSections, [view]: section };
+    }
+    if (view === 'reports') {
+      this.reportPanel = this.activeSections.reports as ReportPanel;
+    }
+    if (view === 'inventory') {
+      this.inventoryPanel = this.activeSections.inventory as InventoryPanel;
+    }
     if (view === 'reports' || view === 'pos') this.loadSalesToday();
     if (view === 'reports') {
       this.refreshReportData();
     }
     if (view === 'inventory') {
       this.refreshInventoryData();
+    }
+    if (view === 'catalog') {
+      this.loadProductCategories();
+      this.loadProducts();
+    }
+    if (view === 'categories') {
+      this.loadProductCategories();
+      this.loadProducts();
     }
     if (view === 'customers') this.loadCustomers();
     if (view !== 'pos') this.searchTerm = '';
@@ -511,7 +739,7 @@ export class StoreService {
     this.checkoutDiscount = 0;
     this.lastTicket = null;
     this.statusMessage = 'Listo para vender';
-    this.setView('pos');
+    this.setView('pos', 'sale');
   }
 
   addToCart(product: Product): void {
@@ -567,7 +795,7 @@ export class StoreService {
 
     this.isCharging = true;
     this.http
-      .post<SaleRecord>('http://localhost:8080/api/sales', {
+      .post<SaleRecord>(this.apiUrl('/sales'), {
         paymentMethod: this.selectedPayment,
         discount: this.cartDiscount,
         customerId: this.selectedCustomerId,
@@ -579,6 +807,7 @@ export class StoreService {
           this.selectedCustomerId = null;
           this.checkoutDiscount = 0;
           this.lastTicket = sale;
+          this.activeSections = { ...this.activeSections, pos: 'ticket' };
           this.openTicketPdf(sale);
           this.statusMessage =
             sale.status === 'PENDING'
@@ -598,7 +827,7 @@ export class StoreService {
   }
 
   confirmSale(id: number): void {
-    this.http.post<SaleRecord>(`http://localhost:8080/api/sales/${id}/confirm`, {}).subscribe({
+    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/confirm`), {}).subscribe({
       next: (sale) => {
         this.statusMessage = 'Pago confirmado';
         this.lastTicket = sale;
@@ -613,7 +842,7 @@ export class StoreService {
   }
 
   cancelSale(id: number): void {
-    this.http.post<SaleRecord>(`http://localhost:8080/api/sales/${id}/cancel`, {}).subscribe({
+    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/cancel`), {}).subscribe({
       next: () => {
         this.statusMessage = 'Venta pendiente cancelada y stock repuesto';
         this.loadProducts();
@@ -633,7 +862,31 @@ export class StoreService {
       .map(([saleItemId, quantity]) => ({ saleItemId: Number(saleItemId), quantity }))
       .filter((item) => item.quantity > 0);
 
-    this.http.post<SaleRecord>(`http://localhost:8080/api/sales/${id}/refund`, items.length ? { items } : null).subscribe({
+    if (!items.length) {
+      this.statusMessage = 'Selecciona al menos una pieza para devolver o usa "Todo"';
+      return;
+    }
+
+    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), { items }).subscribe({
+      next: (sale) => {
+        this.statusMessage = sale.status === 'REFUNDED'
+          ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
+          : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
+        this.lastTicket = sale;
+        this.clearRefundDraft(id);
+        this.loadProducts();
+        this.loadSalesToday();
+        this.loadPendingSales();
+        this.refreshReportData();
+      },
+      error: () => {
+        this.statusMessage = 'No se pudo procesar la devolucion';
+      }
+    });
+  }
+
+  refundAllRemaining(id: number): void {
+    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), null).subscribe({
       next: (sale) => {
         this.statusMessage = sale.status === 'REFUNDED'
           ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
@@ -662,13 +915,13 @@ export class StoreService {
     };
 
     const request = this.editingProductId
-      ? this.http.put<Product>(`http://localhost:8080/api/products/${this.editingProductId}`, payload)
-      : this.http.post<Product>('http://localhost:8080/api/products', payload);
+      ? this.http.put<Product>(this.apiUrl(`/products/${this.editingProductId}`), payload)
+      : this.http.post<Product>(this.apiUrl('/products'), payload);
 
     request.subscribe({
       next: () => {
         this.statusMessage = this.editingProductId ? 'Producto actualizado' : 'Producto creado';
-        this.resetProductForm();
+        this.closeProductForm();
         this.loadProducts();
       },
       error: () => {
@@ -677,7 +930,111 @@ export class StoreService {
     });
   }
 
+  createCategory(): void {
+    if (!this.categoryForm.name.trim()) {
+      this.statusMessage = 'La categoria necesita nombre';
+      return;
+    }
+
+    const payload = {
+      name: this.categoryForm.name.trim(),
+      description: this.categoryForm.description.trim() || null,
+      sizeLabel: this.categorySizeLabelPreview,
+      active: this.categoryForm.active
+    };
+
+    const request = this.editingCategoryId
+      ? this.http.put<ProductCategory>(this.apiUrl(`/product-categories/${this.editingCategoryId}`), payload)
+      : this.http.post<ProductCategory>(this.apiUrl('/product-categories'), payload);
+
+    request.subscribe({
+      next: () => {
+        this.statusMessage = this.editingCategoryId ? 'Categoria actualizada' : 'Categoria creada';
+        this.resetCategoryForm();
+        this.loadProductCategories();
+      },
+      error: () => {
+        this.statusMessage = this.editingCategoryId ? 'No se pudo actualizar la categoria' : 'No se pudo crear la categoria';
+      }
+    });
+  }
+
+  editCategory(category: ProductCategory): void {
+    this.editingCategoryId = category.id;
+    this.activeSections = { ...this.activeSections, categories: 'categories' };
+    this.categoryForm = {
+      presetName: this.inferCategoryPresetName(category),
+      name: category.name,
+      description: category.description || '',
+      active: category.active
+    };
+    this.setView('categories', 'categories');
+  }
+
+  cancelCategoryEdit(): void {
+    this.resetCategoryForm();
+  }
+
+  deleteCategory(category: ProductCategory): void {
+    if (!window.confirm(`Eliminar categoria ${category.name}?`)) return;
+    this.http.delete(this.apiUrl(`/product-categories/${category.id}`)).subscribe({
+      next: () => {
+        this.statusMessage = 'Categoria eliminada';
+        if (this.productForm.category === category.name) {
+          this.productForm.category = '';
+        }
+        this.loadProductCategories();
+      },
+      error: () => {
+        this.statusMessage = 'No se pudo eliminar la categoria. Revisa si ya tiene productos.';
+      }
+    });
+  }
+
+  categoryUsageCount(name: string): number {
+    return this.products.filter((product) => (product.category || '').trim().toLowerCase() === name.trim().toLowerCase()).length;
+  }
+
+  applyCategoryToProduct(name: string): void {
+    this.showProductForm = true;
+    this.productForm.category = name;
+    this.statusMessage = `Categoria seleccionada: ${name}`;
+    this.setView('catalog', 'products');
+  }
+
+  applyCategoryPreset(preset: { name: string; description: string | null; sizeLabel: string }): void {
+    const existing = this.productCategories.find((category) => this.sameCategory(category.name, preset.name));
+    if (existing) {
+      this.applyCategoryToProduct(existing.name);
+      return;
+    }
+
+    this.editingCategoryId = null;
+    this.categoryForm = {
+      presetName: preset.name,
+      name: preset.name,
+      description: preset.description || '',
+      active: true
+    };
+    this.productForm.category = preset.name;
+    this.statusMessage = `Preset cargado para ${preset.name}. Guardalo en Categorias para dejarlo fijo.`;
+    this.setView('categories', 'categories');
+  }
+
+  selectCategoryPreset(presetName: string): void {
+    this.categoryForm.presetName = presetName;
+    const preset = this.findCategoryPreset(presetName);
+    if (!preset) return;
+    if (!this.categoryForm.name.trim() || this.findCategoryPreset(this.categoryForm.name)?.name === this.categoryForm.name) {
+      this.categoryForm.name = preset.name;
+    }
+    if (!this.categoryForm.description.trim()) {
+      this.categoryForm.description = preset.description;
+    }
+  }
+
   editProduct(product: Product): void {
+    this.showProductForm = true;
     this.editingProductId = product.id;
     this.productForm = {
       name: product.name,
@@ -692,6 +1049,7 @@ export class StoreService {
       status: product.status
     };
     this.productImageFileName = product.imageUrl ? 'Imagen cargada' : '';
+    this.setView('catalog', 'products');
   }
 
   onProductImageSelected(event: Event): void {
@@ -719,12 +1077,22 @@ export class StoreService {
     this.statusMessage = 'Imagen eliminada del formulario';
   }
 
-  cancelProductEdit(): void {
+  openProductForm(): void {
+    this.showProductForm = true;
     this.resetProductForm();
   }
 
+  closeProductForm(): void {
+    this.showProductForm = false;
+    this.resetProductForm();
+  }
+
+  cancelProductEdit(): void {
+    this.closeProductForm();
+  }
+
   deleteProduct(product: Product): void {
-    this.http.delete(`http://localhost:8080/api/products/${product.id}`).subscribe({
+    this.http.delete(this.apiUrl(`/products/${product.id}`)).subscribe({
       next: () => {
         this.statusMessage = `${product.name} eliminado`;
         if (this.editingProductId === product.id) {
@@ -757,7 +1125,7 @@ export class StoreService {
     }
 
     this.http
-      .post<PurchaseRecord>('http://localhost:8080/api/purchases', {
+      .post<PurchaseRecord>(this.apiUrl('/purchases'), {
         productId: this.purchaseForm.productId,
         supplierName: this.purchaseForm.supplierName || null,
         quantity: this.purchaseForm.quantity,
@@ -783,7 +1151,7 @@ export class StoreService {
       return;
     }
     this.http
-      .post<Customer>('http://localhost:8080/api/customers', {
+      .post<Customer>(this.apiUrl('/customers'), {
         name: this.newCustomerName,
         phone: this.newCustomerPhone || null,
         notes: this.newCustomerNotes || null
@@ -803,7 +1171,7 @@ export class StoreService {
   }
 
   deleteCustomer(customer: Customer): void {
-    this.http.delete(`http://localhost:8080/api/customers/${customer.id}`).subscribe({
+    this.http.delete(this.apiUrl(`/customers/${customer.id}`)).subscribe({
       next: () => {
         this.statusMessage = `${customer.name} eliminado`;
         if (this.selectedCustomerId === customer.id) this.selectedCustomerId = null;
@@ -818,7 +1186,8 @@ export class StoreService {
 
   showCustomerSales(customer: Customer): void {
     this.selectedCustomerHistory = customer;
-    this.http.get<SaleRecord[]>(`http://localhost:8080/api/sales/customer/${customer.id}`).subscribe({
+    this.activeSections = { ...this.activeSections, customers: 'history' };
+    this.http.get<SaleRecord[]>(this.apiUrl(`/sales/customer/${customer.id}`)).subscribe({
       next: (sales) => {
         this.customerSales = sales;
       },
@@ -831,6 +1200,7 @@ export class StoreService {
   clearCustomerHistory(): void {
     this.selectedCustomerHistory = null;
     this.customerSales = [];
+    this.activeSections = { ...this.activeSections, customers: 'list' };
   }
 
   clearTicket(): void {
@@ -839,7 +1209,7 @@ export class StoreService {
 
   saveCashCount(): void {
     this.isSavingCashCount = true;
-    this.http.put<DailyCashCount>(`http://localhost:8080/api/reports/cash-count/today?date=${this.reportDate}`, {
+    this.http.put<DailyCashCount>(this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`), {
       actualCash: this.actualCashInput,
       notes: this.cashCountNotes || null
     }).subscribe({
@@ -996,7 +1366,7 @@ export class StoreService {
   }
 
   private loadProducts(): void {
-    this.http.get<Product[]>('http://localhost:8080/api/products').subscribe({
+    this.http.get<Product[]>(this.apiUrl('/products')).subscribe({
       next: (products) => {
         this.products = products;
       },
@@ -1006,8 +1376,19 @@ export class StoreService {
     });
   }
 
+  private loadProductCategories(): void {
+    this.http.get<ProductCategory[]>(this.apiUrl('/product-categories')).subscribe({
+      next: (categories) => {
+        this.productCategories = categories;
+      },
+      error: () => {
+        this.statusMessage = 'No se pudieron cargar las categorias';
+      }
+    });
+  }
+
   private loadSalesToday(): void {
-    this.http.get<SaleRecord[]>(`http://localhost:8080/api/sales/today?date=${this.reportDate}`).subscribe({
+    this.http.get<SaleRecord[]>(this.apiUrl(`/sales/today?date=${this.reportDate}`)).subscribe({
       next: (sales) => {
         this.salesToday = sales;
       },
@@ -1018,7 +1399,7 @@ export class StoreService {
   }
 
   private loadCustomers(): void {
-    this.http.get<Customer[]>('http://localhost:8080/api/customers').subscribe({
+    this.http.get<Customer[]>(this.apiUrl('/customers')).subscribe({
       next: (customers) => {
         this.customers = customers;
         if (this.selectedCustomerId && !customers.find((customer) => customer.id === this.selectedCustomerId)) {
@@ -1032,7 +1413,7 @@ export class StoreService {
   }
 
   private loadPendingSales(): void {
-    this.http.get<SaleRecord[]>('http://localhost:8080/api/sales/pending').subscribe({
+    this.http.get<SaleRecord[]>(this.apiUrl('/sales/pending')).subscribe({
       next: (sales) => {
         this.pendingSales = sales;
       }
@@ -1040,7 +1421,7 @@ export class StoreService {
   }
 
   private loadAllSales(): void {
-    this.http.get<SaleRecord[]>(`http://localhost:8080/api/sales?date=${this.reportDate}`).subscribe({
+    this.http.get<SaleRecord[]>(this.apiUrl(`/sales?date=${this.reportDate}`)).subscribe({
       next: (sales) => {
         this.allSales = sales;
       }
@@ -1048,7 +1429,7 @@ export class StoreService {
   }
 
   private loadRefundsToday(): void {
-    this.http.get<SaleRefundRecord[]>(`http://localhost:8080/api/sales/refunds/today?date=${this.reportDate}`).subscribe({
+    this.http.get<SaleRefundRecord[]>(this.apiUrl(`/sales/refunds/today?date=${this.reportDate}`)).subscribe({
       next: (refunds) => {
         this.refundsToday = refunds;
       }
@@ -1056,7 +1437,7 @@ export class StoreService {
   }
 
   private loadCashCount(): void {
-    this.http.get<DailyCashCount>(`http://localhost:8080/api/reports/cash-count/today?date=${this.reportDate}`).subscribe({
+    this.http.get<DailyCashCount>(this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`)).subscribe({
       next: (cashCount) => {
         this.actualCashInput = cashCount.actualCash;
         this.cashCountNotes = cashCount.notes || '';
@@ -1070,18 +1451,27 @@ export class StoreService {
     this.loadAllSales();
     this.loadRefundsToday();
     this.loadCashCount();
+    this.loadReportInventoryMovements();
   }
 
   private loadInventoryMovements(): void {
-    this.http.get<InventoryMovement[]>(`http://localhost:8080/api/inventory/movements?date=${this.inventoryDate}`).subscribe({
+    this.http.get<InventoryMovement[]>(this.apiUrl(`/inventory/movements?date=${this.inventoryDate}`)).subscribe({
       next: (movements) => {
         this.inventoryMovements = movements;
       }
     });
   }
 
+  private loadReportInventoryMovements(): void {
+    this.http.get<InventoryMovement[]>(this.apiUrl(`/inventory/movements?date=${this.reportDate}`)).subscribe({
+      next: (movements) => {
+        this.reportInventoryMovements = movements;
+      }
+    });
+  }
+
   private loadPurchases(): void {
-    this.http.get<PurchaseRecord[]>(`http://localhost:8080/api/purchases?date=${this.inventoryDate}`).subscribe({
+    this.http.get<PurchaseRecord[]>(this.apiUrl(`/purchases?date=${this.inventoryDate}`)).subscribe({
       next: (purchases) => {
         this.recentPurchases = purchases;
       }
@@ -1100,7 +1490,7 @@ export class StoreService {
     message: string
   ): void {
     this.http
-      .post<Product>('http://localhost:8080/api/inventory/adjustments', {
+      .post<Product>(this.apiUrl('/inventory/adjustments'), {
         productId,
         quantityDelta,
         note
@@ -1119,6 +1509,21 @@ export class StoreService {
 
   private quantityInCart(productId: number): number {
     return this.cart.find((item) => item.productId === productId)?.qty ?? 0;
+  }
+
+  private sameCategory(left: string | null | undefined, right: string | null | undefined): boolean {
+    return (left || '').trim().toLowerCase() === (right || '').trim().toLowerCase();
+  }
+
+  private findCategoryPreset(name: string | null | undefined): CategoryPreset | null {
+    return this.categoryPresets.find((preset) => this.sameCategory(preset.name, name)) ?? null;
+  }
+
+  private inferCategoryPresetName(category: ProductCategory): string {
+    const byName = this.findCategoryPreset(category.name);
+    if (byName) return byName.name;
+    const bySizeLabel = this.categoryPresets.find((preset) => this.sameCategory(preset.sizeLabel, category.sizeLabel));
+    return bySizeLabel?.name || this.categoryPresets[0].name;
   }
 
   private isToday(value: string | null): boolean {
@@ -1145,6 +1550,16 @@ export class StoreService {
     this.productImageFileName = '';
   }
 
+  private resetCategoryForm(): void {
+    this.editingCategoryId = null;
+    this.categoryForm = {
+      presetName: this.categoryPresets[0].name,
+      name: '',
+      description: '',
+      active: true
+    };
+  }
+
   private todayDateString(): string {
     const now = new Date();
     const offset = now.getTimezoneOffset();
@@ -1154,5 +1569,24 @@ export class StoreService {
   private toDateInputValue(date: Date): string {
     const offset = date.getTimezoneOffset();
     return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+  }
+
+  private apiUrl(path: string): string {
+    return `${this.apiBase}${path}`;
+  }
+
+  private resolveApiBase(): string {
+    if (typeof window === 'undefined') {
+      return 'http://localhost:8080/api';
+    }
+    const override = (window as Window & { __BOUTIQUE_API_URL__?: string }).__BOUTIQUE_API_URL__;
+    if (override) {
+      return override.replace(/\/$/, '');
+    }
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8080/api';
+    }
+    return '/api';
   }
 }

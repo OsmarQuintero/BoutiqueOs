@@ -1,0 +1,75 @@
+<div class="card section-gap" id="reports-sales-section">
+  <div class="card-header">
+    <h3>Tickets del {{ store.reportDate }}</h3>
+    <div class="search-field history-search">
+      <input [(ngModel)]="store.ticketSearchTerm" placeholder="Buscar ticket, cliente, estado o producto..." class="input-sm">
+    </div>
+  </div>
+  <div class="card-content no-pad">
+    <table class="table">
+      <thead><tr><th>Ticket</th><th>Fecha</th><th>Cliente</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead>
+      <tbody>
+        @for (sale of store.filteredTicketHistory; track sale.id) {
+          <tr [class.row-pending]="sale.status === 'PENDING'" [class.row-cancelled]="sale.status === 'CANCELLED' || sale.status === 'REFUNDED'">
+            <td class="td-primary">#{{ sale.id }}</td>
+            <td>
+              <div>{{ store.formatDateTime(sale.createdAt) }}</div>
+              @if (sale.refundedAt) {
+                <small class="muted-line">Devuelta: {{ store.formatDateTime(sale.refundedAt) }}</small>
+              }
+            </td>
+            <td>{{ sale.customerName || 'Mostrador' }}</td>
+            <td>
+              <span
+                class="pill"
+                [class.pill-green]="sale.status === 'CONFIRMED'"
+                [class.pill-blue]="sale.status === 'PARTIALLY_REFUNDED'"
+                [class.pill-amber]="sale.status === 'PENDING'"
+                [class.pill-red]="sale.status === 'CANCELLED' || sale.status === 'REFUNDED'">
+                {{ store.saleStatusLabel(sale.status) }}
+              </span>
+              @if (sale.refundedTotal > 0) {
+                <small class="muted-line">Devuelto acumulado: {{ store.formatMoney(sale.refundedTotal) }}</small>
+              }
+            </td>
+            <td class="td-mono">{{ store.formatMoney(sale.total) }}</td>
+            <td>
+              <div class="history-actions">
+                <button class="btn btn-outline btn-xs" (click)="store.openSaleTicketPdf(sale)">PDF</button>
+                @if (store.canRefundSale(sale)) {
+                  <button class="btn btn-primary btn-xs" (click)="store.refundSale(sale.id)">Devolver</button>
+                  <button class="btn btn-ghost btn-xs" (click)="store.refundAllRemaining(sale.id)">Todo</button>
+                }
+                @if (sale.status === 'PENDING') {
+                  <button class="btn btn-outline btn-xs" (click)="store.cancelSale(sale.id)">Cancelar</button>
+                }
+              </div>
+              @if (store.canRefundSale(sale)) {
+                <div class="refund-editor">
+                  @for (item of sale.items; track item.id) {
+                    @if (store.refundableQuantity(item) > 0) {
+                      <label class="refund-line">
+                        <span>{{ item.productName }} · disp. {{ store.refundableQuantity(item) }}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          [max]="store.refundableQuantity(item)"
+                          [ngModel]="store.refundQty(sale.id, item)"
+                          (ngModelChange)="store.setRefundQty(sale.id, item, $event)">
+                      </label>
+                    }
+                  }
+                  @if (store.draftRefundUnits(sale.id) > 0) {
+                    <small class="muted-line">Listo para devolver: {{ store.draftRefundUnits(sale.id) }} unidad(es)</small>
+                  }
+                </div>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="empty-cell">No hay tickets para la fecha seleccionada</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

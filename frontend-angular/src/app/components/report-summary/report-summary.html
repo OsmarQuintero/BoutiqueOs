@@ -1,0 +1,93 @@
+<div class="card" id="reports-summary-section">
+  <div class="card-header"><h3>Resumen del {{ store.reportDate }}</h3></div>
+  <div class="card-content">
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Total vendido</div>
+        <div class="kpi-value">{{ store.formatMoney(store.todayTotal) }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ganancia</div>
+        <div class="kpi-value kpi-green">{{ store.formatMoney(store.todayProfit) }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ventas</div>
+        <div class="kpi-value">{{ store.salesToday.length }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Devoluciones</div>
+        <div class="kpi-value">{{ store.refundedToday.length }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="summary-grid">
+  @for (item of store.paymentSummary; track item.value) {
+    <div class="card">
+      <div class="card-content payment-card">
+        <div class="payment-card-top">
+          <span class="pill" [class.pill-green]="item.value === 'CASH'" [class.pill-blue]="item.value === 'TRANSFER'" [class.pill-purple]="item.value === 'CARD'">{{ item.label }}</span>
+          <span class="payment-count">{{ item.count }} venta(s){{ item.refunds ? ' / ' + item.refunds + ' devol.' : '' }}</span>
+        </div>
+        <div class="payment-total">{{ store.formatMoney(item.total) }}</div>
+      </div>
+    </div>
+  }
+  <div class="card">
+    <div class="card-content payment-card">
+      <div class="payment-card-top">
+        <span class="pill">Efectivo esperado</span>
+      </div>
+      <div class="payment-total">{{ store.formatMoney(store.cashExpected) }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card section-gap">
+  <div class="card-header"><h3>Corte de efectivo</h3></div>
+  <div class="card-content cash-cut-grid">
+    <div class="kpi soft-kpi">
+      <div class="kpi-label">Esperado</div>
+      <div class="kpi-value">{{ store.formatMoney(store.cashExpected) }}</div>
+    </div>
+    <label class="field">
+      <span>Efectivo real en caja</span>
+      <input type="number" min="0" step="0.01" [(ngModel)]="store.actualCashInput" placeholder="0.00">
+    </label>
+    <label class="field cash-notes">
+      <span>Notas del corte</span>
+      <input [(ngModel)]="store.cashCountNotes" placeholder="Opcional: faltante, cambio, retiro...">
+    </label>
+    <div class="kpi soft-kpi">
+      <div class="kpi-label">Diferencia</div>
+      <div class="kpi-value" [class.kpi-green]="store.cashDifference >= 0" [class.kpi-red]="store.cashDifference < 0">
+        {{ store.formatMoney(store.cashDifference) }}
+      </div>
+      @if (store.cashCountUpdatedAt) {
+        <small class="muted-line">Guardado: {{ store.formatDateTime(store.cashCountUpdatedAt) }}</small>
+      }
+    </div>
+    <div class="cash-actions">
+      <button class="btn btn-primary" [disabled]="store.isSavingCashCount" (click)="store.saveCashCount()">
+        {{ store.isSavingCashCount ? 'Guardando...' : 'Guardar corte' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card section-gap">
+  <div class="card-header"><h3>Productos mas vendidos</h3></div>
+  <div class="card-content">
+    <div class="tops-list">
+      @for (item of store.topProductsToday; track item.name) {
+        <div class="tops-row">
+          <span>{{ item.name }}</span>
+          <strong>{{ item.qty }} uds</strong>
+        </div>
+      } @empty {
+        <div class="empty-cell">Sin ventas confirmadas para esta fecha</div>
+      }
+    </div>
+  </div>
+</div>

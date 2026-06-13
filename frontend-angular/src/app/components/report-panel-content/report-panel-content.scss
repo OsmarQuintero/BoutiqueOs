@@ -1,0 +1,73 @@
+:host {
+  display: block;
+}
+
+#reports-summary-section,
+.summary-grid,
+.section-gap {
+  margin-top: 12px;
+}
+
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi { text-align: center; padding: 4px 0; }
+.kpi-label { font-size: 0.68rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.kpi-value { font-size: 1.3rem; font-weight: 800; color: var(--text); }
+.kpi-green { color: var(--green); }
+.kpi-red { color: var(--red); }
+
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.payment-card { display: grid; gap: 10px; }
+.payment-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.payment-count { font-size: 0.72rem; color: var(--text-tertiary); }
+.payment-total { font-size: 1.2rem; font-weight: 800; color: var(--text); }
+
+.cash-cut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: end; }
+.soft-kpi {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+.cash-notes { grid-column: span 2; }
+.cash-actions { display: flex; justify-content: flex-end; grid-column: span 2; }
+
+.tops-list { display: grid; gap: 10px; }
+.tops-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.82rem; color: var(--text-secondary); }
+.tops-row strong { color: var(--text); }
+.row-pending { background: var(--amber-bg); }
+.row-cancelled { background: var(--red-bg); }
+.report-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.history-search { width: min(360px, 100%); }
+.history-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.refund-editor { display: grid; gap: 8px; margin-top: 10px; }
+.refund-line { display: grid; grid-template-columns: 1fr 80px; gap: 8px; align-items: center; }
+.refund-line span { font-size: 0.75rem; color: var(--text-secondary); }
+.refund-line input { width: 100%; }
+.refund-detail-row td { background: #fff8f8; }
+.refund-products { display: flex; gap: 8px; flex-wrap: wrap; }
+.refund-product-chip {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: white;
+  border: 1px solid #efcaca;
+}
+.refund-product-chip span {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+.muted-line { display: block; color: var(--text-tertiary); margin-top: 2px; }
+
+@media (max-width: 1024px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .cash-cut-grid { grid-template-columns: 1fr; }
+  .cash-notes, .cash-actions { grid-column: span 1; }
+}
+
+@media (max-width: 480px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: 1fr; }
+}

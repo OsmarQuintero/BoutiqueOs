@@ -72,6 +72,10 @@
         <input id="discount" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.checkoutDiscount" placeholder="0">
       </div>
       <div class="cart-total-row summary-row">
+        <span>Piezas</span>
+        <strong>{{ store.cart.length }}</strong>
+      </div>
+      <div class="cart-total-row summary-row">
         <span>Subtotal</span>
         <strong>{{ store.formatMoney(store.cartSubtotal) }}</strong>
       </div>

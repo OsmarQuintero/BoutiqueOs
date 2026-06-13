@@ -1,0 +1,29 @@
+<div class="card section-gap" id="reports-movements-section">
+  <div class="card-header">
+    <h3>Movimientos del inventario del {{ store.reportDate }}</h3>
+    <span class="pill">{{ store.reportInventoryMovements.length }}</span>
+  </div>
+  <div class="card-content no-pad">
+    <table class="table">
+      <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Costo</th><th>Nota</th></tr></thead>
+      <tbody>
+        @for (movement of store.reportInventoryMovements; track movement.id) {
+          <tr>
+            <td>{{ store.formatDateTime(movement.createdAt) }}</td>
+            <td class="td-primary">{{ movement.productName }}</td>
+            <td>
+              <span class="pill" [class.pill-green]="movement.type === 'PURCHASE'" [class.pill-blue]="movement.type === 'SALE'" [class.pill-amber]="movement.type === 'ADJUSTMENT'" [class.pill-purple]="movement.type === 'RETURN'">
+                {{ store.inventoryMovementLabel(movement.type) }}
+              </span>
+            </td>
+            <td class="td-mono">{{ movement.quantity }}</td>
+            <td class="td-mono">{{ movement.unitCost ? store.formatMoney(movement.unitCost) : '—' }}</td>
+            <td>{{ movement.note || '—' }}</td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="empty-cell">Sin movimientos para la fecha seleccionada</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

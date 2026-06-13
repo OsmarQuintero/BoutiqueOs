@@ -1,61 +1,73 @@
 @if (store.loggedIn) {
   <main class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <img src="/logo.png" alt="Logo" class="brand-logo">
-        <div class="brand-name">Boutique OS</div>
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <img src="/logo.png" alt="Logo" class="brand-logo">
+          <div class="brand-copy">
+            <div class="brand-name">Boutique OS</div>
+
+          </div>
+        </div>
+        <div class="page-copy">
+          <h1 class="page-title">{{ store.pageTitle }}</h1>
+
+        </div>
       </div>
-      <nav class="nav">
-        @for (item of store.navItems; track item.id) {
-          <button type="button" class="nav-item" [class.active]="store.activeView === item.id" (click)="store.setView(item.id)">
-            <span class="nav-item-icon">{{ item.icon }}</span>
-            <span class="nav-item-label">{{ item.label }}</span>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" (click)="store.newSale()"><span>+</span> Nueva venta</button>
+        <div class="user-badge">
+          <span class="user-avatar">A</span>
+          <span class="user-label">Admin</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" (click)="store.logout()">Salir</button>
+      </div>
+    </header>
+
+    <section class="module-strip">
+      <div class="module-strip-copy">
+        <div class="module-strip-label">Modulos</div>
+
+      </div>
+      <nav class="module-nav" aria-label="Modulos principales">
+        @for (item of navItems; track item.id) {
+          <button type="button" class="module-chip" [class.active]="isItemActive(item.id)" (click)="openView(item.id)" [attr.title]="item.label">
+            <span class="module-chip-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path [attr.d]="item.iconPath"></path>
+              </svg>
+            </span>
+            <span class="module-chip-label">{{ item.label }}</span>
           </button>
         }
       </nav>
-      <div class="sidebar-footer">
-        @for (task of store.tasks; track task) {
-          <div class="task-item">{{ task }}</div>
-        }
+      <div class="module-strip-status">
+        <span class="module-strip-dot"></span>
+        {{ store.tasks[0] }}
       </div>
-    </aside>
+    </section>
 
-    <div class="main">
-      <header class="topbar">
-        <div class="topbar-left">
-          <h1 class="page-title">{{ store.pageTitle }}</h1>
-        </div>
-        <div class="topbar-right">
-          <button class="btn btn-outline btn-sm" (click)="store.newSale()"><span>+</span> Nueva venta</button>
-          <div class="user-badge">
-            <span class="user-avatar">A</span>
-            <span class="user-label">Admin</span>
-          </div>
-          <button class="btn btn-ghost btn-sm" (click)="store.logout()">Salir</button>
-        </div>
-      </header>
-
-      <div class="content">
-        <div class="metrics">
-          @for (stat of store.stats; track stat.label) {
-            <div class="metric">
-              <div class="metric-body">
-                <div class="metric-label">{{ stat.label }}</div>
-                <div class="metric-value">{{ stat.value }}</div>
-              </div>
-              <div class="metric-trend">{{ stat.trend }}</div>
+    <div class="content">
+      <div class="metrics">
+        @for (stat of store.stats; track stat.label) {
+          <div class="metric">
+            <div class="metric-body">
+              <div class="metric-label">{{ stat.label }}</div>
+              <div class="metric-value">{{ stat.value }}</div>
             </div>
-          }
-        </div>
-
-        @switch (store.activeView) {
-          @case ('pos') { <app-pos /> }
-          @case ('products') { <app-products /> }
-          @case ('inventory') { <app-inventory /> }
-          @case ('customers') { <app-customers /> }
-          @case ('reports') { <app-reports /> }
+            <div class="metric-trend">{{ stat.trend }}</div>
+          </div>
         }
       </div>
+
+      @switch (store.activeView) {
+        @case ('pos') { <app-pos /> }
+        @case ('catalog') { <app-catalog /> }
+        @case ('categories') { <app-categories /> }
+        @case ('inventory') { <app-inventory /> }
+        @case ('customers') { <app-customers /> }
+        @case ('reports') { <app-reports /> }
+      }
     </div>
   </main>
 } @else {
@@ -65,7 +77,6 @@
       <div class="login-header">
         <img src="/logo.png" alt="Logo" class="login-logo">
         <div class="login-title">Boutique OS</div>
-        <div class="login-subtitle">Sistema de punto de venta</div>
       </div>
       <form class="login-form" (ngSubmit)="store.login()">
         <div class="login-field">

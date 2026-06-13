@@ -1,0 +1,38 @@
+<div class="card section-gap" id="reports-refunds-section">
+  <div class="card-header"><h3>Devoluciones del {{ store.reportDate }}</h3><span class="pill">{{ store.refundedToday.length }} registros</span></div>
+  <div class="card-content no-pad">
+    <table class="table">
+      <thead><tr><th>Folio</th><th>Ticket</th><th>Fecha</th><th>Cliente</th><th>Metodo</th><th>Total</th></tr></thead>
+      <tbody>
+        @for (refund of store.refundedToday; track refund.id) {
+          <tr class="row-cancelled">
+            <td class="td-primary">#{{ refund.id }}</td>
+            <td>#{{ refund.saleId }}</td>
+            <td>{{ store.formatDateTime(refund.createdAt) }}</td>
+            <td>{{ refund.customerName || 'Mostrador' }}</td>
+            <td>
+              <span class="pill" [class.pill-green]="refund.paymentMethod === 'CASH'" [class.pill-blue]="refund.paymentMethod === 'TRANSFER'" [class.pill-purple]="refund.paymentMethod === 'CARD'">
+                {{ store.paymentLabel(refund.paymentMethod) }}
+              </span>
+            </td>
+            <td class="td-mono">{{ store.formatMoney(refund.total) }}</td>
+          </tr>
+          <tr class="refund-detail-row">
+            <td colspan="6">
+              <div class="refund-products">
+                @for (item of refund.items; track item.id) {
+                  <div class="refund-product-chip">
+                    <strong>{{ item.productName }}</strong>
+                    <span>{{ item.quantity }} × {{ store.formatMoney(item.unitPrice) }}</span>
+                  </div>
+                }
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="empty-cell">Sin devoluciones para la fecha seleccionada</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
