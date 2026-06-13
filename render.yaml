@@ -1,10 +1,9 @@
 services:
   - type: web
     name: boutique-os-backend
-    rootDir: backend-springboot
     plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    dockerfilePath: backend-springboot/Dockerfile
+    dockerContext: backend-springboot
     healthCheckPath: /api/products
     envVars:
       - key: SPRING_DATASOURCE_URL
