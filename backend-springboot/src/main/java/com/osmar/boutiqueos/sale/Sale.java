@@ -43,6 +43,12 @@ public class Sale {
     private BigDecimal total = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal cashReceived = BigDecimal.ZERO;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal changeDue = BigDecimal.ZERO;
+
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal estimatedProfit = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -100,6 +106,22 @@ public class Sale {
 
     public void setTotal(BigDecimal total) {
         this.total = total;
+    }
+
+    public BigDecimal getCashReceived() {
+        return cashReceived;
+    }
+
+    public void setCashReceived(BigDecimal cashReceived) {
+        this.cashReceived = cashReceived;
+    }
+
+    public BigDecimal getChangeDue() {
+        return changeDue;
+    }
+
+    public void setChangeDue(BigDecimal changeDue) {
+        this.changeDue = changeDue;
     }
 
     public BigDecimal getEstimatedProfit() {

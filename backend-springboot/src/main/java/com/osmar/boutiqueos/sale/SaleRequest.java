@@ -12,6 +12,7 @@ import java.util.List;
 public record SaleRequest(
         @NotNull PaymentMethod paymentMethod,
         @DecimalMin("0.00") BigDecimal discount,
+        @DecimalMin("0.00") BigDecimal cashReceived,
         Long customerId,
         @NotEmpty List<@Valid SaleItemRequest> items
 ) {

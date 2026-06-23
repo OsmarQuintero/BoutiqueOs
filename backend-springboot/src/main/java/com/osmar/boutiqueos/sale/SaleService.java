@@ -116,8 +116,11 @@ public class SaleService {
         }
 
         BigDecimal total = subtotal.subtract(sale.getDiscount()).max(BigDecimal.ZERO);
+        BigDecimal cashReceived = request.cashReceived() == null ? BigDecimal.ZERO : request.cashReceived();
         sale.setSubtotal(subtotal);
         sale.setTotal(total);
+        sale.setCashReceived(cashReceived);
+        sale.setChangeDue(sale.getPaymentMethod() == PaymentMethod.CASH ? cashReceived.subtract(total).max(BigDecimal.ZERO) : BigDecimal.ZERO);
         sale.setEstimatedProfit(estimatedProfit.subtract(sale.getDiscount()).max(BigDecimal.ZERO));
 
         return saleRepository.save(sale);

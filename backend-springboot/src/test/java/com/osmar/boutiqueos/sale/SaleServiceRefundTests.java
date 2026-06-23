@@ -40,6 +40,7 @@ class SaleServiceRefundTests {
                 PaymentMethod.CASH,
                 BigDecimal.ZERO,
                 null,
+                null,
                 List.of(new SaleRequest.SaleItemRequest(product.getId(), 2))
         ));
 
@@ -72,6 +73,7 @@ class SaleServiceRefundTests {
         Sale sale = saleService.create(new SaleRequest(
                 PaymentMethod.CASH,
                 new BigDecimal("30.00"),
+                null,
                 null,
                 List.of(new SaleRequest.SaleItemRequest(product.getId(), 3))
         ));

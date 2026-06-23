@@ -23,6 +23,6 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOriginPatterns(this.allowedOrigins.length == 0 ? new String[] { "*" } : this.allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("*");
+                .allowedHeaders("*", "X-Boutique-Session");
     }
 }

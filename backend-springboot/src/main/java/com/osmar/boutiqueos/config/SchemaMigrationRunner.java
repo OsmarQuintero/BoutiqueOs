@@ -19,6 +19,8 @@ public class SchemaMigrationRunner implements CommandLineRunner {
         migrateEnum("products", "status", "ENUM('ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED')");
         addColumnIfMissing("sales", "refunded_total", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
         addColumnIfMissing("sales", "refunded_profit", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
+        addColumnIfMissing("sales", "cash_received", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
+        addColumnIfMissing("sales", "change_due", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
         addColumnIfMissing("sales", "refunded_at", "TIMESTAMP");
         addColumnIfMissing("sale_items", "refunded_quantity", "INT DEFAULT 0 NOT NULL");
         alterColumnIfPossible("products", "image_url", "CLOB");

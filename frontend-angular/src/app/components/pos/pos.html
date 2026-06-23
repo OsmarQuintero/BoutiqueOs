@@ -71,6 +71,16 @@
         <label class="payment-label" for="discount">Descuento</label>
         <input id="discount" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.checkoutDiscount" placeholder="0">
       </div>
+      @if (store.selectedPayment === 'CASH') {
+        <div class="discount-row">
+          <label class="payment-label" for="cashReceived">Recibido</label>
+          <input id="cashReceived" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.cashReceived" placeholder="0">
+        </div>
+        <div class="cart-total-row summary-row">
+          <span>Cambio</span>
+          <strong>{{ store.formatMoney(store.cartChangeDue) }}</strong>
+        </div>
+      }
       <div class="cart-total-row summary-row">
         <span>Piezas</span>
         <strong>{{ store.cart.length }}</strong>
@@ -113,6 +123,9 @@
         <div>Cliente: <strong>{{ store.lastTicket.customerName || 'Mostrador' }}</strong></div>
         <div>Total: <strong>{{ store.formatMoney(store.lastTicket.total) }}</strong></div>
         <div>Pago: <strong>{{ store.paymentLabel(store.lastTicket.paymentMethod) }}</strong></div>
+        @if (store.lastTicket.paymentMethod === 'CASH') {
+          <div>Cambio: <strong>{{ store.formatMoney(store.lastTicket.changeDue) }}</strong></div>
+        }
       </div>
       <div class="ticket-hint">
         El PDF se abre al cobrar. Si no apareció, puedes volver a abrirlo aquí.

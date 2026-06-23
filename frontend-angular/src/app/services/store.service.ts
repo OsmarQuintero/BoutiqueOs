@@ -1,6 +1,8 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Injectable, signal } from '@angular/core';
 import { jsPDF } from 'jspdf';
+import { finalize, timeout } from 'rxjs';
+import { RefreshService } from './refresh.service';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD';
 export type SaleStatus = 'PENDING' | 'CONFIRMED' | 'PARTIALLY_REFUNDED' | 'CANCELLED' | 'REFUNDED';
@@ -73,6 +75,8 @@ export interface SaleRecord {
   subtotal: number;
   discount: number;
   total: number;
+  cashReceived: number;
+  changeDue: number;
   estimatedProfit: number;
   refundedTotal: number;
   refundedProfit: number;
@@ -122,7 +126,16 @@ export type ProductsSection = 'form' | 'catalog';
 export type CatalogSection = 'products';
 export type CategoriesSection = 'categories';
 export type CustomersSection = 'form' | 'list' | 'history';
-export type ViewSectionId = PosSection | ProductsSection | CatalogSection | CategoriesSection | CustomersSection | ReportPanel | InventoryPanel;
+export type SettingsSection = 'profile';
+export type ViewSectionId =
+  | PosSection
+  | ProductsSection
+  | CatalogSection
+  | CategoriesSection
+  | CustomersSection
+  | ReportPanel
+  | InventoryPanel
+  | SettingsSection;
 
 export interface InventoryMovement {
   id: number;
@@ -147,16 +160,54 @@ export interface PurchaseRecord {
   createdAt: string;
 }
 
-export type ViewId = 'pos' | 'products' | 'catalog' | 'categories' | 'inventory' | 'customers' | 'reports';
+export interface AppSettings {
+  storeName: string;
+  phone: string;
+  address: string;
+  street: string;
+  neighborhood: string;
+  city: string;
+  postalCode: string;
+  logoUrl: string;
+  thankYouMessage: string;
+  username: string;
+  updatedAt: string;
+}
+
+interface LoginResponse {
+  valid: boolean;
+  token: string | null;
+}
+
+const LOGIN_TIMEOUT_MS = 8000;
+const SAVE_TIMEOUT_MS = 4000;
+
+export type ViewId =
+  | 'pos'
+  | 'products'
+  | 'catalog'
+  | 'categories'
+  | 'inventory'
+  | 'customers'
+  | 'reports'
+  | 'settings';
+export type AlertType = 'success' | 'error' | 'warning' | 'info';
 
 @Injectable({ providedIn: 'root' })
 export class StoreService {
-  private readonly apiBase = this.resolveApiBase();
+  readonly apiBase = this.resolveApiBase();
 
-  loggedIn = false;
-  loginUser = '';
-  loginPass = '';
-  loginError = '';
+  private readonly loggedInState = signal(false);
+  private readonly loginUserState = signal('');
+  private readonly loginPassState = signal('');
+  private readonly loginErrorState = signal('');
+  private readonly loginLoadingState = signal(false);
+  loginEndpoint = this.apiUrl('/settings/login');
+  private sessionToken = '';
+  isSavingTicketSettings = false;
+  isSavingCredentials = false;
+  settingsMessage = '';
+  credentialsMessage = '';
 
   activeView: ViewId = 'pos';
   activeSections: Record<ViewId, ViewSectionId> = {
@@ -166,7 +217,8 @@ export class StoreService {
     categories: 'categories',
     inventory: 'summary',
     customers: 'list',
-    reports: 'summary'
+    reports: 'summary',
+    settings: 'profile',
   };
   products: Product[] = [];
   productCategories: ProductCategory[] = [];
@@ -178,7 +230,11 @@ export class StoreService {
   reportDate = this.todayDateString();
   reportPanel: ReportPanel = 'summary';
   selectedPayment: PaymentMethod = 'CASH';
-  statusMessage = 'Listo para vender';
+  cashReceived = 0;
+  private _statusMessage = 'Listo para vender';
+  alertMessage = '';
+  alertType: AlertType = 'info';
+  private alertTimer: ReturnType<typeof setTimeout> | null = null;
   isCharging = false;
   searchTerm = '';
   customers: Customer[] = [];
@@ -211,7 +267,7 @@ export class StoreService {
     supplierName: '',
     quantity: 1,
     unitCost: 0,
-    note: ''
+    note: '',
   };
   productForm = {
     name: '',
@@ -223,26 +279,56 @@ export class StoreService {
     costPrice: 0,
     salePrice: 0,
     stock: 0,
-    status: 'ACTIVE' as ProductStatus
+    status: 'ACTIVE' as ProductStatus,
   };
   categoryForm = {
     presetName: 'Tenis',
     name: '',
     description: '',
-    active: true
+    active: true,
   };
   productImageFileName = '';
+  logoFileName = '';
+  settings: AppSettings = {
+    storeName: 'Boutique OS',
+    phone: '',
+    address: '',
+    street: '',
+    neighborhood: '',
+    city: '',
+    postalCode: '',
+    logoUrl: '',
+    thankYouMessage: 'Gracias por tu compra',
+    username: 'admin',
+    updatedAt: '',
+  };
+  settingsForm = {
+    storeName: 'Boutique OS',
+    phone: '',
+    street: '',
+    neighborhood: '',
+    city: '',
+    postalCode: '',
+    logoUrl: '',
+    address: '',
+    thankYouMessage: 'Gracias por tu compra',
+  };
+  credentialsForm = {
+    username: 'admin',
+    currentPassword: '',
+    newPassword: '',
+  };
 
   readonly paymentMethods = [
     { label: 'Efectivo', value: 'CASH' as PaymentMethod },
     { label: 'Transferencia', value: 'TRANSFER' as PaymentMethod },
-    { label: 'Tarjeta', value: 'CARD' as PaymentMethod }
+    { label: 'Tarjeta', value: 'CARD' as PaymentMethod },
   ];
 
   readonly productStatuses = [
     { label: 'Activo', value: 'ACTIVE' as ProductStatus },
     { label: 'Agotado', value: 'OUT_OF_STOCK' as ProductStatus },
-    { label: 'Archivado', value: 'ARCHIVED' as ProductStatus }
+    { label: 'Archivado', value: 'ARCHIVED' as ProductStatus },
   ];
 
   readonly navItems = [
@@ -251,7 +337,8 @@ export class StoreService {
     { id: 'categories' as ViewId, label: 'Categorias', icon: '🗂️' },
     { id: 'inventory' as ViewId, label: 'Inventario', icon: '📋' },
     { id: 'customers' as ViewId, label: 'Clientes', icon: '👥' },
-    { id: 'reports' as ViewId, label: 'Corte diario', icon: '📊' }
+    { id: 'reports' as ViewId, label: 'Corte diario', icon: '📊' },
+    { id: 'settings' as ViewId, label: 'Configuracion', icon: '⚙️' },
   ];
 
   readonly reportPanels = [
@@ -259,12 +346,12 @@ export class StoreService {
     { id: 'sales' as ReportPanel, label: 'Ventas' },
     { id: 'tickets' as ReportPanel, label: 'Tickets' },
     { id: 'refunds' as ReportPanel, label: 'Devoluciones' },
-    { id: 'movements' as ReportPanel, label: 'Movimientos' }
+    { id: 'movements' as ReportPanel, label: 'Movimientos' },
   ];
 
   readonly inventoryPanels = [
     { id: 'summary' as InventoryPanel, label: 'Resumen' },
-    { id: 'purchases' as InventoryPanel, label: 'Compras' }
+    { id: 'purchases' as InventoryPanel, label: 'Compras' },
   ];
 
   readonly categoryPresets: CategoryPreset[] = [
@@ -272,29 +359,83 @@ export class StoreService {
       name: 'Tenis',
       description: 'Calzado casual y deportivo',
       sizeLabel: 'Numero',
-      productHint: 'Ej. 26, 27, 28.5'
+      productHint: 'Ej. 26, 27, 28.5',
     },
     {
       name: 'Gorras',
       description: 'Gorras y cachuchas con ajuste por talla o broche',
       sizeLabel: 'Ajuste',
-      productHint: 'Ej. Unitalla, Snapback'
+      productHint: 'Ej. Unitalla, Snapback',
     },
     {
       name: 'Accesorios',
       description: 'Bolsos, cinturones, lentes y joyeria',
       sizeLabel: 'Medida',
-      productHint: 'Ej. Unitalla, 90 cm'
-    }
+      productHint: 'Ej. Unitalla, 90 cm',
+    },
   ];
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly refresh: RefreshService,
+  ) {}
+
+  get loggedIn(): boolean {
+    return this.loggedInState();
+  }
+
+  set loggedIn(value: boolean) {
+    this.loggedInState.set(value);
+  }
+
+  get loginUser(): string {
+    return this.loginUserState();
+  }
+
+  set loginUser(value: string) {
+    this.loginUserState.set(value);
+  }
+
+  get loginPass(): string {
+    return this.loginPassState();
+  }
+
+  set loginPass(value: string) {
+    this.loginPassState.set(value);
+  }
+
+  get loginError(): string {
+    return this.loginErrorState();
+  }
+
+  set loginError(value: string) {
+    this.loginErrorState.set(value);
+  }
+
+  get loginLoading(): boolean {
+    return this.loginLoadingState();
+  }
+
+  set loginLoading(value: boolean) {
+    this.loginLoadingState.set(value);
+  }
+
+  get statusMessage(): string {
+    return this._statusMessage;
+  }
+
+  set statusMessage(message: string) {
+    this._statusMessage = message;
+    this.showAlert(message);
+  }
 
   get filteredProducts(): Product[] {
     const q = this.searchTerm.trim().toLowerCase();
     return this.products.filter((p) => {
-      const matchesCategory = this.posCategoryFilter === 'ALL' || this.sameCategory(p.category, this.posCategoryFilter);
-      const matchesSearch = !q ||
+      const matchesCategory =
+        this.posCategoryFilter === 'ALL' || this.sameCategory(p.category, this.posCategoryFilter);
+      const matchesSearch =
+        !q ||
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
         (p.sku && p.sku.toLowerCase().includes(q));
@@ -320,7 +461,7 @@ export class StoreService {
           description: preset.description,
           sizeLabel: preset.sizeLabel,
           active: true,
-          createdAt: ''
+          createdAt: '',
         });
       }
     }
@@ -330,7 +471,11 @@ export class StoreService {
   get currentProductCategory(): ProductCategory | null {
     const selected = this.productForm.category.trim().toLowerCase();
     if (!selected) return null;
-    return this.productCategoryOptions.find((category) => category.name.trim().toLowerCase() === selected) ?? null;
+    return (
+      this.productCategoryOptions.find(
+        (category) => category.name.trim().toLowerCase() === selected,
+      ) ?? null
+    );
   }
 
   get productSizeLabel(): string {
@@ -347,14 +492,16 @@ export class StoreService {
 
   get categorySummary() {
     return this.productCategoryOptions.map((category) => {
-      const products = this.products.filter((product) => this.sameCategory(product.category, category.name));
+      const products = this.products.filter((product) =>
+        this.sameCategory(product.category, category.name),
+      );
       const stock = products.reduce((sum, product) => sum + product.stock, 0);
       const value = products.reduce((sum, product) => sum + product.stock * product.salePrice, 0);
       return {
         ...category,
         productCount: products.length,
         stock,
-        value
+        value,
       };
     });
   }
@@ -372,8 +519,10 @@ export class StoreService {
   }
 
   get filteredInventoryProducts(): Product[] {
-    return this.products.filter((product) =>
-      this.inventoryCategoryFilter === 'ALL' || this.sameCategory(product.category, this.inventoryCategoryFilter)
+    return this.products.filter(
+      (product) =>
+        this.inventoryCategoryFilter === 'ALL' ||
+        this.sameCategory(product.category, this.inventoryCategoryFilter),
     );
   }
 
@@ -387,6 +536,12 @@ export class StoreService {
 
   get cartTotal(): number {
     return Math.max(this.cartSubtotal - this.cartDiscount, 0);
+  }
+
+  get cartChangeDue(): number {
+    return this.selectedPayment === 'CASH'
+      ? Math.max((this.cashReceived || 0) - this.cartTotal, 0)
+      : 0;
   }
 
   get todayTotal(): number {
@@ -405,7 +560,10 @@ export class StoreService {
 
   get cashExpected(): number {
     const cashSalesToday = this.salesToday
-      .filter((sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED' && sale.paymentMethod === 'CASH')
+      .filter(
+        (sale) =>
+          sale.status !== 'PENDING' && sale.status !== 'CANCELLED' && sale.paymentMethod === 'CASH',
+      )
       .reduce((total, sale) => total + sale.total, 0);
     const cashRefundsToday = this.refundedToday
       .filter((refund) => refund.paymentMethod === 'CASH')
@@ -425,25 +583,33 @@ export class StoreService {
     return {
       purchases: this.inventoryMovements.filter((movement) => movement.type === 'PURCHASE').length,
       sales: this.inventoryMovements.filter((movement) => movement.type === 'SALE').length,
-      adjustments: this.inventoryMovements.filter((movement) => movement.type === 'ADJUSTMENT').length,
-      returns: this.inventoryMovements.filter((movement) => movement.type === 'RETURN').length
+      adjustments: this.inventoryMovements.filter((movement) => movement.type === 'ADJUSTMENT')
+        .length,
+      returns: this.inventoryMovements.filter((movement) => movement.type === 'RETURN').length,
     };
   }
 
   get paymentSummary() {
     return this.paymentMethods.map((method) => {
       const sales = this.salesToday.filter(
-        (sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED' && sale.paymentMethod === method.value
+        (sale) =>
+          sale.status !== 'PENDING' &&
+          sale.status !== 'CANCELLED' &&
+          sale.paymentMethod === method.value,
       );
       const refunds = this.refundedToday.filter((sale) => sale.paymentMethod === method.value);
-      const total = sales.reduce((sum, sale) => sum + sale.total, 0) - refunds.reduce((sum, sale) => sum + sale.total, 0);
+      const total =
+        sales.reduce((sum, sale) => sum + sale.total, 0) -
+        refunds.reduce((sum, sale) => sum + sale.total, 0);
       return { ...method, total, count: sales.length, refunds: refunds.length };
     });
   }
 
   get topProductsToday() {
     const counts = new Map<string, number>();
-    for (const sale of this.salesToday.filter((item) => item.status !== 'PENDING' && item.status !== 'CANCELLED')) {
+    for (const sale of this.salesToday.filter(
+      (item) => item.status !== 'PENDING' && item.status !== 'CANCELLED',
+    )) {
       for (const item of sale.items) {
         counts.set(item.productName, (counts.get(item.productName) ?? 0) + item.quantity);
       }
@@ -484,7 +650,10 @@ export class StoreService {
     const term = this.ticketSearchTerm.trim().toLowerCase();
     if (!term) return this.allSales;
     return this.allSales.filter((sale) => {
-      const productText = sale.items.map((item) => item.productName).join(' ').toLowerCase();
+      const productText = sale.items
+        .map((item) => item.productName)
+        .join(' ')
+        .toLowerCase();
       return (
         String(sale.id).includes(term) ||
         (sale.customerName || 'mostrador').toLowerCase().includes(term) ||
@@ -514,34 +683,37 @@ export class StoreService {
       pos: {
         products: 'Productos',
         sale: 'Venta actual',
-        ticket: 'Ticket listo'
+        ticket: 'Ticket listo',
       },
       products: {
         form: 'Alta de producto',
-        catalog: 'Catalogo'
+        catalog: 'Catalogo',
       },
       catalog: {
-        products: 'Productos'
+        products: 'Productos',
       },
       categories: {
-        categories: 'Categorias'
+        categories: 'Categorias',
       },
       inventory: {
         summary: 'Resumen',
-        purchases: 'Compras'
+        purchases: 'Compras',
       },
       customers: {
         form: 'Nuevo cliente',
         list: 'Listado',
-        history: 'Historial'
+        history: 'Historial',
       },
       reports: {
         summary: 'Resumen',
         sales: 'Ventas',
         tickets: 'Tickets',
         refunds: 'Devoluciones',
-        movements: 'Movimientos'
-      }
+        movements: 'Movimientos',
+      },
+      settings: {
+        profile: 'Configuracion',
+      },
     };
     return labels[view][section] ?? '';
   }
@@ -581,8 +753,10 @@ export class StoreService {
   }
 
   canRefundSale(sale: SaleRecord): boolean {
-    return (sale.status === 'CONFIRMED' || sale.status === 'PARTIALLY_REFUNDED') &&
-      sale.items.some((item) => this.refundableQuantity(item) > 0);
+    return (
+      (sale.status === 'CONFIRMED' || sale.status === 'PARTIALLY_REFUNDED') &&
+      sale.items.some((item) => this.refundableQuantity(item) > 0)
+    );
   }
 
   refundQty(saleId: number, item: SaleRecordItem): number {
@@ -596,8 +770,8 @@ export class StoreService {
       ...this.refundDrafts,
       [saleId]: {
         ...(this.refundDrafts[saleId] ?? {}),
-        [item.id]: safeValue
-      }
+        [item.id]: safeValue,
+      },
     };
   }
 
@@ -628,7 +802,8 @@ export class StoreService {
       categories: 'Categorias',
       inventory: 'Inventario',
       customers: 'Clientes',
-      reports: 'Corte diario'
+      reports: 'Corte diario',
+      settings: 'Configuracion',
     };
     return titles[this.activeView];
   }
@@ -654,18 +829,26 @@ export class StoreService {
 
   get stats() {
     return [
-      { label: 'Venta actual', value: this.formatMoney(this.cartTotal), trend: `${this.cart.length} partidas` },
+      {
+        label: 'Venta actual',
+        value: this.formatMoney(this.cartTotal),
+        trend: `${this.cart.length} partidas`,
+      },
       {
         label: 'Productos activos',
         value: String(this.products.filter((product) => product.status !== 'ARCHIVED').length),
-        trend: 'Catalogo'
+        trend: 'Catalogo',
       },
       {
         label: 'Pendientes',
         value: String(this.pendingSales.length),
-        trend: this.pendingSales.length ? 'Por confirmar' : 'Sin pendientes'
+        trend: this.pendingSales.length ? 'Por confirmar' : 'Sin pendientes',
       },
-      { label: 'Metodo pago', value: this.paymentLabel(this.selectedPayment), trend: 'Seleccionado' }
+      {
+        label: 'Metodo pago',
+        value: this.paymentLabel(this.selectedPayment),
+        trend: 'Seleccionado',
+      },
     ];
   }
 
@@ -678,32 +861,67 @@ export class StoreService {
   }
 
   login(): void {
-    if (this.loginUser === 'admin' && this.loginPass === 'admin') {
-      this.loggedIn = true;
-      this.loginError = '';
-      this.loadProducts();
-      this.loadProductCategories();
-      this.loadSalesToday();
-      this.loadCustomers();
-      this.loadPendingSales();
-      this.refreshReportData();
-    } else {
-      this.loginError = 'Usuario o contraseña incorrectos';
+    const username = this.loginUser.trim();
+    const password = this.loginPass.trim();
+
+    if (!username || !password) {
+      this.loginError = 'Escribe usuario y contraseña';
+      return;
     }
+
+    this.loginError = '';
+    this.loginLoading = true;
+    this.refresh
+      .track(
+        'Cargando...',
+        this.http
+          .post<LoginResponse>(this.loginEndpoint, { username, password })
+          .pipe(timeout({ first: LOGIN_TIMEOUT_MS })),
+      )
+      .pipe(finalize(() => (this.loginLoading = false)))
+      .subscribe({
+        next: (result) => {
+          if (!result.valid || !result.token) {
+            this.loginError = 'Usuario o contraseña incorrectos';
+            return;
+          }
+
+          this.sessionToken = result.token;
+          this.loggedIn = true;
+          this.loginError = '';
+          this.loadSettings();
+          this.loadProducts();
+          this.loadProductCategories();
+          this.loadSalesToday();
+          this.loadCustomers();
+          this.loadPendingSales();
+          this.refreshReportData();
+        },
+        error: (error: unknown) => {
+          this.sessionToken = '';
+          this.loginError =
+            error instanceof Error && error.name === 'TimeoutError'
+              ? 'El backend no respondio. Revisa que este corriendo en http://localhost:8080'
+              : 'No pude conectar con el backend local. Revisa http://localhost:8080';
+        },
+      });
   }
 
   logout(): void {
     this.loggedIn = false;
+    this.sessionToken = '';
     this.loginUser = '';
     this.loginPass = '';
     this.loginError = '';
     this.cart = [];
     this.selectedCustomerId = null;
     this.checkoutDiscount = 0;
+    this.cashReceived = 0;
     this.lastTicket = null;
   }
 
   setView(view: ViewId, section?: ViewSectionId): void {
+    this.refresh.flash(`Cargando ${this.viewLabel(view)}...`);
     this.activeView = view;
     if (section) {
       this.activeSections = { ...this.activeSections, [view]: section };
@@ -717,6 +935,9 @@ export class StoreService {
     if (view === 'reports' || view === 'pos') this.loadSalesToday();
     if (view === 'reports') {
       this.refreshReportData();
+    }
+    if (view === 'settings') {
+      this.loadSettings();
     }
     if (view === 'inventory') {
       this.refreshInventoryData();
@@ -737,6 +958,7 @@ export class StoreService {
     this.cart = [];
     this.selectedCustomerId = null;
     this.checkoutDiscount = 0;
+    this.cashReceived = 0;
     this.lastTicket = null;
     this.statusMessage = 'Listo para vender';
     this.setView('pos', 'sale');
@@ -755,7 +977,10 @@ export class StoreService {
     if (current) {
       current.qty += 1;
     } else {
-      this.cart = [...this.cart, { productId: product.id, name: product.name, qty: 1, price: product.salePrice }];
+      this.cart = [
+        ...this.cart,
+        { productId: product.id, name: product.name, qty: 1, price: product.salePrice },
+      ];
     }
     this.statusMessage = `${product.name} agregado al carrito`;
   }
@@ -770,6 +995,7 @@ export class StoreService {
   clearCart(): void {
     this.cart = [];
     this.checkoutDiscount = 0;
+    this.cashReceived = 0;
     this.statusMessage = 'Venta limpiada';
   }
 
@@ -794,18 +1020,23 @@ export class StoreService {
     }
 
     this.isCharging = true;
-    this.http
-      .post<SaleRecord>(this.apiUrl('/sales'), {
-        paymentMethod: this.selectedPayment,
-        discount: this.cartDiscount,
-        customerId: this.selectedCustomerId,
-        items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty }))
-      })
+    this.refresh
+      .track(
+        'Procesando venta...',
+        this.http.post<SaleRecord>(this.apiUrl('/sales'), {
+          paymentMethod: this.selectedPayment,
+          discount: this.cartDiscount,
+          cashReceived: this.selectedPayment === 'CASH' ? this.cashReceived : 0,
+          customerId: this.selectedCustomerId,
+          items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
+        }),
+      )
       .subscribe({
         next: (sale) => {
           this.cart = [];
           this.selectedCustomerId = null;
           this.checkoutDiscount = 0;
+          this.cashReceived = 0;
           this.lastTicket = sale;
           this.activeSections = { ...this.activeSections, pos: 'ticket' };
           this.openTicketPdf(sale);
@@ -822,38 +1053,48 @@ export class StoreService {
         error: () => {
           this.statusMessage = 'No se pudo cobrar. Revisa backend o stock.';
           this.isCharging = false;
-        }
+        },
       });
   }
 
   confirmSale(id: number): void {
-    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/confirm`), {}).subscribe({
-      next: (sale) => {
-        this.statusMessage = 'Pago confirmado';
-        this.lastTicket = sale;
-        this.loadSalesToday();
-        this.loadPendingSales();
-        this.refreshReportData();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo confirmar el pago';
-      }
-    });
+    this.refresh
+      .track(
+        'Confirmando pago...',
+        this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/confirm`), {}),
+      )
+      .subscribe({
+        next: (sale) => {
+          this.statusMessage = 'Pago confirmado';
+          this.lastTicket = sale;
+          this.loadSalesToday();
+          this.loadPendingSales();
+          this.refreshReportData();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo confirmar el pago';
+        },
+      });
   }
 
   cancelSale(id: number): void {
-    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/cancel`), {}).subscribe({
-      next: () => {
-        this.statusMessage = 'Venta pendiente cancelada y stock repuesto';
-        this.loadProducts();
-        this.loadSalesToday();
-        this.loadPendingSales();
-        this.refreshReportData();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo cancelar la venta';
-      }
-    });
+    this.refresh
+      .track(
+        'Cancelando venta...',
+        this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/cancel`), {}),
+      )
+      .subscribe({
+        next: () => {
+          this.statusMessage = 'Venta pendiente cancelada y stock repuesto';
+          this.loadProducts();
+          this.loadSalesToday();
+          this.loadPendingSales();
+          this.refreshReportData();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo cancelar la venta';
+        },
+      });
   }
 
   refundSale(id: number): void {
@@ -867,41 +1108,53 @@ export class StoreService {
       return;
     }
 
-    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), { items }).subscribe({
-      next: (sale) => {
-        this.statusMessage = sale.status === 'REFUNDED'
-          ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
-          : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
-        this.lastTicket = sale;
-        this.clearRefundDraft(id);
-        this.loadProducts();
-        this.loadSalesToday();
-        this.loadPendingSales();
-        this.refreshReportData();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo procesar la devolucion';
-      }
-    });
+    this.refresh
+      .track(
+        'Procesando devolucion...',
+        this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), { items }),
+      )
+      .subscribe({
+        next: (sale) => {
+          this.statusMessage =
+            sale.status === 'REFUNDED'
+              ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
+              : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
+          this.lastTicket = sale;
+          this.clearRefundDraft(id);
+          this.loadProducts();
+          this.loadSalesToday();
+          this.loadPendingSales();
+          this.refreshReportData();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo procesar la devolucion';
+        },
+      });
   }
 
   refundAllRemaining(id: number): void {
-    this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), null).subscribe({
-      next: (sale) => {
-        this.statusMessage = sale.status === 'REFUNDED'
-          ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
-          : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
-        this.lastTicket = sale;
-        this.clearRefundDraft(id);
-        this.loadProducts();
-        this.loadSalesToday();
-        this.loadPendingSales();
-        this.refreshReportData();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo procesar la devolucion';
-      }
-    });
+    this.refresh
+      .track(
+        'Procesando devolucion...',
+        this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), null),
+      )
+      .subscribe({
+        next: (sale) => {
+          this.statusMessage =
+            sale.status === 'REFUNDED'
+              ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
+              : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
+          this.lastTicket = sale;
+          this.clearRefundDraft(id);
+          this.loadProducts();
+          this.loadSalesToday();
+          this.loadPendingSales();
+          this.refreshReportData();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo procesar la devolucion';
+        },
+      });
   }
 
   createProduct(): void {
@@ -911,23 +1164,27 @@ export class StoreService {
     }
     const payload = {
       ...this.productForm,
-      imageUrl: this.productForm.imageUrl || null
+      imageUrl: this.productForm.imageUrl || null,
     };
 
     const request = this.editingProductId
       ? this.http.put<Product>(this.apiUrl(`/products/${this.editingProductId}`), payload)
       : this.http.post<Product>(this.apiUrl('/products'), payload);
 
-    request.subscribe({
-      next: () => {
-        this.statusMessage = this.editingProductId ? 'Producto actualizado' : 'Producto creado';
-        this.closeProductForm();
-        this.loadProducts();
-      },
-      error: () => {
-        this.statusMessage = this.editingProductId ? 'No se pudo actualizar el producto' : 'No se pudo crear el producto';
-      }
-    });
+    this.refresh
+      .track(this.editingProductId ? 'Actualizando producto...' : 'Guardando producto...', request)
+      .subscribe({
+        next: () => {
+          this.statusMessage = this.editingProductId ? 'Producto actualizado' : 'Producto creado';
+          this.closeProductForm();
+          this.loadProducts();
+        },
+        error: () => {
+          this.statusMessage = this.editingProductId
+            ? 'No se pudo actualizar el producto'
+            : 'No se pudo crear el producto';
+        },
+      });
   }
 
   createCategory(): void {
@@ -940,23 +1197,35 @@ export class StoreService {
       name: this.categoryForm.name.trim(),
       description: this.categoryForm.description.trim() || null,
       sizeLabel: this.categorySizeLabelPreview,
-      active: this.categoryForm.active
+      active: this.categoryForm.active,
     };
 
     const request = this.editingCategoryId
-      ? this.http.put<ProductCategory>(this.apiUrl(`/product-categories/${this.editingCategoryId}`), payload)
+      ? this.http.put<ProductCategory>(
+          this.apiUrl(`/product-categories/${this.editingCategoryId}`),
+          payload,
+        )
       : this.http.post<ProductCategory>(this.apiUrl('/product-categories'), payload);
 
-    request.subscribe({
-      next: () => {
-        this.statusMessage = this.editingCategoryId ? 'Categoria actualizada' : 'Categoria creada';
-        this.resetCategoryForm();
-        this.loadProductCategories();
-      },
-      error: () => {
-        this.statusMessage = this.editingCategoryId ? 'No se pudo actualizar la categoria' : 'No se pudo crear la categoria';
-      }
-    });
+    this.refresh
+      .track(
+        this.editingCategoryId ? 'Actualizando categoria...' : 'Guardando categoria...',
+        request,
+      )
+      .subscribe({
+        next: () => {
+          this.statusMessage = this.editingCategoryId
+            ? 'Categoria actualizada'
+            : 'Categoria creada';
+          this.resetCategoryForm();
+          this.loadProductCategories();
+        },
+        error: () => {
+          this.statusMessage = this.editingCategoryId
+            ? 'No se pudo actualizar la categoria'
+            : 'No se pudo crear la categoria';
+        },
+      });
   }
 
   editCategory(category: ProductCategory): void {
@@ -966,7 +1235,7 @@ export class StoreService {
       presetName: this.inferCategoryPresetName(category),
       name: category.name,
       description: category.description || '',
-      active: category.active
+      active: category.active,
     };
     this.setView('categories', 'categories');
   }
@@ -977,22 +1246,29 @@ export class StoreService {
 
   deleteCategory(category: ProductCategory): void {
     if (!window.confirm(`Eliminar categoria ${category.name}?`)) return;
-    this.http.delete(this.apiUrl(`/product-categories/${category.id}`)).subscribe({
-      next: () => {
-        this.statusMessage = 'Categoria eliminada';
-        if (this.productForm.category === category.name) {
-          this.productForm.category = '';
-        }
-        this.loadProductCategories();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo eliminar la categoria. Revisa si ya tiene productos.';
-      }
-    });
+    this.refresh
+      .track(
+        'Eliminando categoria...',
+        this.http.delete(this.apiUrl(`/product-categories/${category.id}`)),
+      )
+      .subscribe({
+        next: () => {
+          this.statusMessage = 'Categoria eliminada';
+          if (this.productForm.category === category.name) {
+            this.productForm.category = '';
+          }
+          this.loadProductCategories();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo eliminar la categoria. Revisa si ya tiene productos.';
+        },
+      });
   }
 
   categoryUsageCount(name: string): number {
-    return this.products.filter((product) => (product.category || '').trim().toLowerCase() === name.trim().toLowerCase()).length;
+    return this.products.filter(
+      (product) => (product.category || '').trim().toLowerCase() === name.trim().toLowerCase(),
+    ).length;
   }
 
   applyCategoryToProduct(name: string): void {
@@ -1002,8 +1278,14 @@ export class StoreService {
     this.setView('catalog', 'products');
   }
 
-  applyCategoryPreset(preset: { name: string; description: string | null; sizeLabel: string }): void {
-    const existing = this.productCategories.find((category) => this.sameCategory(category.name, preset.name));
+  applyCategoryPreset(preset: {
+    name: string;
+    description: string | null;
+    sizeLabel: string;
+  }): void {
+    const existing = this.productCategories.find((category) =>
+      this.sameCategory(category.name, preset.name),
+    );
     if (existing) {
       this.applyCategoryToProduct(existing.name);
       return;
@@ -1014,7 +1296,7 @@ export class StoreService {
       presetName: preset.name,
       name: preset.name,
       description: preset.description || '',
-      active: true
+      active: true,
     };
     this.productForm.category = preset.name;
     this.statusMessage = `Preset cargado para ${preset.name}. Guardalo en Categorias para dejarlo fijo.`;
@@ -1025,7 +1307,10 @@ export class StoreService {
     this.categoryForm.presetName = presetName;
     const preset = this.findCategoryPreset(presetName);
     if (!preset) return;
-    if (!this.categoryForm.name.trim() || this.findCategoryPreset(this.categoryForm.name)?.name === this.categoryForm.name) {
+    if (
+      !this.categoryForm.name.trim() ||
+      this.findCategoryPreset(this.categoryForm.name)?.name === this.categoryForm.name
+    ) {
       this.categoryForm.name = preset.name;
     }
     if (!this.categoryForm.description.trim()) {
@@ -1046,7 +1331,7 @@ export class StoreService {
       costPrice: product.costPrice,
       salePrice: product.salePrice,
       stock: product.stock,
-      status: product.status
+      status: product.status,
     };
     this.productImageFileName = product.imageUrl ? 'Imagen cargada' : '';
     this.setView('catalog', 'products');
@@ -1092,26 +1377,38 @@ export class StoreService {
   }
 
   deleteProduct(product: Product): void {
-    this.http.delete(this.apiUrl(`/products/${product.id}`)).subscribe({
-      next: () => {
-        this.statusMessage = `${product.name} eliminado`;
-        if (this.editingProductId === product.id) {
-          this.resetProductForm();
-        }
-        this.loadProducts();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo eliminar el producto';
-      }
-    });
+    this.refresh
+      .track('Eliminando producto...', this.http.delete(this.apiUrl(`/products/${product.id}`)))
+      .subscribe({
+        next: () => {
+          this.statusMessage = `${product.name} eliminado`;
+          if (this.editingProductId === product.id) {
+            this.resetProductForm();
+          }
+          this.loadProducts();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo eliminar el producto';
+        },
+      });
   }
 
   restock(product: Product, quantity: number): void {
-    this.adjustInventory(product.id, quantity, `Ajuste manual para ${product.name}`, 'Stock actualizado');
+    this.adjustInventory(
+      product.id,
+      quantity,
+      `Ajuste manual para ${product.name}`,
+      'Stock actualizado',
+    );
   }
 
   reduceStock(product: Product): void {
-    this.adjustInventory(product.id, -1, `Ajuste manual para ${product.name}`, 'Ajuste de inventario guardado');
+    this.adjustInventory(
+      product.id,
+      -1,
+      `Ajuste manual para ${product.name}`,
+      'Ajuste de inventario guardado',
+    );
   }
 
   registerPurchase(): void {
@@ -1124,24 +1421,33 @@ export class StoreService {
       return;
     }
 
-    this.http
-      .post<PurchaseRecord>(this.apiUrl('/purchases'), {
-        productId: this.purchaseForm.productId,
-        supplierName: this.purchaseForm.supplierName || null,
-        quantity: this.purchaseForm.quantity,
-        unitCost: this.purchaseForm.unitCost,
-        note: this.purchaseForm.note || null
-      })
+    this.refresh
+      .track(
+        'Registrando compra...',
+        this.http.post<PurchaseRecord>(this.apiUrl('/purchases'), {
+          productId: this.purchaseForm.productId,
+          supplierName: this.purchaseForm.supplierName || null,
+          quantity: this.purchaseForm.quantity,
+          unitCost: this.purchaseForm.unitCost,
+          note: this.purchaseForm.note || null,
+        }),
+      )
       .subscribe({
         next: () => {
           this.statusMessage = 'Compra registrada y stock actualizado';
-          this.purchaseForm = { productId: null, supplierName: '', quantity: 1, unitCost: 0, note: '' };
+          this.purchaseForm = {
+            productId: null,
+            supplierName: '',
+            quantity: 1,
+            unitCost: 0,
+            note: '',
+          };
           this.loadProducts();
           this.refreshInventoryData();
         },
         error: () => {
           this.statusMessage = 'No se pudo registrar la compra';
-        }
+        },
       });
   }
 
@@ -1150,12 +1456,15 @@ export class StoreService {
       this.statusMessage = 'El cliente necesita nombre';
       return;
     }
-    this.http
-      .post<Customer>(this.apiUrl('/customers'), {
-        name: this.newCustomerName,
-        phone: this.newCustomerPhone || null,
-        notes: this.newCustomerNotes || null
-      })
+    this.refresh
+      .track(
+        'Guardando cliente...',
+        this.http.post<Customer>(this.apiUrl('/customers'), {
+          name: this.newCustomerName,
+          phone: this.newCustomerPhone || null,
+          notes: this.newCustomerNotes || null,
+        }),
+      )
       .subscribe({
         next: () => {
           this.statusMessage = 'Cliente agregado';
@@ -1166,35 +1475,42 @@ export class StoreService {
         },
         error: () => {
           this.statusMessage = 'No se pudo agregar el cliente';
-        }
+        },
       });
   }
 
   deleteCustomer(customer: Customer): void {
-    this.http.delete(this.apiUrl(`/customers/${customer.id}`)).subscribe({
-      next: () => {
-        this.statusMessage = `${customer.name} eliminado`;
-        if (this.selectedCustomerId === customer.id) this.selectedCustomerId = null;
-        if (this.selectedCustomerHistory?.id === customer.id) this.selectedCustomerHistory = null;
-        this.loadCustomers();
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo eliminar el cliente';
-      }
-    });
+    this.refresh
+      .track('Eliminando cliente...', this.http.delete(this.apiUrl(`/customers/${customer.id}`)))
+      .subscribe({
+        next: () => {
+          this.statusMessage = `${customer.name} eliminado`;
+          if (this.selectedCustomerId === customer.id) this.selectedCustomerId = null;
+          if (this.selectedCustomerHistory?.id === customer.id) this.selectedCustomerHistory = null;
+          this.loadCustomers();
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo eliminar el cliente';
+        },
+      });
   }
 
   showCustomerSales(customer: Customer): void {
     this.selectedCustomerHistory = customer;
     this.activeSections = { ...this.activeSections, customers: 'history' };
-    this.http.get<SaleRecord[]>(this.apiUrl(`/sales/customer/${customer.id}`)).subscribe({
-      next: (sales) => {
-        this.customerSales = sales;
-      },
-      error: () => {
-        this.customerSales = [];
-      }
-    });
+    this.refresh
+      .track(
+        'Cargando historial...',
+        this.http.get<SaleRecord[]>(this.apiUrl(`/sales/customer/${customer.id}`)),
+      )
+      .subscribe({
+        next: (sales) => {
+          this.customerSales = sales;
+        },
+        error: () => {
+          this.customerSales = [];
+        },
+      });
   }
 
   clearCustomerHistory(): void {
@@ -1207,24 +1523,152 @@ export class StoreService {
     this.lastTicket = null;
   }
 
+  saveTicketSettings(): void {
+    if (!this.settingsForm.storeName.trim()) {
+      this.settingsMessage = 'El nombre de la tienda es obligatorio';
+      this.statusMessage = this.settingsMessage;
+      return;
+    }
+
+    this.isSavingTicketSettings = true;
+    this.refresh
+      .track(
+        'Guardando datos del ticket...',
+        this.http
+          .put<AppSettings>(
+            this.apiUrl('/settings/ticket'),
+            {
+              storeName: this.settingsForm.storeName,
+              phone: this.settingsForm.phone,
+              street: this.settingsForm.street,
+              neighborhood: this.settingsForm.neighborhood,
+              city: this.settingsForm.city,
+              postalCode: this.settingsForm.postalCode,
+              logoUrl: this.settingsForm.logoUrl,
+              thankYouMessage: this.settingsForm.thankYouMessage,
+            },
+            this.authOptions(),
+          )
+          .pipe(timeout({ first: SAVE_TIMEOUT_MS })),
+      )
+      .pipe(finalize(() => (this.isSavingTicketSettings = false)))
+      .subscribe({
+        next: (settings) => {
+          this.applySettings(settings);
+          this.settingsMessage = 'Datos del ticket guardados';
+          this.statusMessage = 'Datos del ticket guardados';
+        },
+        error: () => {
+          this.settingsMessage = 'No se pudieron guardar los datos del ticket';
+          this.statusMessage = this.settingsMessage;
+        },
+      });
+  }
+
+  saveCredentials(): void {
+    if (!this.credentialsForm.username.trim()) {
+      this.credentialsMessage = 'El usuario es obligatorio';
+      this.statusMessage = this.credentialsMessage;
+      return;
+    }
+    if (!this.credentialsForm.currentPassword.trim()) {
+      this.credentialsMessage = 'Escribe la contrasena actual para confirmar el cambio';
+      this.statusMessage = this.credentialsMessage;
+      return;
+    }
+
+    this.isSavingCredentials = true;
+    this.refresh
+      .track(
+        'Guardando acceso...',
+        this.http
+          .put<AppSettings>(
+            this.apiUrl('/settings/credentials'),
+            this.credentialsForm,
+            this.authOptions(),
+          )
+          .pipe(timeout({ first: SAVE_TIMEOUT_MS })),
+      )
+      .pipe(finalize(() => (this.isSavingCredentials = false)))
+      .subscribe({
+        next: (settings) => {
+          this.applySettings(settings);
+          this.credentialsForm.currentPassword = '';
+          this.credentialsForm.newPassword = '';
+          this.credentialsMessage = 'Usuario y contrasena guardados';
+          this.statusMessage = 'Acceso actualizado';
+        },
+        error: () => {
+          this.credentialsMessage = 'No se guardo: revisa la contrasena actual';
+          this.statusMessage = this.credentialsMessage;
+        },
+      });
+  }
+
+  onLogoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.settingsForm.logoUrl = String(reader.result || '');
+      this.logoFileName = file.name;
+      this.settingsMessage = 'Logo cargado, guarda la configuracion';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  downloadBackup(): void {
+    this.refresh
+      .track(
+        'Generando respaldo...',
+        this.http.get<Record<string, unknown>>(this.apiUrl('/backup'), this.authOptions()),
+      )
+      .subscribe({
+        next: (backup) => {
+          const payload = this.buildBackupWorkbook(backup);
+          const blob = new Blob([payload], { type: 'application/vnd.ms-excel;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `boutique-os-respaldo-${this.todayDateString()}.xls`;
+          link.click();
+          URL.revokeObjectURL(url);
+          this.settingsMessage = 'Backup formal descargado en Excel';
+        },
+        error: () => {
+          this.settingsMessage = 'No se pudo generar el backup';
+          this.statusMessage = this.settingsMessage;
+        },
+      });
+  }
+
   saveCashCount(): void {
     this.isSavingCashCount = true;
-    this.http.put<DailyCashCount>(this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`), {
-      actualCash: this.actualCashInput,
-      notes: this.cashCountNotes || null
-    }).subscribe({
-      next: (cashCount) => {
-        this.actualCashInput = cashCount.actualCash;
-        this.cashCountNotes = cashCount.notes || '';
-        this.cashCountUpdatedAt = cashCount.updatedAt;
-        this.statusMessage = 'Corte de efectivo guardado';
-        this.isSavingCashCount = false;
-      },
-      error: () => {
-        this.statusMessage = 'No se pudo guardar el efectivo real';
-        this.isSavingCashCount = false;
-      }
-    });
+    this.refresh
+      .track(
+        'Guardando corte...',
+        this.http.put<DailyCashCount>(
+          this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`),
+          {
+            actualCash: this.actualCashInput,
+            notes: this.cashCountNotes || null,
+          },
+        ),
+      )
+      .subscribe({
+        next: (cashCount) => {
+          this.actualCashInput = cashCount.actualCash;
+          this.cashCountNotes = cashCount.notes || '';
+          this.cashCountUpdatedAt = cashCount.updatedAt;
+          this.statusMessage = 'Corte de efectivo guardado';
+          this.isSavingCashCount = false;
+        },
+        error: () => {
+          this.statusMessage = 'No se pudo guardar el efectivo real';
+          this.isSavingCashCount = false;
+        },
+      });
   }
 
   openLastTicketPdf(): void {
@@ -1251,7 +1695,7 @@ export class StoreService {
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   }
 
@@ -1282,7 +1726,7 @@ export class StoreService {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [80, 180]
+      format: [80, 220],
     });
 
     const pageWidth = 80;
@@ -1311,10 +1755,28 @@ export class StoreService {
       y += 5;
     };
 
-    const wrap = (text: string) =>
-      doc.splitTextToSize(text || '', contentWidth) as string[];
+    const wrap = (text: string) => doc.splitTextToSize(text || '', contentWidth) as string[];
 
-    center('BOUTIQUE', 12, 'bold');
+    if (this.settings.logoUrl.startsWith('data:image/')) {
+      try {
+        doc.addImage(this.settings.logoUrl, 'PNG', 28, y, 24, 16, undefined, 'FAST');
+        y += 19;
+      } catch {
+        y += 1;
+      }
+    }
+
+    center(this.settings.storeName || 'Boutique OS', 12, 'bold');
+    if (this.settings.address) center(this.settings.address, 7);
+    if (!this.settings.address && this.settings.street) center(this.settings.street, 7);
+    if (!this.settings.address && this.settings.neighborhood) center(this.settings.neighborhood, 7);
+    if (!this.settings.address && (this.settings.city || this.settings.postalCode)) {
+      center(
+        `${this.settings.city}${this.settings.city && this.settings.postalCode ? ' CP ' : ''}${this.settings.postalCode}`,
+        7,
+      );
+    }
+    if (this.settings.phone) center(this.settings.phone, 7);
     center('Ticket de venta', 9);
     y += 1;
     row('Venta', `#${sale.id}`, true);
@@ -1338,9 +1800,10 @@ export class StoreService {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      const detail = item.refundedQuantity > 0
-        ? `${item.quantity} x ${this.formatMoney(item.unitPrice)} (${item.refundedQuantity} dev.)`
-        : `${item.quantity} x ${this.formatMoney(item.unitPrice)}`;
+      const detail =
+        item.refundedQuantity > 0
+          ? `${item.quantity} x ${this.formatMoney(item.unitPrice)} (${item.refundedQuantity} dev.)`
+          : `${item.quantity} x ${this.formatMoney(item.unitPrice)}`;
       doc.text(detail, margin, y);
       doc.text(this.formatMoney(item.lineTotal), pageWidth - margin, y, { align: 'right' });
       y += 5;
@@ -1353,8 +1816,12 @@ export class StoreService {
       row('Devuelto', `-${this.formatMoney(sale.refundedTotal)}`);
     }
     row('Total', this.formatMoney(sale.total), true);
+    if (sale.paymentMethod === 'CASH') {
+      row('Recibido', this.formatMoney(sale.cashReceived || 0));
+      row('Cambio', this.formatMoney(sale.changeDue || 0), true);
+    }
     y += 4;
-    center('Gracias por tu compra', 8, 'bold');
+    center(this.settings.thankYouMessage || 'Gracias por tu compra', 8, 'bold');
 
     const blobUrl = doc.output('bloburl');
     const printWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
@@ -1372,8 +1839,134 @@ export class StoreService {
       },
       error: () => {
         this.statusMessage = 'No pude cargar productos del backend';
-      }
+      },
     });
+  }
+
+  private buildBackupWorkbook(backup: Record<string, unknown>): string {
+    const sections = [
+      ['Configuracion', [backup['settings']]],
+      ['Productos', backup['products']],
+      ['Categorias', backup['productCategories']],
+      ['Clientes', backup['customers']],
+      ['Ventas', backup['sales']],
+      ['Devoluciones', backup['saleRefunds']],
+      ['Compras', backup['purchases']],
+      ['Movimientos de inventario', backup['inventoryMovements']],
+      ['Cortes de caja', backup['dailyCashCounts']],
+    ] as const;
+
+    const generatedAt = this.escapeHtml(String(backup['generatedAt'] || new Date().toISOString()));
+    const body = sections
+      .map(([title, data]) => this.backupSection(title, Array.isArray(data) ? data : []))
+      .join('');
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #1f2933; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 24px 0 8px; background: #e8edf3; padding: 8px; border: 1px solid #c8d1db; }
+    .meta { color: #66717f; margin-bottom: 16px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+    th { background: #2f5f98; color: #ffffff; font-weight: bold; }
+    th, td { border: 1px solid #c8d1db; padding: 6px; font-size: 12px; vertical-align: top; }
+    td { mso-number-format:"\\@"; }
+  </style>
+</head>
+<body>
+  <h1>Respaldo Boutique OS</h1>
+  <div class="meta">Generado: ${generatedAt}</div>
+  ${body}
+</body>
+</html>`;
+  }
+
+  private backupSection(title: string, rows: unknown[]): string {
+    if (!rows.length) {
+      return `<h2>${this.escapeHtml(title)}</h2><p>Sin datos</p>`;
+    }
+
+    const normalized = rows.map((row) => this.flattenBackupRow(row));
+    const headers = [...new Set(normalized.flatMap((row) => Object.keys(row)))];
+    const head = headers
+      .map((header) => `<th>${this.escapeHtml(this.humanizeBackupHeader(header))}</th>`)
+      .join('');
+    const body = normalized
+      .map(
+        (row) =>
+          `<tr>${headers.map((header) => `<td>${this.escapeHtml(row[header] ?? '')}</td>`).join('')}</tr>`,
+      )
+      .join('');
+    return `<h2>${this.escapeHtml(title)}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  private flattenBackupRow(row: unknown): Record<string, string> {
+    if (!row || typeof row !== 'object') {
+      return { valor: String(row ?? '') };
+    }
+
+    const output: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+      if (Array.isArray(value)) {
+        output[key] = value.map((item) => JSON.stringify(item)).join(' | ');
+      } else if (value && typeof value === 'object') {
+        output[key] = JSON.stringify(value);
+      } else {
+        output[key] = String(value ?? '');
+      }
+    }
+    return output;
+  }
+
+  private humanizeBackupHeader(value: string): string {
+    return value
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .trim()
+      .replace(/^./, (letter) => letter.toUpperCase());
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private loadSettings(): void {
+    this.http.get<AppSettings>(this.apiUrl('/settings'), this.authOptions()).subscribe({
+      next: (settings) => {
+        this.applySettings(settings);
+      },
+      error: () => {
+        this.settingsMessage = 'No se pudo cargar la configuracion';
+      },
+    });
+  }
+
+  private applySettings(settings: AppSettings): void {
+    this.settings = settings;
+    this.settingsForm = {
+      storeName: settings.storeName || 'Boutique OS',
+      phone: settings.phone || '',
+      street: settings.street || '',
+      neighborhood: settings.neighborhood || '',
+      city: settings.city || '',
+      postalCode: settings.postalCode || '',
+      logoUrl: settings.logoUrl || '',
+      address: settings.address || '',
+      thankYouMessage: settings.thankYouMessage || 'Gracias por tu compra',
+    };
+    this.credentialsForm = {
+      username: settings.username || 'admin',
+      currentPassword: '',
+      newPassword: '',
+    };
   }
 
   private loadProductCategories(): void {
@@ -1383,7 +1976,7 @@ export class StoreService {
       },
       error: () => {
         this.statusMessage = 'No se pudieron cargar las categorias';
-      }
+      },
     });
   }
 
@@ -1394,7 +1987,7 @@ export class StoreService {
       },
       error: () => {
         this.statusMessage = 'No pude cargar el corte del dia';
-      }
+      },
     });
   }
 
@@ -1402,13 +1995,16 @@ export class StoreService {
     this.http.get<Customer[]>(this.apiUrl('/customers')).subscribe({
       next: (customers) => {
         this.customers = customers;
-        if (this.selectedCustomerId && !customers.find((customer) => customer.id === this.selectedCustomerId)) {
+        if (
+          this.selectedCustomerId &&
+          !customers.find((customer) => customer.id === this.selectedCustomerId)
+        ) {
           this.selectedCustomerId = null;
         }
       },
       error: () => {
         this.statusMessage = 'No pude cargar clientes del backend';
-      }
+      },
     });
   }
 
@@ -1416,7 +2012,7 @@ export class StoreService {
     this.http.get<SaleRecord[]>(this.apiUrl('/sales/pending')).subscribe({
       next: (sales) => {
         this.pendingSales = sales;
-      }
+      },
     });
   }
 
@@ -1424,26 +2020,30 @@ export class StoreService {
     this.http.get<SaleRecord[]>(this.apiUrl(`/sales?date=${this.reportDate}`)).subscribe({
       next: (sales) => {
         this.allSales = sales;
-      }
+      },
     });
   }
 
   private loadRefundsToday(): void {
-    this.http.get<SaleRefundRecord[]>(this.apiUrl(`/sales/refunds/today?date=${this.reportDate}`)).subscribe({
-      next: (refunds) => {
-        this.refundsToday = refunds;
-      }
-    });
+    this.http
+      .get<SaleRefundRecord[]>(this.apiUrl(`/sales/refunds/today?date=${this.reportDate}`))
+      .subscribe({
+        next: (refunds) => {
+          this.refundsToday = refunds;
+        },
+      });
   }
 
   private loadCashCount(): void {
-    this.http.get<DailyCashCount>(this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`)).subscribe({
-      next: (cashCount) => {
-        this.actualCashInput = cashCount.actualCash;
-        this.cashCountNotes = cashCount.notes || '';
-        this.cashCountUpdatedAt = cashCount.updatedAt;
-      }
-    });
+    this.http
+      .get<DailyCashCount>(this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`))
+      .subscribe({
+        next: (cashCount) => {
+          this.actualCashInput = cashCount.actualCash;
+          this.cashCountNotes = cashCount.notes || '';
+          this.cashCountUpdatedAt = cashCount.updatedAt;
+        },
+      });
   }
 
   private refreshReportData(): void {
@@ -1455,27 +2055,33 @@ export class StoreService {
   }
 
   private loadInventoryMovements(): void {
-    this.http.get<InventoryMovement[]>(this.apiUrl(`/inventory/movements?date=${this.inventoryDate}`)).subscribe({
-      next: (movements) => {
-        this.inventoryMovements = movements;
-      }
-    });
+    this.http
+      .get<InventoryMovement[]>(this.apiUrl(`/inventory/movements?date=${this.inventoryDate}`))
+      .subscribe({
+        next: (movements) => {
+          this.inventoryMovements = movements;
+        },
+      });
   }
 
   private loadReportInventoryMovements(): void {
-    this.http.get<InventoryMovement[]>(this.apiUrl(`/inventory/movements?date=${this.reportDate}`)).subscribe({
-      next: (movements) => {
-        this.reportInventoryMovements = movements;
-      }
-    });
+    this.http
+      .get<InventoryMovement[]>(this.apiUrl(`/inventory/movements?date=${this.reportDate}`))
+      .subscribe({
+        next: (movements) => {
+          this.reportInventoryMovements = movements;
+        },
+      });
   }
 
   private loadPurchases(): void {
-    this.http.get<PurchaseRecord[]>(this.apiUrl(`/purchases?date=${this.inventoryDate}`)).subscribe({
-      next: (purchases) => {
-        this.recentPurchases = purchases;
-      }
-    });
+    this.http
+      .get<PurchaseRecord[]>(this.apiUrl(`/purchases?date=${this.inventoryDate}`))
+      .subscribe({
+        next: (purchases) => {
+          this.recentPurchases = purchases;
+        },
+      });
   }
 
   private refreshInventoryData(): void {
@@ -1487,14 +2093,17 @@ export class StoreService {
     productId: number,
     quantityDelta: number,
     note: string,
-    message: string
+    message: string,
   ): void {
-    this.http
-      .post<Product>(this.apiUrl('/inventory/adjustments'), {
-        productId,
-        quantityDelta,
-        note
-      })
+    this.refresh
+      .track(
+        'Actualizando inventario...',
+        this.http.post<Product>(this.apiUrl('/inventory/adjustments'), {
+          productId,
+          quantityDelta,
+          note,
+        }),
+      )
       .subscribe({
         next: () => {
           this.statusMessage = message;
@@ -1503,8 +2112,64 @@ export class StoreService {
         },
         error: () => {
           this.statusMessage = 'No se pudo actualizar inventario';
-        }
+        },
       });
+  }
+
+  private viewLabel(view: ViewId): string {
+    const labels: Record<ViewId, string> = {
+      pos: 'punto de venta',
+      products: 'productos',
+      catalog: 'catalogo',
+      categories: 'categorias',
+      inventory: 'inventario',
+      customers: 'clientes',
+      reports: 'corte diario',
+      settings: 'configuracion',
+    };
+    return labels[view];
+  }
+
+  private showAlert(message: string): void {
+    if (!message || message === 'Listo para vender') return;
+    this.alertMessage = message;
+    this.alertType = this.inferAlertType(message);
+    if (this.alertTimer) {
+      clearTimeout(this.alertTimer);
+    }
+    this.alertTimer = setTimeout(() => {
+      this.alertMessage = '';
+      this.alertTimer = null;
+    }, 3200);
+  }
+
+  private inferAlertType(message: string): AlertType {
+    const text = message.toLowerCase();
+    if (
+      text.includes('no se') ||
+      text.includes('no pude') ||
+      text.includes('incorrect') ||
+      text.includes('sin stock') ||
+      text.includes('necesita') ||
+      text.includes('obligatorio') ||
+      text.includes('revisa')
+    ) {
+      return 'error';
+    }
+    if (text.includes('pendiente') || text.includes('selecciona') || text.includes('actualizado')) {
+      return 'warning';
+    }
+    if (
+      text.includes('guardado') ||
+      text.includes('agregado') ||
+      text.includes('registrada') ||
+      text.includes('confirmado') ||
+      text.includes('descargado') ||
+      text.includes('cobrada')
+    ) {
+      return 'success';
+    }
+    return 'info';
   }
 
   private quantityInCart(productId: number): number {
@@ -1522,7 +2187,9 @@ export class StoreService {
   private inferCategoryPresetName(category: ProductCategory): string {
     const byName = this.findCategoryPreset(category.name);
     if (byName) return byName.name;
-    const bySizeLabel = this.categoryPresets.find((preset) => this.sameCategory(preset.sizeLabel, category.sizeLabel));
+    const bySizeLabel = this.categoryPresets.find((preset) =>
+      this.sameCategory(preset.sizeLabel, category.sizeLabel),
+    );
     return bySizeLabel?.name || this.categoryPresets[0].name;
   }
 
@@ -1545,7 +2212,7 @@ export class StoreService {
       costPrice: 0,
       salePrice: 0,
       stock: 0,
-      status: 'ACTIVE'
+      status: 'ACTIVE',
     };
     this.productImageFileName = '';
   }
@@ -1556,7 +2223,7 @@ export class StoreService {
       presetName: this.categoryPresets[0].name,
       name: '',
       description: '',
-      active: true
+      active: true,
     };
   }
 
@@ -1575,6 +2242,14 @@ export class StoreService {
     return `${this.apiBase}${path}`;
   }
 
+  private authOptions(): { headers: HttpHeaders } {
+    return {
+      headers: new HttpHeaders({
+        'X-Boutique-Session': this.sessionToken,
+      }),
+    };
+  }
+
   private resolveApiBase(): string {
     if (typeof window === 'undefined') {
       return 'http://localhost:8080/api';
@@ -1583,8 +2258,7 @@ export class StoreService {
     if (override) {
       return override.replace(/\/$/, '');
     }
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
+    if (window.location.port === '4200') {
       return 'http://localhost:8080/api';
     }
     return '/api';
