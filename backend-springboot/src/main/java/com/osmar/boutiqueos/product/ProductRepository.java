@@ -6,6 +6,9 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    List<Product> findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCase(String name, String category);
-    long countByCategoryIgnoreCase(String category);
+    List<Product> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
+    List<Product> findByAccountIdAndNameContainingIgnoreCaseOrAccountIdAndCategoryContainingIgnoreCase(Long accountIdForName, String name, Long accountIdForCategory, String category);
+    long countByAccountIdAndCategoryIgnoreCase(Long accountId, String category);
+    java.util.Optional<Product> findByIdAndAccountId(Long id, Long accountId);
+    void deleteByIdAndAccountId(Long id, Long accountId);
 }

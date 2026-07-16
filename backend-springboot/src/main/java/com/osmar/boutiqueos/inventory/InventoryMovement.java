@@ -21,6 +21,9 @@ public class InventoryMovement {
     private Long id;
 
     @Column(nullable = false)
+    private Long accountId = 1L;
+
+    @Column(nullable = false)
     private Long productId;
 
     @Column(nullable = false)
@@ -43,6 +46,14 @@ public class InventoryMovement {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public Long getProductId() {

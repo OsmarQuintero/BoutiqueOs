@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.sale;
 
+import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.customer.CustomerRepository;
 import com.osmar.boutiqueos.inventory.InventoryMovementType;
 import com.osmar.boutiqueos.inventory.InventoryService;
@@ -25,20 +26,22 @@ public class SaleService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final InventoryService inventoryService;
+    private final AccountContext accountContext;
 
-    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService) {
+    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext) {
         this.saleRepository = saleRepository;
         this.saleRefundRepository = saleRefundRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.inventoryService = inventoryService;
+        this.accountContext = accountContext;
     }
 
     public List<Sale> listToday() {
         var zone = ZoneId.systemDefault();
         var start = LocalDate.now(zone).atStartOfDay(zone).toInstant();
         var end = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant();
-        return saleRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        return saleRepository.findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(accountContext.requireAccountId(), start, end);
     }
 
     public List<Sale> listByDate(LocalDate date) {
@@ -46,11 +49,11 @@ public class SaleService {
         var target = date == null ? LocalDate.now(zone) : date;
         var start = target.atStartOfDay(zone).toInstant();
         var end = target.plusDays(1).atStartOfDay(zone).toInstant();
-        return saleRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        return saleRepository.findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(accountContext.requireAccountId(), start, end);
     }
 
     public List<Sale> listAll() {
-        return saleRepository.findAllByOrderByCreatedAtDesc();
+        return saleRepository.findAllByAccountIdOrderByCreatedAtDesc(accountContext.requireAccountId());
     }
 
     public List<SaleRefund> listRefundsToday() {
@@ -62,22 +65,24 @@ public class SaleService {
         var target = date == null ? LocalDate.now(zone) : date;
         var start = target.atStartOfDay(zone).toInstant();
         var end = target.plusDays(1).atStartOfDay(zone).toInstant();
-        return saleRefundRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        return saleRefundRepository.findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(accountContext.requireAccountId(), start, end);
     }
 
     public List<Sale> listByCustomer(Long customerId) {
-        return saleRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+        return saleRepository.findByAccountIdAndCustomerIdOrderByCreatedAtDesc(accountContext.requireAccountId(), customerId);
     }
 
     @Transactional
     public Sale create(SaleRequest request) {
+        Long accountId = accountContext.requireAccountId();
         Sale sale = new Sale();
+        sale.setAccountId(accountId);
         sale.setPaymentMethod(request.paymentMethod());
         sale.setDiscount(request.discount() == null ? BigDecimal.ZERO : request.discount());
         sale.setStatus(request.paymentMethod() == PaymentMethod.CASH ? SaleStatus.CONFIRMED : SaleStatus.PENDING);
 
         if (request.customerId() != null) {
-            var customer = customerRepository.findById(request.customerId())
+            var customer = customerRepository.findByIdAndAccountId(request.customerId(), accountId)
                     .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + request.customerId()));
             sale.setCustomerId(customer.getId());
             sale.setCustomerName(customer.getName());
@@ -87,7 +92,7 @@ public class SaleService {
         BigDecimal estimatedProfit = BigDecimal.ZERO;
 
         for (SaleRequest.SaleItemRequest itemRequest : request.items()) {
-            Product product = productRepository.findById(itemRequest.productId())
+            Product product = productRepository.findByIdAndAccountId(itemRequest.productId(), accountId)
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemRequest.productId()));
             if (product.getStock() < itemRequest.quantity()) {
                 throw new IllegalArgumentException("Not enough stock for " + product.getName());
@@ -127,12 +132,12 @@ public class SaleService {
     }
 
     public List<Sale> listPending() {
-        return saleRepository.findByStatus(SaleStatus.PENDING);
+        return saleRepository.findByAccountIdAndStatus(accountContext.requireAccountId(), SaleStatus.PENDING);
     }
 
     @Transactional
     public Sale confirm(Long id) {
-        Sale sale = saleRepository.findById(id)
+        Sale sale = saleRepository.findByIdAndAccountId(id, accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Sale not found: " + id));
         if (sale.getStatus() == SaleStatus.CANCELLED) {
             throw new IllegalArgumentException("Cancelled sale cannot be confirmed");
@@ -146,7 +151,7 @@ public class SaleService {
 
     @Transactional
     public Sale cancel(Long id) {
-        Sale sale = saleRepository.findById(id)
+        Sale sale = saleRepository.findByIdAndAccountId(id, accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Sale not found: " + id));
         if (sale.getStatus() == SaleStatus.CANCELLED) {
             return sale;
@@ -156,7 +161,7 @@ public class SaleService {
         }
 
         for (SaleItem item : sale.getItems()) {
-            Product product = productRepository.findById(item.getProductId())
+            Product product = productRepository.findByIdAndAccountId(item.getProductId(), sale.getAccountId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + item.getProductId()));
             product.setStock(product.getStock() + item.getQuantity());
             inventoryService.syncProductStatus(product);
@@ -169,7 +174,7 @@ public class SaleService {
 
     @Transactional
     public Sale refund(Long id, SaleRefundRequest request) {
-        Sale sale = saleRepository.findById(id)
+        Sale sale = saleRepository.findByIdAndAccountId(id, accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Sale not found: " + id));
         if (sale.getStatus() == SaleStatus.PENDING) {
             throw new IllegalArgumentException("Pending sale must be cancelled, not refunded");
@@ -232,6 +237,7 @@ public class SaleService {
         }
 
         SaleRefund refund = new SaleRefund();
+        refund.setAccountId(sale.getAccountId());
         refund.setSaleId(sale.getId());
         refund.setPaymentMethod(sale.getPaymentMethod());
         refund.setCustomerName(sale.getCustomerName());
@@ -244,7 +250,7 @@ public class SaleService {
                 continue;
             }
 
-            Product product = productRepository.findById(item.getProductId())
+            Product product = productRepository.findByIdAndAccountId(item.getProductId(), sale.getAccountId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + item.getProductId()));
             product.setStock(product.getStock() + refundQty);
             inventoryService.syncProductStatus(product);

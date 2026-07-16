@@ -29,19 +29,46 @@ Ayudar al dueno a controlar ventas, inventario, compras, clientes y corte diario
 ## Ejecutar Backend
 
 ```bash
-cd /home/osmariqv/Documentos/Proyecto/backend-springboot
+cd /home/osmariqv/BoutiqueOs/backend-springboot
 ./mvnw spring-boot:run
 ```
 
-Endpoints iniciales:
+Endpoints principales:
 
 - `GET /api/products`
 - `GET /api/products/{id}`
 - `POST /api/products`
 - `PUT /api/products/{id}`
 - `DELETE /api/products/{id}`
+- `GET /api/product-categories`
+- `POST /api/product-categories`
+- `PUT /api/product-categories/{id}`
+- `DELETE /api/product-categories/{id}`
+- `GET /api/customers`
+- `POST /api/customers`
+- `PUT /api/customers/{id}`
+- `DELETE /api/customers/{id}`
+- `GET /api/inventory/movements`
+- `POST /api/inventory/adjustments`
+- `GET /api/purchases`
+- `POST /api/purchases`
 - `GET /api/sales/today`
+- `GET /api/sales`
+- `GET /api/sales/pending`
+- `GET /api/sales/refunds/today`
+- `GET /api/sales/customer/{customerId}`
 - `POST /api/sales`
+- `POST /api/sales/{id}/confirm`
+- `POST /api/sales/{id}/cancel`
+- `POST /api/sales/{id}/refund`
+- `GET /api/reports/cash-count/today`
+- `PUT /api/reports/cash-count/today`
+- `GET /api/settings`
+- `PUT /api/settings`
+- `PUT /api/settings/ticket`
+- `PUT /api/settings/credentials`
+- `POST /api/settings/login`
+- `GET /api/backup`
 
 H2 Console:
 
@@ -53,7 +80,7 @@ H2 Console:
 ## Ejecutar Frontend
 
 ```bash
-cd /home/osmariqv/Documentos/Proyecto/frontend-angular
+cd /home/osmariqv/BoutiqueOs/frontend-angular
 npm start
 ```
 
@@ -81,6 +108,11 @@ Frontend en Vercel:
 
 - `BOUTIQUE_API_URL=https://tu-backend.onrender.com/api`
 
+En local:
+
+- si corres Angular en `localhost:4200`, el frontend usa `http://localhost:8080/api`
+- fuera de ese caso usa `BOUTIQUE_API_URL` y, si no existe, hace fallback a `/api`
+
 Backend en Render:
 
 - `SPRING_DATASOURCE_URL=jdbc:postgresql://db.xxx.supabase.co:5432/postgres?sslmode=require`
@@ -94,8 +126,17 @@ Backend en Render:
 ### Supabase
 
 1. Crea un proyecto PostgreSQL en Supabase.
-2. Copia la cadena de conexion Postgres y usala como `SPRING_DATASOURCE_URL`.
-3. Agrega `?sslmode=require` si tu URL no lo trae.
+2. Elige una sola modalidad:
+   - `Direct connection`
+   - `Pooler`
+3. No mezcles `host` y `username` entre ambas.
+4. Si usas `Direct connection`, usa:
+   - `SPRING_DATASOURCE_URL=jdbc:postgresql://db.xxx.supabase.co:5432/postgres?sslmode=require`
+   - `SPRING_DATASOURCE_USERNAME=postgres`
+5. Si usas `Pooler`, usa el host y el usuario exactos que te da Supabase para el pooler, por ejemplo:
+   - `SPRING_DATASOURCE_URL=jdbc:postgresql://aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require`
+   - `SPRING_DATASOURCE_USERNAME=postgres.xxx`
+6. Agrega `?sslmode=require` si tu URL no lo trae.
 
 ### Render
 
@@ -115,5 +156,8 @@ Backend en Render:
 ### Notas
 
 - En local se sigue usando H2 por defecto.
+- Los datos demo solo se siembran cuando el backend arranca con H2 local; en produccion con PostgreSQL no corre el `DataSeeder`.
 - En produccion el backend toma `PORT` automaticamente.
 - El frontend ya no depende de `localhost`; toma la API desde `BOUTIQUE_API_URL` o usa `/api` solo como fallback.
+- El frontend es una SPA con cambio de vistas dentro de un solo componente raiz, sin router activo.
+- Si ves `tenant/user ... not found` o `Unable to determine Dialect without JDBC metadata`, casi siempre estas mezclando datos de `Direct connection` con `Pooler`.

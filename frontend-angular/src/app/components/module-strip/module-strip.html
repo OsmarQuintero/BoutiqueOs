@@ -1,0 +1,28 @@
+<section class="module-strip">
+  <div class="module-strip-copy">
+    <div class="module-strip-label">Modulos</div>
+    <div class="module-strip-caption">Accesos directos del sistema</div>
+  </div>
+  <nav class="module-nav" aria-label="Modulos principales">
+    @for (item of items; track item.id) {
+      <button
+        type="button"
+        class="module-chip"
+        [class.active]="isItemActive(item.id)"
+        (click)="selectView(item.id)"
+        [attr.title]="item.label"
+      >
+        <span class="module-chip-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path [attr.d]="item.iconPath"></path>
+          </svg>
+        </span>
+        <span class="module-chip-label">{{ item.label }}</span>
+      </button>
+    }
+  </nav>
+  <div class="module-strip-status">
+    <span class="module-strip-dot"></span>
+    {{ statusText }}
+  </div>
+</section>

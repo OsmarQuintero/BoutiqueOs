@@ -7,5 +7,7 @@ import java.util.List;
 
 public interface SaleRefundRepository extends JpaRepository<SaleRefund, Long> {
 
-    List<SaleRefund> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end);
+    List<SaleRefund> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(Long accountId, Instant start, Instant end);
+
+    List<SaleRefund> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
 }

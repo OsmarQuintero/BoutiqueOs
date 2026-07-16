@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.purchase;
 
+import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.inventory.InventoryMovementType;
 import com.osmar.boutiqueos.inventory.InventoryService;
 import com.osmar.boutiqueos.product.Product;
@@ -18,15 +19,17 @@ public class PurchaseService {
     private final PurchaseRepository purchaseRepository;
     private final ProductRepository productRepository;
     private final InventoryService inventoryService;
+    private final AccountContext accountContext;
 
-    public PurchaseService(PurchaseRepository purchaseRepository, ProductRepository productRepository, InventoryService inventoryService) {
+    public PurchaseService(PurchaseRepository purchaseRepository, ProductRepository productRepository, InventoryService inventoryService, AccountContext accountContext) {
         this.purchaseRepository = purchaseRepository;
         this.productRepository = productRepository;
         this.inventoryService = inventoryService;
+        this.accountContext = accountContext;
     }
 
     public List<PurchaseResponse> listRecent() {
-        return purchaseRepository.findTop30ByOrderByCreatedAtDesc().stream()
+        return purchaseRepository.findTop30ByAccountIdOrderByCreatedAtDesc(accountContext.requireAccountId()).stream()
                 .map(PurchaseResponse::from)
                 .toList();
     }
@@ -36,14 +39,14 @@ public class PurchaseService {
         var target = date == null ? LocalDate.now(zone) : date;
         var start = target.atStartOfDay(zone).toInstant();
         var end = target.plusDays(1).atStartOfDay(zone).toInstant();
-        return purchaseRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end).stream()
+        return purchaseRepository.findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(accountContext.requireAccountId(), start, end).stream()
                 .map(PurchaseResponse::from)
                 .toList();
     }
 
     @Transactional
     public PurchaseResponse create(PurchaseRequest request) {
-        Product product = productRepository.findById(request.productId())
+        Product product = productRepository.findByIdAndAccountId(request.productId(), accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + request.productId()));
 
         BigDecimal unitCost = request.unitCost() == null ? product.getCostPrice() : request.unitCost();
@@ -54,6 +57,7 @@ public class PurchaseService {
         inventoryService.syncProductStatus(product);
 
         Purchase purchase = new Purchase();
+        purchase.setAccountId(product.getAccountId());
         purchase.setSupplierName(request.supplierName());
         purchase.setProductId(product.getId());
         purchase.setProductName(product.getName());

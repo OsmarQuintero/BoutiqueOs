@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProductCategoryRepository extends JpaRepository<ProductCategory, Long> {
-    List<ProductCategory> findAllByOrderByNameAsc();
-    Optional<ProductCategory> findByNameIgnoreCase(String name);
+    List<ProductCategory> findAllByAccountIdOrderByNameAsc(Long accountId);
+    Optional<ProductCategory> findByAccountIdAndNameIgnoreCase(Long accountId, String name);
+    Optional<ProductCategory> findByIdAndAccountId(Long id, Long accountId);
 }

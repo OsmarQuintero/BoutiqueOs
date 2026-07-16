@@ -13,17 +13,75 @@
   <div class="card" id="customers-list-section">
     @if (store.selectedCustomerHistory) {
       <div class="card-header">
-        <h3>{{ store.selectedCustomerHistory.name }} — Historial</h3>
+        <h3>{{ store.selectedCustomerHistory.name }} — Relacion</h3>
         <button class="btn btn-ghost btn-xs" (click)="store.clearCustomerHistory()">Cerrar</button>
       </div>
-      <div class="card-content history-summary">
-        <div class="history-stat">
-          <span>Compras registradas</span>
-          <strong>{{ store.customerSales.length }}</strong>
+      <div class="card-content customer-focus">
+        <div class="customer-profile">
+          <div class="customer-avatar">{{ store.customerInitials(store.selectedCustomerHistory) }}</div>
+          <div class="customer-profile-copy">
+            <strong>{{ store.selectedCustomerHistory.name }}</strong>
+            <span>{{ store.customerRelationshipStage }}</span>
+            <small>{{ store.customerRecencyLabel }}</small>
+          </div>
+          @if (store.selectedCustomerHistory.phone) {
+            <a
+              class="btn btn-outline btn-sm"
+              [href]="store.customerWhatsappHref(store.selectedCustomerHistory.phone)"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              WhatsApp
+            </a>
+          }
         </div>
-        <div class="history-stat">
-          <span>Total confirmado</span>
-          <strong>{{ store.formatMoney(store.customerHistoryTotal) }}</strong>
+        <div class="history-summary">
+          <div class="history-stat">
+            <span>Compras cerradas</span>
+            <strong>{{ store.customerConfirmedSalesCount }}</strong>
+          </div>
+          <div class="history-stat">
+            <span>Total confirmado</span>
+            <strong>{{ store.formatMoney(store.customerHistoryTotal) }}</strong>
+          </div>
+          <div class="history-stat">
+            <span>Ticket promedio</span>
+            <strong>{{ store.formatMoney(store.customerAverageTicket) }}</strong>
+          </div>
+          <div class="history-stat">
+            <span>Pendientes</span>
+            <strong>{{ store.customerPendingSalesCount }}</strong>
+          </div>
+        </div>
+        <div class="relationship-grid">
+          <div class="relationship-card">
+            <span>Metodo preferido</span>
+            <strong>{{ store.customerPreferredPaymentLabel }}</strong>
+          </div>
+          <div class="relationship-card">
+            <span>Ultima compra</span>
+            <strong>{{ store.customerLastPurchase ? store.formatDateTime(store.customerLastPurchase.createdAt) : 'Sin registro' }}</strong>
+          </div>
+          <div class="relationship-card relationship-card-wide">
+            <span>Notas internas</span>
+            <strong>{{ store.selectedCustomerHistory.notes || 'Sin notas registradas' }}</strong>
+          </div>
+        </div>
+        <div class="favorites-block">
+          <div class="favorites-header">
+            <h4>Lo que mas compra</h4>
+            <span class="pill">{{ store.customerFavoriteProducts.length }}</span>
+          </div>
+          <div class="favorites-list">
+            @for (favorite of store.customerFavoriteProducts; track favorite.name) {
+              <div class="favorite-pill">
+                <strong>{{ favorite.name }}</strong>
+                <span>{{ favorite.qty }} pzas</span>
+              </div>
+            } @empty {
+              <div class="empty-inline">Todavia no hay patrones de compra para este cliente.</div>
+            }
+          </div>
         </div>
       </div>
       <div class="card-content no-pad">
@@ -48,20 +106,43 @@
       </div>
     } @else {
       <div class="card-header"><h3>Clientes</h3><span class="pill">{{ store.customers.length }}</span></div>
-      <div class="card-content no-pad">
-        <table class="table">
-          <thead><tr><th>Nombre</th><th>Contacto</th><th>Notas</th><th></th></tr></thead>
-          <tbody>
-            @for (c of store.customers; track c.id) {
-              <tr>
-                <td class="td-primary"><button class="link-btn" (click)="store.showCustomerSales(c)">{{ c.name }}</button></td>
-                <td>{{ c.phone || '—' }}</td>
-                <td class="td-notes">{{ c.notes || '—' }}</td>
-                <td><button class="btn btn-ghost btn-xs" (click)="store.deleteCustomer(c)">Eliminar</button></td>
-              </tr>
-            } @empty { <tr><td colspan="4" class="empty-cell">Sin clientes registrados</td></tr> }
-          </tbody>
-        </table>
+      <div class="card-content customers-toolbar">
+        <label class="field field-search">
+          <span>Buscar</span>
+          <input [(ngModel)]="store.customerSearchTerm" placeholder="Nombre, WhatsApp o nota">
+        </label>
+      </div>
+      <div class="card-content customer-list-grid">
+        @for (c of store.filteredCustomers; track c.id) {
+          <article class="customer-card">
+            <div class="customer-card-top">
+              <div class="customer-avatar customer-avatar-sm">{{ store.customerInitials(c) }}</div>
+              <div class="customer-card-copy">
+                <button class="link-btn customer-name-btn" (click)="store.showCustomerSales(c)">{{ c.name }}</button>
+                <span>{{ c.phone || 'Sin WhatsApp' }}</span>
+              </div>
+            </div>
+            <p class="customer-notes">{{ c.notes || 'Sin notas de relacion registradas.' }}</p>
+            <div class="customer-meta">
+              <span>Alta: {{ store.formatDateTime(c.createdAt) }}</span>
+              @if (c.phone) {
+                <a
+                  [href]="store.customerWhatsappHref(c.phone)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Abrir chat
+                </a>
+              }
+            </div>
+            <div class="customer-actions">
+              <button class="btn btn-outline btn-sm" (click)="store.showCustomerSales(c)">Ver relacion</button>
+              <button class="btn btn-ghost btn-xs" (click)="store.deleteCustomer(c)">Eliminar</button>
+            </div>
+          </article>
+        } @empty {
+          <div class="customer-empty-state">Sin clientes registrados o sin coincidencias para esa busqueda.</div>
+        }
       </div>
     }
   </div>

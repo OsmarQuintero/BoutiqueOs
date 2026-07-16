@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.customer;
 
+import com.osmar.boutiqueos.config.AccountContext;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -8,25 +9,29 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository repository;
+    private final AccountContext accountContext;
 
-    public CustomerService(CustomerRepository repository) {
+    public CustomerService(CustomerRepository repository, AccountContext accountContext) {
         this.repository = repository;
+        this.accountContext = accountContext;
     }
 
     public List<CustomerResponse> list(String query) {
+        Long accountId = accountContext.requireAccountId();
         if (query == null || query.isBlank()) {
-            return repository.findAll().stream().map(CustomerResponse::from).toList();
+            return repository.findAllByAccountIdOrderByCreatedAtDesc(accountId).stream().map(CustomerResponse::from).toList();
         }
-        return repository.findByNameContainingIgnoreCase(query).stream().map(CustomerResponse::from).toList();
+        return repository.findByAccountIdAndNameContainingIgnoreCaseOrderByCreatedAtDesc(accountId, query).stream().map(CustomerResponse::from).toList();
     }
 
     public CustomerResponse get(Long id) {
-        return repository.findById(id).map(CustomerResponse::from)
+        return repository.findByIdAndAccountId(id, accountContext.requireAccountId()).map(CustomerResponse::from)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + id));
     }
 
     public CustomerResponse create(CustomerRequest request) {
         Customer c = new Customer();
+        c.setAccountId(accountContext.requireAccountId());
         c.setName(request.name());
         c.setPhone(request.phone());
         c.setNotes(request.notes());
@@ -34,7 +39,7 @@ public class CustomerService {
     }
 
     public CustomerResponse update(Long id, CustomerRequest request) {
-        Customer c = repository.findById(id)
+        Customer c = repository.findByIdAndAccountId(id, accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + id));
         c.setName(request.name());
         c.setPhone(request.phone());
@@ -43,6 +48,6 @@ public class CustomerService {
     }
 
     public void delete(Long id) {
-        repository.deleteById(id);
+        repository.deleteByIdAndAccountId(id, accountContext.requireAccountId());
     }
 }

@@ -16,28 +16,41 @@ public class AuthSessionService {
     private static final Duration SESSION_TTL = Duration.ofHours(12);
 
     private final SecureRandom secureRandom = new SecureRandom();
-    private final Map<String, Instant> sessions = new ConcurrentHashMap<>();
+    private final Map<String, SessionInfo> sessions = new ConcurrentHashMap<>();
 
-    public String createSession() {
+    public String createSession(Long accountId) {
         byte[] tokenBytes = new byte[32];
         secureRandom.nextBytes(tokenBytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
-        sessions.put(token, Instant.now().plus(SESSION_TTL));
+        sessions.put(token, new SessionInfo(accountId, Instant.now().plus(SESSION_TTL)));
         return token;
     }
 
     public boolean isValid(String token) {
+        return getSession(token) != null;
+    }
+
+    public SessionInfo getSession(String token) {
         if (token == null || token.isBlank()) {
-            return false;
+            return null;
         }
-        Instant expiresAt = sessions.get(token);
-        if (expiresAt == null) {
-            return false;
+        SessionInfo session = sessions.get(token);
+        if (session == null) {
+            return null;
         }
-        if (expiresAt.isBefore(Instant.now())) {
+        if (session.expiresAt().isBefore(Instant.now())) {
             sessions.remove(token);
-            return false;
+            return null;
         }
-        return true;
+        SessionInfo refreshed = new SessionInfo(session.accountId(), Instant.now().plus(SESSION_TTL));
+        sessions.put(token, refreshed);
+        return refreshed;
+    }
+
+    public void invalidate(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        sessions.remove(token);
     }
 }

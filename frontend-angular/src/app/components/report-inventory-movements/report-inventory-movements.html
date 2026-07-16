@@ -3,11 +3,17 @@
     <h3>Movimientos del inventario del {{ store.reportDate }}</h3>
     <span class="pill">{{ store.reportInventoryMovements.length }}</span>
   </div>
+  @if (store.reportIncidentFilter !== 'ALL') {
+    <div class="panel-filter-note">
+      Filtrando: <strong>{{ store.reportIncidentFilterLabel }}</strong>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">Ver todo</button>
+    </div>
+  }
   <div class="card-content no-pad">
     <table class="table">
       <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Costo</th><th>Nota</th></tr></thead>
       <tbody>
-        @for (movement of store.reportInventoryMovements; track movement.id) {
+        @for (movement of store.filteredReportInventoryMovements; track movement.id) {
           <tr>
             <td>{{ store.formatDateTime(movement.createdAt) }}</td>
             <td class="td-primary">{{ movement.productName }}</td>

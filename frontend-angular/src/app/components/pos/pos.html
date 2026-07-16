@@ -71,6 +71,29 @@
         <label class="payment-label" for="discount">Descuento</label>
         <input id="discount" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.checkoutDiscount" placeholder="0">
       </div>
+      <div class="discount-row">
+        <label class="payment-label" for="promoSelect">Promo</label>
+        <select
+          id="promoSelect"
+          class="customer-select"
+          [(ngModel)]="store.selectedPromoId"
+          (change)="store.applyPromo(store.selectedPromoId)"
+        >
+          <option [ngValue]="null">Sin promo</option>
+          @for (promo of store.applicablePromotions; track promo.id) {
+            <option [ngValue]="promo.id">{{ promo.name }} · {{ store.promotionValueLabel(promo) }}</option>
+          }
+        </select>
+      </div>
+      @if (store.selectedPromo) {
+        <div class="promo-hint" [class.promo-hint-muted]="!store.activeCartPromo">
+          @if (store.activeCartPromo) {
+            {{ store.selectedPromo.name }} aplicado con {{ store.promotionValueLabel(store.selectedPromo) }}
+          } @else {
+            {{ store.selectedPromo.name }} ya no aplica a esta venta
+          }
+        </div>
+      }
       @if (store.selectedPayment === 'CASH') {
         <div class="discount-row">
           <label class="payment-label" for="cashReceived">Recibido</label>
@@ -91,7 +114,11 @@
       </div>
       <div class="cart-total-row summary-row">
         <span>Descuento</span>
-        <strong class="discount-value">-{{ store.formatMoney(store.cartDiscount) }}</strong>
+        <strong class="discount-value">-{{ store.formatMoney(store.manualCartDiscount) }}</strong>
+      </div>
+      <div class="cart-total-row summary-row">
+        <span>Promo</span>
+        <strong class="discount-value">-{{ store.formatMoney(store.promoDiscount) }}</strong>
       </div>
       <div class="cart-total-row">
         <span>Total</span>

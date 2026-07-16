@@ -1,0 +1,118 @@
+<div class="dual-col promos-layout">
+  <div class="card">
+    <div class="card-header">
+      <h3>{{ store.editingPromoId ? 'Editar promo' : 'Nueva promo' }}</h3>
+      @if (store.editingPromoId) {
+        <button class="btn btn-ghost btn-xs" (click)="store.cancelPromoEdit()">Cancelar</button>
+      }
+    </div>
+    <div class="card-content">
+      <div class="form-compact">
+        <label class="field">
+          <span>Nombre</span>
+          <input [(ngModel)]="store.promoForm.name" placeholder="Promo fin de semana">
+        </label>
+        <label class="field">
+          <span>Codigo</span>
+          <input [(ngModel)]="store.promoForm.code" placeholder="FINDE10">
+        </label>
+        <div class="promo-grid">
+          <label class="field">
+            <span>Tipo</span>
+            <select class="input-sm" [(ngModel)]="store.promoForm.type">
+              @for (type of store.promotionTypes; track type.value) {
+                <option [ngValue]="type.value">{{ type.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span>Valor</span>
+            <input [(ngModel)]="store.promoForm.value" type="number" min="0" step="1" placeholder="10">
+          </label>
+        </div>
+        <div class="promo-grid">
+          <label class="field">
+            <span>Compra minima</span>
+            <input [(ngModel)]="store.promoForm.minSubtotal" type="number" min="0" step="1" placeholder="0">
+          </label>
+          <label class="field">
+            <span>Cliente</span>
+            <select class="input-sm" [(ngModel)]="store.promoForm.customerId">
+              <option [ngValue]="null">Todos</option>
+              @for (customer of store.customers; track customer.id) {
+                <option [ngValue]="customer.id">{{ customer.name }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        <div class="promo-grid">
+          <label class="field">
+            <span>Inicia</span>
+            <input [(ngModel)]="store.promoForm.startsAt" type="date">
+          </label>
+          <label class="field">
+            <span>Termina</span>
+            <input [(ngModel)]="store.promoForm.endsAt" type="date">
+          </label>
+        </div>
+        <label class="field">
+          <span>Notas</span>
+          <input [(ngModel)]="store.promoForm.notes" placeholder="Ej. mover inventario lento o premiar cliente VIP">
+        </label>
+        <label class="promo-check">
+          <input [(ngModel)]="store.promoForm.active" type="checkbox">
+          <span>Promo activa</span>
+        </label>
+      </div>
+      <button class="btn btn-primary" (click)="store.savePromo()">
+        {{ store.editingPromoId ? 'Actualizar promo' : 'Guardar promo' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3>Promos</h3>
+      <span class="pill">{{ store.promotions.length }}</span>
+    </div>
+    <div class="card-content promos-toolbar">
+      <label class="field field-search">
+        <span>Buscar</span>
+        <input [(ngModel)]="store.promoSearchTerm" placeholder="Nombre, codigo o cliente">
+      </label>
+    </div>
+    <div class="card-content promos-list">
+      @for (promo of store.filteredPromotions; track promo.id) {
+        <article class="promo-card">
+          <div class="promo-card-top">
+            <div>
+              <strong>{{ promo.name }}</strong>
+              <span class="promo-code">{{ promo.code }}</span>
+            </div>
+            <span
+              class="pill"
+              [class.pill-green]="store.promotionStatusLabel(promo) === 'Activa'"
+              [class.pill-amber]="store.promotionStatusLabel(promo) === 'Programada'"
+              [class.pill-red]="store.promotionStatusLabel(promo) === 'Vencida' || store.promotionStatusLabel(promo) === 'Inactiva'"
+            >
+              {{ store.promotionStatusLabel(promo) }}
+            </span>
+          </div>
+          <div class="promo-meta">
+            <span>{{ store.promotionTypeLabel(promo.type) }}: <strong>{{ store.promotionValueLabel(promo) }}</strong></span>
+            <span>Minimo: <strong>{{ store.formatMoney(promo.minSubtotal) }}</strong></span>
+            <span>{{ store.promotionScopeLabel(promo) }}</span>
+            <span>{{ store.promotionWindowLabel(promo) }}</span>
+          </div>
+          <p class="promo-notes">{{ promo.notes || 'Sin notas internas.' }}</p>
+          <div class="promo-actions">
+            <button class="btn btn-outline btn-sm" (click)="store.editPromo(promo)">Editar</button>
+            <button class="btn btn-ghost btn-xs" (click)="store.deletePromo(promo)">Eliminar</button>
+          </div>
+        </article>
+      } @empty {
+        <div class="customer-empty-state">Todavia no hay promos guardadas.</div>
+      }
+    </div>
+  </div>
+</div>

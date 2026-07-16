@@ -18,6 +18,9 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private Long accountId = 1L;
+
     @NotBlank
     @Column(nullable = false)
     private String name;
@@ -32,6 +35,9 @@ public class Customer {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getAccountId() { return accountId; }
+    public void setAccountId(Long accountId) { this.accountId = accountId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

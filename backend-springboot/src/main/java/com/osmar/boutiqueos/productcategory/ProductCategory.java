@@ -19,8 +19,11 @@ public class ProductCategory {
     private Long id;
 
     @NotBlank
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false)
+    private Long accountId = 1L;
 
     @Column(length = 1000)
     private String description;
@@ -40,6 +43,14 @@ public class ProductCategory {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public String getName() {

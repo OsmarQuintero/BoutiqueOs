@@ -24,7 +24,11 @@ Esta es la ruta recomendada para produccion:
    - `Port`
    - `User`
    - `Password`
-4. Forma la URL JDBC asi:
+4. Usa una sola modalidad de conexion. No mezcles valores entre `Direct connection` y `Session/Transaction pooler`.
+
+### Opcion A: Direct connection
+
+Forma la URL JDBC asi:
 
 ```text
 jdbc:postgresql://db.xxx.supabase.co:5432/postgres?sslmode=require
@@ -41,9 +45,33 @@ SPRING_JPA_HIBERNATE_DDL_AUTO=update
 SPRING_H2_CONSOLE_ENABLED=false
 ```
 
+### Opcion B: Pooler de Supabase
+
+Si prefieres el pooler, usa los datos del pooler completos:
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+SPRING_DATASOURCE_USERNAME=postgres.xxx
+SPRING_DATASOURCE_PASSWORD=tu-password
+SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_H2_CONSOLE_ENABLED=false
+```
+
+`postgres.xxx` es solo ejemplo. Debes copiar el usuario exacto que te da Supabase para el pooler.
+
+### Error comun
+
+Si Render muestra algo como `tenant/user ... not found` o `Unable to determine Dialect without JDBC metadata`, casi siempre significa que la conexion a Postgres esta mal armada:
+
+- pusiste el usuario del pooler con el host directo
+- pusiste el host del pooler con el usuario directo
+- copiaste mal la URL JDBC
+- pegaste una URL o usuario incompleto en `SPRING_DATASOURCE_URL` o `SPRING_DATASOURCE_USERNAME`
+
 ## 2. Publicar backend en Render
 
-El repo ya trae [render.yaml](/home/osmariqv/Documentos/Proyecto/render.yaml), asi que Render puede leer la configuracion base automaticamente.
+El repo ya trae [render.yaml](/home/osmariqv/BoutiqueOs/render.yaml), asi que Render puede leer la configuracion base automaticamente.
 
 ### Pasos
 
@@ -81,7 +109,7 @@ Si responde JSON, el backend ya quedo arriba.
 
 ## 3. Publicar frontend en Vercel
 
-El repo ya trae [frontend-angular/vercel.json](/home/osmariqv/Documentos/Proyecto/frontend-angular/vercel.json) y el build ya genera `public/runtime-config.js` con la URL de API.
+El repo ya trae [frontend-angular/vercel.json](/home/osmariqv/BoutiqueOs/frontend-angular/vercel.json) y el build ya genera `public/runtime-config.js` con la URL de API.
 
 ### Pasos
 

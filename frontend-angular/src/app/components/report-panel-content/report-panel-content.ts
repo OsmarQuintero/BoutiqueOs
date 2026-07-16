@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ReportHistoryComponent } from '../report-history/report-history';
 import { ReportInventoryMovementsComponent } from '../report-inventory-movements/report-inventory-movements';
 import { ReportRefundsComponent } from '../report-refunds/report-refunds';
 import { ReportSalesComponent } from '../report-sales/report-sales';
@@ -10,6 +11,7 @@ import { StoreService } from '../../services/store.service';
   selector: 'app-report-panel-content',
   standalone: true,
   imports: [
+    ReportHistoryComponent,
     ReportSummaryComponent,
     ReportSalesComponent,
     ReportTicketsComponent,

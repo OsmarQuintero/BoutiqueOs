@@ -1,101 +1,286 @@
 <div class="settings-grid">
-  <div class="card">
-    <div class="card-header">
-      <h3>Ticket</h3>
-      <button class="btn btn-primary btn-sm" [disabled]="store.isSavingTicketSettings" (click)="store.saveTicketSettings()">
-        {{ store.isSavingTicketSettings ? 'Guardando...' : 'Guardar' }}
-      </button>
-    </div>
-    <div class="card-content settings-form">
-      <label class="field">
-        <span>Nombre de la tienda</span>
-        <input [(ngModel)]="store.settingsForm.storeName" placeholder="Boutique OS">
-      </label>
-      <label class="field">
-        <span>Telefono / WhatsApp</span>
-        <input [(ngModel)]="store.settingsForm.phone" placeholder="812 000 0000">
-      </label>
-      <label class="field">
-        <span>Calle</span>
-        <input [(ngModel)]="store.settingsForm.street" placeholder="Calle y numero">
-      </label>
-      <label class="field">
-        <span>Colonia</span>
-        <input [(ngModel)]="store.settingsForm.neighborhood" placeholder="Colonia">
-      </label>
-      <label class="field">
-        <span>Ciudad o municipio</span>
-        <input [(ngModel)]="store.settingsForm.city" placeholder="Monterrey">
-      </label>
-      <label class="field">
-        <span>Codigo postal</span>
-        <input [(ngModel)]="store.settingsForm.postalCode" placeholder="64000">
-      </label>
-      <label class="field field-wide">
-        <span>Mensaje de agradecimiento</span>
-        <input [(ngModel)]="store.settingsForm.thankYouMessage" placeholder="Gracias por tu compra">
-      </label>
-      <div class="logo-field field-wide">
-        <div class="logo-preview">
-          @if (store.settingsForm.logoUrl) {
-            <img [src]="store.settingsForm.logoUrl" alt="Logo de la tienda">
-          } @else {
-            <span>Logo</span>
-          }
+  <div class="settings-main">
+    <div class="card">
+      <div class="card-header">
+        <h3>Ticket</h3>
+        <button class="btn btn-primary btn-sm" [disabled]="store.isSavingTicketSettings" (click)="store.saveTicketSettings()">
+          {{ store.isSavingTicketSettings ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+      <div class="card-content settings-form">
+        <div class="settings-section field-wide">
+          <div class="settings-section-title">Datos del negocio</div>
+          <div class="settings-subgrid">
+            <label class="field">
+              <span>Nombre de la tienda</span>
+              <input [(ngModel)]="store.settingsForm.storeName" placeholder="Boutique OS">
+            </label>
+            <label class="field">
+              <span>Telefono / WhatsApp</span>
+              <input [(ngModel)]="store.settingsForm.phone" placeholder="812 000 0000">
+            </label>
+            <label class="field">
+              <span>Correo de contacto</span>
+              <input [(ngModel)]="store.settingsForm.contactEmail" placeholder="hola@boutiqueos.mx">
+            </label>
+            <label class="field">
+              <span>Instagram</span>
+              <input [(ngModel)]="store.settingsForm.instagramHandle" (ngModelChange)="store.refreshTicketQrPreview()" placeholder="@boutiqueos">
+            </label>
+            <label class="field">
+              <span>Calle</span>
+              <input [(ngModel)]="store.settingsForm.street" placeholder="Calle y numero">
+            </label>
+            <label class="field">
+              <span>Colonia</span>
+              <input [(ngModel)]="store.settingsForm.neighborhood" placeholder="Colonia">
+            </label>
+            <label class="field">
+              <span>Ciudad o municipio</span>
+              <input [(ngModel)]="store.settingsForm.city" placeholder="Monterrey">
+            </label>
+            <label class="field">
+              <span>Codigo postal</span>
+              <input [(ngModel)]="store.settingsForm.postalCode" placeholder="64000">
+            </label>
+          </div>
         </div>
-        <div class="logo-actions">
-          <label class="btn btn-outline">
-            Cargar logo
-            <input type="file" accept="image/*" class="hidden-file-input" (change)="store.onLogoSelected($event)">
-          </label>
-          <input class="input-sm" [(ngModel)]="store.settingsForm.logoUrl" placeholder="URL o imagen cargada">
-          @if (store.logoFileName) {
-            <small>{{ store.logoFileName }}</small>
-          }
+        <div class="settings-section field-wide">
+          <div class="settings-section-title">Branding y mensaje</div>
+          <div class="settings-subgrid">
+            <label class="field">
+              <span>Prefijo del ticket</span>
+              <input [(ngModel)]="store.settingsForm.ticketPrefix" placeholder="BOS">
+            </label>
+            <label class="field">
+              <span>Formato de papel</span>
+              <select [(ngModel)]="store.settingsForm.ticketPaperSize">
+                @for (size of store.ticketPaperSizes; track size.value) {
+                  <option [ngValue]="size.value">{{ size.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="field field-wide">
+              <span>Mensaje de agradecimiento</span>
+              <input [(ngModel)]="store.settingsForm.thankYouMessage" placeholder="Gracias por tu compra">
+            </label>
+            <label class="field field-wide">
+              <span>Nota final / politica de cambios</span>
+              <input [(ngModel)]="store.settingsForm.ticketFooterNote" placeholder="Cambios dentro de 15 dias con ticket">
+            </label>
+          </div>
+        </div>
+        <div class="logo-field field-wide">
+          <div class="logo-preview">
+            @if (store.settingsForm.logoUrl) {
+              <img [src]="store.settingsForm.logoUrl" alt="Logo de la tienda">
+            } @else {
+              <span>Logo</span>
+            }
+          </div>
+          <div class="logo-actions">
+            <label class="btn btn-outline">
+              Cargar logo
+              <input type="file" accept="image/*" class="hidden-file-input" (change)="store.onLogoSelected($event)">
+            </label>
+            <input class="input-sm" [(ngModel)]="store.settingsForm.logoUrl" placeholder="URL o imagen cargada">
+            @if (store.logoFileName) {
+              <small>{{ store.logoFileName }}</small>
+            }
+          </div>
+        </div>
+        <div class="settings-section field-wide">
+          <div class="settings-section-title">Mostrar en el ticket</div>
+          <div class="toggle-grid">
+            <label class="toggle-option">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showLogoOnTicket">
+              <span>Logo</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showAddressOnTicket">
+              <span>Direccion</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showPhoneOnTicket">
+              <span>Telefono</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showCustomerOnTicket">
+              <span>Cliente</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showSavingsOnTicket">
+              <span>Ahorro / descuento</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showChangeOnTicket">
+              <span>Cambio</span>
+            </label>
+            <label class="toggle-option toggle-option-wide">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.autoOpenTicket">
+              <span>Abrir ticket automaticamente al cobrar</span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
+
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <h3>Acceso</h3>
-      <button class="btn btn-primary btn-sm" [disabled]="store.isSavingCredentials" (click)="store.saveCredentials()">
-        {{ store.isSavingCredentials ? 'Guardando...' : 'Guardar acceso' }}
-      </button>
-    </div>
-    <div class="card-content settings-form">
-      <label class="field">
-        <span>Usuario</span>
-        <input [(ngModel)]="store.credentialsForm.username" autocomplete="off">
-      </label>
-      <label class="field">
-        <span>Nueva contrasena</span>
-        <input type="password" [(ngModel)]="store.credentialsForm.newPassword" placeholder="Dejar vacio para conservar">
-      </label>
-      <label class="field field-wide">
-        <span>Contrasena actual</span>
-        <input type="password" [(ngModel)]="store.credentialsForm.currentPassword" placeholder="Obligatoria para guardar acceso">
-      </label>
-      <div class="settings-note field-wide">
-        Advertencia: por seguridad necesitas confirmar la contrasena actual antes de cambiar usuario o contrasena.
+  <div class="settings-side">
+    <div class="card settings-preview-card">
+      <div class="card-header">
+        <h3>Vista previa</h3>
       </div>
-      @if (store.credentialsMessage) {
-        <div class="settings-note field-wide">{{ store.credentialsMessage }}</div>
-      }
+      <div class="card-content">
+        <div class="ticket-preview-shell">
+          <div class="ticket-preview" [class.ticket-preview-wide]="store.settingsForm.ticketPaperSize === 'HALF_LETTER'">
+            @if (store.settingsForm.showLogoOnTicket) {
+              <div class="ticket-preview-logo">
+                @if (store.settingsForm.logoUrl) {
+                  <img [src]="store.settingsForm.logoUrl" alt="Vista previa de logo">
+                } @else {
+                  <span>LOGO</span>
+                }
+              </div>
+            }
+            <div class="ticket-preview-store">{{ store.settingsForm.storeName || 'Boutique OS' }}</div>
+            @if (store.settingsForm.showAddressOnTicket) {
+              <div class="ticket-preview-line">{{ store.settingsForm.street || 'Calle y numero' }}</div>
+              <div class="ticket-preview-line">
+                {{ store.settingsForm.neighborhood || 'Colonia' }}
+                ·
+                {{ store.settingsForm.city || 'Ciudad' }}
+                @if (store.settingsForm.postalCode) {
+                  · CP {{ store.settingsForm.postalCode }}
+                }
+              </div>
+            }
+            @if (store.settingsForm.showPhoneOnTicket && store.settingsForm.phone) {
+              <div class="ticket-preview-line">{{ store.settingsForm.phone }}</div>
+            }
+            @if (store.settingsForm.contactEmail) {
+              <div class="ticket-preview-line">{{ store.settingsForm.contactEmail }}</div>
+            }
+            @if (store.settingsForm.instagramHandle) {
+              <div class="ticket-preview-line">{{ store.settingsForm.instagramHandle }}</div>
+            }
+            <div class="ticket-preview-title">TICKET DE VENTA</div>
+            <div class="ticket-preview-row">
+              <span>Folio</span>
+              <strong>{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</strong>
+            </div>
+            <div class="ticket-preview-row">
+              <span>Fecha</span>
+              <strong>09/07/2026 08:00 PM</strong>
+            </div>
+            @if (store.settingsForm.showCustomerOnTicket) {
+              <div class="ticket-preview-row">
+                <span>Cliente</span>
+                <strong>Mostrador</strong>
+              </div>
+            }
+            <div class="ticket-preview-row">
+              <span>Pago</span>
+              <strong>Efectivo</strong>
+            </div>
+            <div class="ticket-preview-divider"></div>
+            <div class="ticket-preview-item">
+              <div>Tenis blancos</div>
+              <div>1 x {{ store.formatMoney(899) }}</div>
+            </div>
+            <div class="ticket-preview-item-total">{{ store.formatMoney(899) }}</div>
+            <div class="ticket-preview-item">
+              <div>Playera basica</div>
+              <div>1 x {{ store.formatMoney(349) }}</div>
+            </div>
+            <div class="ticket-preview-item-total">{{ store.formatMoney(349) }}</div>
+            <div class="ticket-preview-divider"></div>
+            <div class="ticket-preview-row">
+              <span>Subtotal</span>
+              <strong>{{ store.formatMoney(1248) }}</strong>
+            </div>
+            @if (store.settingsForm.showSavingsOnTicket) {
+              <div class="ticket-preview-row ticket-preview-row-discount">
+                <span>Ahorro</span>
+                <strong>-{{ store.formatMoney(99) }}</strong>
+              </div>
+            }
+            <div class="ticket-preview-row ticket-preview-row-total">
+              <span>Total</span>
+              <strong>{{ store.formatMoney(1149) }}</strong>
+            </div>
+            @if (store.settingsForm.showChangeOnTicket) {
+              <div class="ticket-preview-row">
+                <span>Cambio</span>
+                <strong>{{ store.formatMoney(51) }}</strong>
+              </div>
+            }
+            <div class="ticket-preview-row">
+              <span>Piezas</span>
+              <strong>2</strong>
+            </div>
+            <div class="ticket-preview-divider"></div>
+            @if (store.ticketQrDataUrl && store.ticketQrLabel) {
+              <div class="ticket-preview-qr">
+                <img [src]="store.ticketQrDataUrl" alt="QR de Instagram">
+                <div class="ticket-preview-qr-label">{{ store.ticketQrLabel }}</div>
+              </div>
+              <div class="ticket-preview-divider"></div>
+            }
+            <div class="ticket-preview-thanks">{{ store.settingsForm.thankYouMessage || 'Gracias por tu compra' }}</div>
+            @if (store.settingsForm.ticketFooterNote) {
+              <div class="ticket-preview-note">{{ store.settingsForm.ticketFooterNote }}</div>
+            }
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="card-header">
-      <h3>Backup</h3>
-    </div>
-    <div class="card-content backup-panel">
-      <div>
-        <strong>Respaldo de datos</strong>
-        <p>Descarga productos, categorias, clientes, ventas, devoluciones, compras, movimientos, cortes y configuracion en un archivo compatible con Excel.</p>
+    <div class="card">
+      <div class="card-header">
+        <h3>Acceso</h3>
+        <button class="btn btn-primary btn-sm" [disabled]="store.isSavingCredentials" (click)="store.saveCredentials()">
+          {{ store.isSavingCredentials ? 'Guardando...' : 'Guardar acceso' }}
+        </button>
       </div>
-      <button class="btn btn-outline" (click)="store.downloadBackup()">Descargar respaldo Excel</button>
+      <div class="card-content settings-form">
+        <label class="field">
+          <span>Usuario</span>
+          <input [(ngModel)]="store.credentialsForm.username" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Nueva contrasena</span>
+          <input type="password" [(ngModel)]="store.credentialsForm.newPassword" placeholder="Dejar vacio para conservar">
+        </label>
+        <label class="field field-wide">
+          <span>Contrasena actual</span>
+          <input type="password" [(ngModel)]="store.credentialsForm.currentPassword" placeholder="Obligatoria para guardar acceso">
+        </label>
+        <div class="settings-note field-wide">
+          Advertencia: por seguridad necesitas confirmar la contrasena actual antes de cambiar usuario o contrasena.
+        </div>
+        @if (store.credentialsMessage) {
+          <div class="settings-note field-wide">{{ store.credentialsMessage }}</div>
+        }
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Backup</h3>
+      </div>
+      <div class="card-content backup-panel">
+        <div>
+          <strong>Respaldo de datos</strong>
+          <p>Descarga productos, categorias, clientes, ventas, devoluciones, compras, movimientos, cortes y configuracion en Excel, CSV o PDF.</p>
+        </div>
+        <div class="backup-actions">
+          <button class="btn btn-outline" (click)="store.downloadBackup()">Excel</button>
+          <button class="btn btn-outline" (click)="store.downloadBackupCsv()">CSV</button>
+          <button class="btn btn-outline" (click)="store.downloadBackupPdf()">PDF</button>
+        </div>
+      </div>
     </div>
   </div>
 

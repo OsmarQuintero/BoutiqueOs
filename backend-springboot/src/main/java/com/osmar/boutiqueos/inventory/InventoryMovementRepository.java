@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface InventoryMovementRepository extends JpaRepository<InventoryMovement, Long> {
 
-    List<InventoryMovement> findTop50ByOrderByCreatedAtDesc();
+    List<InventoryMovement> findTop50ByAccountIdOrderByCreatedAtDesc(Long accountId);
 
-    List<InventoryMovement> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end);
+    List<InventoryMovement> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(Long accountId, Instant start, Instant end);
 }

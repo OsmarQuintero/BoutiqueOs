@@ -8,6 +8,8 @@ public record DailyCashCountResponse(
         LocalDate businessDate,
         BigDecimal actualCash,
         String notes,
+        boolean closed,
+        Instant closedAt,
         Instant updatedAt
 ) {
     public static DailyCashCountResponse from(DailyCashCount count) {
@@ -15,6 +17,8 @@ public record DailyCashCountResponse(
                 count.getBusinessDate(),
                 count.getActualCash(),
                 count.getNotes(),
+                count.isClosed(),
+                count.getClosedAt(),
                 count.getUpdatedAt()
         );
     }

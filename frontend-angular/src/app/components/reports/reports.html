@@ -14,6 +14,7 @@
       <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(-1)">Ayer</button>
       <button class="btn btn-ghost btn-xs" (click)="store.goToTodayReport()">Hoy</button>
       <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(1)">Mañana</button>
+      <button class="btn btn-outline btn-xs" (click)="store.exportDailyReportPdf()">Exportar PDF</button>
     </div>
     <div class="panel-switch">
       @for (panel of store.reportPanels; track panel.id) {
@@ -31,4 +32,5 @@
   @case ('tickets') { <app-report-tickets /> }
   @case ('refunds') { <app-report-refunds /> }
   @case ('movements') { <app-report-inventory-movements /> }
+  @case ('history') { <app-report-history /> }
 }

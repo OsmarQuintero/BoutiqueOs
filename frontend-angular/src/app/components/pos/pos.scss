@@ -38,6 +38,12 @@
 .btn-payment { background: var(--surface); color: var(--text-secondary); border-color: var(--border); font-size: 0.72rem; min-height: 28px; padding: 0 6px; }
 .btn-payment.active { border-color: var(--primary); background: var(--primary-subtle); color: var(--primary); font-weight: 700; }
 .discount-row { display: grid; gap: 4px; margin-bottom: 8px; }
+.promo-hint {
+  margin: -2px 0 8px;
+  font-size: 0.72rem;
+  color: var(--green);
+}
+.promo-hint-muted { color: var(--amber); }
 .cart-total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
 .cart-total-row span { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
 .cart-total-row strong { font-size: 1.25rem; font-weight: 800; color: var(--text); }

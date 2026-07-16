@@ -1,0 +1,89 @@
+<div class="summary-grid section-gap">
+  <div class="card">
+    <div class="card-content payment-card">
+      <div class="payment-card-top">
+        <span class="pill pill-green">Cierres</span>
+      </div>
+      <div class="payment-total">{{ store.reportHistoryClosedCount }}</div>
+      <small class="muted-line">Dias cerrados registrados</small>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-content payment-card">
+      <div class="payment-card-top">
+        <span class="pill pill-amber">Abiertos</span>
+      </div>
+      <div class="payment-total">{{ store.reportHistoryOpenCount }}</div>
+      <small class="muted-line">Dias aun editables en historial</small>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-content payment-card">
+      <div class="payment-card-top">
+        <span class="pill">Ultimo cierre</span>
+      </div>
+      <div class="payment-total history-date">
+        {{ store.reportHistoryLastClosedAt ? store.formatDateTime(store.reportHistoryLastClosedAt) : 'Sin cierre' }}
+      </div>
+      <small class="muted-line">Registro mas reciente con cierre formal</small>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-content payment-card">
+      <div class="payment-card-top">
+        <span class="pill">Seleccion actual</span>
+      </div>
+      <div class="payment-total history-date">{{ store.reportDate }}</div>
+      <small class="muted-line">Dia activo en el modulo</small>
+    </div>
+  </div>
+</div>
+
+<div class="card section-gap">
+  <div class="card-header">
+    <h3>Historial de cortes diarios</h3>
+    <span class="pill">{{ store.reportHistory.length }} registro(s)</span>
+  </div>
+  <div class="card-content no-pad">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Efectivo real</th>
+          <th>Ultimo movimiento</th>
+          <th>Notas</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of store.reportHistory; track entry.businessDate) {
+          <tr>
+            <td class="td-primary">{{ entry.businessDate }}</td>
+            <td>
+              <span class="pill" [class.pill-green]="entry.closed" [class.pill-amber]="!entry.closed">
+                {{ entry.closed ? 'Cerrado' : 'Abierto' }}
+              </span>
+              @if (entry.closedAt) {
+                <small class="muted-line">Cerrado: {{ store.formatDateTime(entry.closedAt) }}</small>
+              }
+            </td>
+            <td class="td-mono">{{ store.formatMoney(entry.actualCash || 0) }}</td>
+            <td>{{ store.formatDateTime(entry.updatedAt) }}</td>
+            <td>{{ entry.notes || 'Sin notas' }}</td>
+            <td>
+              <div class="history-actions">
+                <button class="btn btn-outline btn-xs" (click)="store.openHistoricalReport(entry.businessDate, 'summary')">Ver corte</button>
+                <button class="btn btn-ghost btn-xs" (click)="store.openHistoricalReport(entry.businessDate, 'tickets')">Ver tickets</button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty-cell">Aun no hay cortes guardados en el historial</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

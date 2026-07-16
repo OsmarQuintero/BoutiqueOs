@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
 
-    List<Purchase> findTop30ByOrderByCreatedAtDesc();
+    List<Purchase> findTop30ByAccountIdOrderByCreatedAtDesc(Long accountId);
 
-    List<Purchase> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant start, Instant end);
+    List<Purchase> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(Long accountId, Instant start, Instant end);
 }

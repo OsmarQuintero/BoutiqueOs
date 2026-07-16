@@ -5,6 +5,12 @@
       <input [(ngModel)]="store.ticketSearchTerm" placeholder="Buscar ticket, cliente, estado o producto..." class="input-sm">
     </div>
   </div>
+  @if (store.reportIncidentFilter !== 'ALL') {
+    <div class="panel-filter-note">
+      Filtrando: <strong>{{ store.reportIncidentFilterLabel }}</strong>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">Ver todo</button>
+    </div>
+  }
   <div class="card-content no-pad">
     <table class="table">
       <thead><tr><th>Ticket</th><th>Fecha</th><th>Cliente</th><th>Estado</th><th>Total</th><th>Acciones</th></tr></thead>
@@ -37,11 +43,11 @@
               <div class="history-actions">
                 <button class="btn btn-outline btn-xs" (click)="store.openSaleTicketPdf(sale)">PDF</button>
                 @if (store.canRefundSale(sale)) {
-                  <button class="btn btn-primary btn-xs" (click)="store.refundSale(sale.id)">Devolver</button>
-                  <button class="btn btn-ghost btn-xs" (click)="store.refundAllRemaining(sale.id)">Todo</button>
+                  <button class="btn btn-primary btn-xs" [disabled]="store.reportDayClosed" (click)="store.refundSale(sale.id)">Devolver</button>
+                  <button class="btn btn-ghost btn-xs" [disabled]="store.reportDayClosed" (click)="store.refundAllRemaining(sale.id)">Todo</button>
                 }
                 @if (sale.status === 'PENDING') {
-                  <button class="btn btn-outline btn-xs" (click)="store.cancelSale(sale.id)">Cancelar</button>
+                  <button class="btn btn-outline btn-xs" [disabled]="store.reportDayClosed" (click)="store.cancelSale(sale.id)">Cancelar</button>
                 }
               </div>
               @if (store.canRefundSale(sale)) {
@@ -54,6 +60,7 @@
                           type="number"
                           min="0"
                           [max]="store.refundableQuantity(item)"
+                          [disabled]="store.reportDayClosed"
                           [ngModel]="store.refundQty(sale.id, item)"
                           (ngModelChange)="store.setRefundQty(sale.id, item, $event)">
                       </label>

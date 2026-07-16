@@ -18,6 +18,9 @@ public class Purchase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private Long accountId = 1L;
+
     private String supplierName;
 
     @Column(nullable = false)
@@ -42,6 +45,14 @@ public class Purchase {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public String getSupplierName() {

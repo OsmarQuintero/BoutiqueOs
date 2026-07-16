@@ -4,6 +4,18 @@
   gap: 12px;
 }
 
+.settings-main,
+.settings-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.settings-side {
+  position: sticky;
+  top: 18px;
+}
+
 .settings-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -12,6 +24,29 @@
 
 .field-wide {
   grid-column: 1 / -1;
+}
+
+.settings-section {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: #fbfcfe;
+}
+
+.settings-section-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .logo-field {
@@ -60,6 +95,12 @@
   gap: 12px;
 }
 
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .backup-panel strong {
   display: block;
   margin-bottom: 4px;
@@ -71,6 +112,185 @@
   color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.45;
+}
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.toggle-option input {
+  margin: 0;
+}
+
+.toggle-option-wide {
+  grid-column: 1 / -1;
+}
+
+.settings-preview-card {
+  overflow: hidden;
+}
+
+.ticket-preview-shell {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.ticket-preview {
+  width: min(100%, 320px);
+  display: grid;
+  gap: 6px;
+  padding: 14px 14px 16px;
+  border: 1px dashed #c9d2df;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  font-size: 0.76rem;
+  color: #0f172a;
+}
+
+.ticket-preview-wide {
+  width: min(100%, 460px);
+}
+
+.ticket-preview-logo {
+  display: grid;
+  place-items: center;
+  min-height: 56px;
+  margin-bottom: 2px;
+}
+
+.ticket-preview-logo img {
+  max-width: 120px;
+  max-height: 52px;
+  object-fit: contain;
+}
+
+.ticket-preview-logo span {
+  display: inline-grid;
+  place-items: center;
+  width: 88px;
+  height: 40px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.ticket-preview-store,
+.ticket-preview-title,
+.ticket-preview-thanks,
+.ticket-preview-note,
+.ticket-preview-line {
+  text-align: center;
+}
+
+.ticket-preview-store {
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.ticket-preview-title {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.ticket-preview-line {
+  color: #475569;
+  line-height: 1.35;
+}
+
+.ticket-preview-divider {
+  border-top: 1px dashed #cbd5e1;
+  margin: 4px 0;
+}
+
+.ticket-preview-row,
+.ticket-preview-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ticket-preview-row span,
+.ticket-preview-item div:last-child {
+  color: #475569;
+}
+
+.ticket-preview-row strong,
+.ticket-preview-item-total {
+  font-weight: 800;
+}
+
+.ticket-preview-item {
+  align-items: end;
+}
+
+.ticket-preview-item-total {
+  text-align: right;
+  margin-top: -2px;
+}
+
+.ticket-preview-row-total {
+  font-size: 0.92rem;
+}
+
+.ticket-preview-row-discount strong {
+  color: #b91c1c;
+}
+
+.ticket-preview-qr {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.ticket-preview-qr img {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ticket-preview-qr-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-align: center;
+}
+
+.ticket-preview-thanks {
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.ticket-preview-note {
+  color: #64748b;
+  line-height: 1.4;
 }
 
 .settings-status {
@@ -86,8 +306,21 @@
 
 @media (max-width: 900px) {
   .settings-grid,
+  .settings-main,
+  .settings-side,
   .settings-form,
+  .settings-subgrid,
+  .toggle-grid,
   .logo-field {
     grid-template-columns: 1fr;
+  }
+
+  .toggle-option-wide {
+    grid-column: auto;
+  }
+
+  .settings-side {
+    position: static;
+    top: auto;
   }
 }

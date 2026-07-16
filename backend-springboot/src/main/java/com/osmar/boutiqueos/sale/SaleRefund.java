@@ -26,6 +26,9 @@ public class SaleRefund {
     private Long id;
 
     @Column(nullable = false)
+    private Long accountId = 1L;
+
+    @Column(nullable = false)
     private Long saleId;
 
     @Enumerated(EnumType.STRING)
@@ -48,6 +51,14 @@ public class SaleRefund {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public Long getSaleId() {

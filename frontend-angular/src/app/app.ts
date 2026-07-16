@@ -1,30 +1,28 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CategoriesComponent } from './components/categories/categories';
 import { CatalogComponent } from './components/catalog/catalog';
 import { CustomersComponent } from './components/customers/customers';
 import { InventoryComponent } from './components/inventory/inventory';
+import { ModuleStripComponent, ModuleStripItem } from './components/module-strip/module-strip';
 import { PosComponent } from './components/pos/pos';
+import { PromosComponent } from './components/promos/promos';
 import { RefreshOverlayComponent } from './components/refresh-overlay/refresh-overlay';
 import { ReportsComponent } from './components/reports/reports';
 import { SettingsComponent } from './components/settings/settings';
 import { StoreService, ViewId } from './services/store.service';
 
-interface NavItem {
-  id: ViewId;
-  label: string;
-  iconPath: string;
-}
-
 @Component({
   selector: 'app-root',
   imports: [
     FormsModule,
+    ModuleStripComponent,
     PosComponent,
     CatalogComponent,
     CategoriesComponent,
     InventoryComponent,
     CustomersComponent,
+    PromosComponent,
     ReportsComponent,
     SettingsComponent,
     RefreshOverlayComponent,
@@ -32,8 +30,8 @@ interface NavItem {
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {
-  readonly navItems: NavItem[] = [
+export class App implements OnInit {
+  readonly navItems: ModuleStripItem[] = [
     {
       id: 'pos',
       label: 'Punto de venta',
@@ -64,6 +62,12 @@ export class App {
         'M8.5 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m7 1a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 15.5 12m-7 1c-2.76 0-5 1.57-5 3.5V18h10v-1.5c0-1.93-2.24-3.5-5-3.5m7 1c-.91 0-1.77.18-2.5.5 1.19.73 2 1.81 2 3V18H20v-.8c0-1.78-2.02-3.2-4.5-3.2',
     },
     {
+      id: 'promos',
+      label: 'Promos',
+      iconPath:
+        'M4 8.5A2.5 2.5 0 0 1 6.5 6H10l2-2 2 2h3.5A2.5 2.5 0 0 1 20 8.5v3.09a3.5 3.5 0 0 0 0 6.82v.09A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5zM12 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2m-3.5 6.5h7V13h-7z',
+    },
+    {
       id: 'reports',
       label: 'Corte diario',
       iconPath: 'M5 19.5V10h2v9.5zm6 0V4.5h2v15zm6 0V13h2v6.5z',
@@ -77,10 +81,9 @@ export class App {
   ];
   constructor(protected store: StoreService) {}
 
-  isItemActive(viewId: ViewId): boolean {
-    return this.store.activeView === viewId;
+  ngOnInit(): void {
+    this.store.initializePublicFlow();
   }
-
   openView(view: ViewId): void {
     this.store.setView(view);
   }

@@ -1,10 +1,16 @@
 <div class="card section-gap" id="reports-refunds-section">
   <div class="card-header"><h3>Devoluciones del {{ store.reportDate }}</h3><span class="pill">{{ store.refundedToday.length }} registros</span></div>
+  @if (store.reportIncidentFilter !== 'ALL') {
+    <div class="panel-filter-note">
+      Filtrando: <strong>{{ store.reportIncidentFilterLabel }}</strong>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">Ver todo</button>
+    </div>
+  }
   <div class="card-content no-pad">
     <table class="table">
       <thead><tr><th>Folio</th><th>Ticket</th><th>Fecha</th><th>Cliente</th><th>Metodo</th><th>Total</th></tr></thead>
       <tbody>
-        @for (refund of store.refundedToday; track refund.id) {
+        @for (refund of store.filteredRefundedToday; track refund.id) {
           <tr class="row-cancelled">
             <td class="td-primary">#{{ refund.id }}</td>
             <td>#{{ refund.saleId }}</td>

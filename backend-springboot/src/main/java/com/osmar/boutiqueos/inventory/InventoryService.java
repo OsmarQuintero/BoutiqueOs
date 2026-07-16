@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.inventory;
 
+import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.product.Product;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.product.ProductStatus;
@@ -16,14 +17,16 @@ public class InventoryService {
 
     private final InventoryMovementRepository movementRepository;
     private final ProductRepository productRepository;
+    private final AccountContext accountContext;
 
-    public InventoryService(InventoryMovementRepository movementRepository, ProductRepository productRepository) {
+    public InventoryService(InventoryMovementRepository movementRepository, ProductRepository productRepository, AccountContext accountContext) {
         this.movementRepository = movementRepository;
         this.productRepository = productRepository;
+        this.accountContext = accountContext;
     }
 
     public List<InventoryMovementResponse> listRecent() {
-        return movementRepository.findTop50ByOrderByCreatedAtDesc().stream()
+        return movementRepository.findTop50ByAccountIdOrderByCreatedAtDesc(accountContext.requireAccountId()).stream()
                 .map(InventoryMovementResponse::from)
                 .toList();
     }
@@ -33,14 +36,14 @@ public class InventoryService {
         var target = date == null ? LocalDate.now(zone) : date;
         var start = target.atStartOfDay(zone).toInstant();
         var end = target.plusDays(1).atStartOfDay(zone).toInstant();
-        return movementRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end).stream()
+        return movementRepository.findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(accountContext.requireAccountId(), start, end).stream()
                 .map(InventoryMovementResponse::from)
                 .toList();
     }
 
     @Transactional
     public Product adjustStock(InventoryAdjustmentRequest request) {
-        Product product = productRepository.findById(request.productId())
+        Product product = productRepository.findByIdAndAccountId(request.productId(), accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + request.productId()));
 
         int nextStock = product.getStock() + request.quantityDelta();
@@ -59,6 +62,7 @@ public class InventoryService {
 
     public void recordMovement(Product product, InventoryMovementType type, int quantity, BigDecimal unitCost, String note) {
         InventoryMovement movement = new InventoryMovement();
+        movement.setAccountId(product.getAccountId());
         movement.setProductId(product.getId());
         movement.setProductName(product.getName());
         movement.setType(type);

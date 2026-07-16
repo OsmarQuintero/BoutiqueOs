@@ -19,7 +19,10 @@ public class DailyCashCount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
+    private Long accountId = 1L;
+
+    @Column(nullable = false)
     private LocalDate businessDate;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -28,10 +31,23 @@ public class DailyCashCount {
     private String notes;
 
     @Column(nullable = false)
+    private boolean closed = false;
+
+    private Instant closedAt;
+
+    @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
     public Long getId() {
         return id;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public LocalDate getBusinessDate() {
@@ -64,5 +80,21 @@ public class DailyCashCount {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public boolean isClosed() {
+        return closed;
+    }
+
+    public void setClosed(boolean closed) {
+        this.closed = closed;
+    }
+
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(Instant closedAt) {
+        this.closedAt = closedAt;
     }
 }

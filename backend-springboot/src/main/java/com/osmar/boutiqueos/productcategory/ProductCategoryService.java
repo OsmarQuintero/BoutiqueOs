@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.productcategory;
 
+import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.product.ProductRepository;
 import org.springframework.stereotype.Service;
 
@@ -10,19 +11,22 @@ public class ProductCategoryService {
 
     private final ProductCategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final AccountContext accountContext;
 
-    public ProductCategoryService(ProductCategoryRepository categoryRepository, ProductRepository productRepository) {
+    public ProductCategoryService(ProductCategoryRepository categoryRepository, ProductRepository productRepository, AccountContext accountContext) {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
+        this.accountContext = accountContext;
     }
 
     public List<ProductCategory> list() {
-        return categoryRepository.findAllByOrderByNameAsc();
+        return categoryRepository.findAllByAccountIdOrderByNameAsc(accountContext.requireAccountId());
     }
 
     public ProductCategory create(ProductCategoryRequest request) {
         validateUniqueName(request.name(), null);
         ProductCategory category = new ProductCategory();
+        category.setAccountId(accountContext.requireAccountId());
         apply(category, request);
         return categoryRepository.save(category);
     }
@@ -36,14 +40,14 @@ public class ProductCategoryService {
 
     public void delete(Long id) {
         ProductCategory category = get(id);
-        if (productRepository.countByCategoryIgnoreCase(category.getName()) > 0) {
+        if (productRepository.countByAccountIdAndCategoryIgnoreCase(accountContext.requireAccountId(), category.getName()) > 0) {
             throw new IllegalStateException("Category is already used by products");
         }
         categoryRepository.delete(category);
     }
 
     private ProductCategory get(Long id) {
-        return categoryRepository.findById(id)
+        return categoryRepository.findByIdAndAccountId(id, accountContext.requireAccountId())
                 .orElseThrow(() -> new IllegalArgumentException("Category not found: " + id));
     }
 
@@ -56,7 +60,7 @@ public class ProductCategoryService {
 
     private void validateUniqueName(String rawName, Long currentId) {
         String name = rawName == null ? "" : rawName.trim();
-        categoryRepository.findByNameIgnoreCase(name).ifPresent(existing -> {
+        categoryRepository.findByAccountIdAndNameIgnoreCase(accountContext.requireAccountId(), name).ifPresent(existing -> {
             if (currentId == null || !existing.getId().equals(currentId)) {
                 throw new IllegalArgumentException("Category already exists: " + name);
             }
