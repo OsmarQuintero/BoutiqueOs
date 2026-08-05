@@ -1,7 +1,10 @@
 package com.osmar.boutiqueos.customer;
 
 import com.osmar.boutiqueos.config.AccountContext;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -25,8 +28,7 @@ public class CustomerService {
     }
 
     public CustomerResponse get(Long id) {
-        return repository.findByIdAndAccountId(id, accountContext.requireAccountId()).map(CustomerResponse::from)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + id));
+        return CustomerResponse.from(requireCustomer(id));
     }
 
     public CustomerResponse create(CustomerRequest request) {
@@ -39,15 +41,20 @@ public class CustomerService {
     }
 
     public CustomerResponse update(Long id, CustomerRequest request) {
-        Customer c = repository.findByIdAndAccountId(id, accountContext.requireAccountId())
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + id));
+        Customer c = requireCustomer(id);
         c.setName(request.name());
         c.setPhone(request.phone());
         c.setNotes(request.notes());
         return CustomerResponse.from(repository.save(c));
     }
 
+    @Transactional
     public void delete(Long id) {
-        repository.deleteByIdAndAccountId(id, accountContext.requireAccountId());
+        repository.delete(requireCustomer(id));
+    }
+
+    private Customer requireCustomer(Long id) {
+        return repository.findByIdAndAccountId(id, accountContext.requireAccountId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found: " + id));
     }
 }

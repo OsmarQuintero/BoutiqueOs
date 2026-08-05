@@ -2,7 +2,10 @@ package com.osmar.boutiqueos.productcategory;
 
 import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.product.ProductRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -38,17 +41,18 @@ public class ProductCategoryService {
         return categoryRepository.save(category);
     }
 
+    @Transactional
     public void delete(Long id) {
         ProductCategory category = get(id);
         if (productRepository.countByAccountIdAndCategoryIgnoreCase(accountContext.requireAccountId(), category.getName()) > 0) {
-            throw new IllegalStateException("Category is already used by products");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Category is already used by products");
         }
         categoryRepository.delete(category);
     }
 
     private ProductCategory get(Long id) {
         return categoryRepository.findByIdAndAccountId(id, accountContext.requireAccountId())
-                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found: " + id));
     }
 
     private void apply(ProductCategory category, ProductCategoryRequest request) {

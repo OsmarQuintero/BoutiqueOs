@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 class ProductServiceAccountIsolationTests {
@@ -40,6 +42,18 @@ class ProductServiceAccountIsolationTests {
         accountContext.setAccountId(202L);
         assertEquals(1, productService.list(null).size());
         assertEquals("Vestido Cuenta 2", productService.list(null).getFirst().getName());
+    }
+
+    @Test
+    void deletesOnlyTheProductFromTheCurrentAccount() {
+        Product firstAccountProduct = productRepository.save(product(101L, "Vestido Cuenta 1"));
+        Product secondAccountProduct = productRepository.save(product(202L, "Vestido Cuenta 2"));
+
+        accountContext.setAccountId(101L);
+        productService.delete(firstAccountProduct.getId());
+
+        assertFalse(productRepository.existsById(firstAccountProduct.getId()));
+        assertTrue(productRepository.existsById(secondAccountProduct.getId()));
     }
 
     private Product product(Long accountId, String name) {

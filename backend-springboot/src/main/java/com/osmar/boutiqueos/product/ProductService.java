@@ -2,6 +2,7 @@ package com.osmar.boutiqueos.product;
 
 import com.osmar.boutiqueos.config.AccountContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
@@ -34,7 +35,7 @@ public class ProductService {
 
     public Product get(Long id) {
         return productRepository.findByIdAndAccountId(id, accountContext.requireAccountId())
-                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 
     public Product create(ProductRequest request) {
@@ -50,8 +51,9 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public void delete(Long id) {
-        productRepository.deleteByIdAndAccountId(id, accountContext.requireAccountId());
+        productRepository.delete(get(id));
     }
 
     private void apply(Product product, ProductRequest request) {

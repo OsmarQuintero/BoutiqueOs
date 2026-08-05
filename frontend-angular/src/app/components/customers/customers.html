@@ -1,13 +1,20 @@
 <div class="dual-col">
   <div class="card" id="customers-form-section">
-    <div class="card-header"><h3>Nuevo cliente</h3></div>
+    <div class="card-header">
+      <h3>{{ store.editingCustomerId ? 'Editar cliente' : 'Nuevo cliente' }}</h3>
+      @if (store.editingCustomerId) {
+        <button class="btn btn-ghost btn-xs" (click)="store.cancelCustomerEdit()">Cancelar</button>
+      }
+    </div>
     <div class="card-content">
       <div class="form-compact">
         <label class="field"><span>Nombre</span><input [(ngModel)]="store.newCustomerName" placeholder="Nombre"></label>
         <label class="field"><span>WhatsApp</span><input [(ngModel)]="store.newCustomerPhone" placeholder="+52 555 1234 567"></label>
         <label class="field"><span>Notas</span><input [(ngModel)]="store.newCustomerNotes" placeholder="Opcional"></label>
       </div>
-      <button class="btn btn-primary" (click)="store.addCustomer()">Guardar</button>
+      <button class="btn btn-primary" (click)="store.addCustomer()">
+        {{ store.editingCustomerId ? 'Actualizar' : 'Guardar' }}
+      </button>
     </div>
   </div>
   <div class="card" id="customers-list-section">
@@ -137,6 +144,7 @@
             </div>
             <div class="customer-actions">
               <button class="btn btn-outline btn-sm" (click)="store.showCustomerSales(c)">Ver relacion</button>
+              <button class="btn btn-outline btn-xs" (click)="store.editCustomer(c)">Editar</button>
               <button class="btn btn-ghost btn-xs" (click)="store.deleteCustomer(c)">Eliminar</button>
             </div>
           </article>

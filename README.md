@@ -155,8 +155,10 @@ Backend en Render:
 
 ### Notas
 
-- En local se sigue usando H2 por defecto.
-- Los datos demo solo se siembran cuando el backend arranca con H2 local; en produccion con PostgreSQL no corre el `DataSeeder`.
+- En local se sigue usando H2 por defecto y los productos se guardan en `backend-springboot/data/boutique-os.mv.db`.
+- No se cargan productos, categorias ni clientes de demostracion: cada cuenta nueva inicia vacia.
+- Los archivos de H2 estan excluidos de Git. Un `git push` publica el codigo, pero no modifica los datos que ya existen en la base de datos local.
+- En produccion usa PostgreSQL (por ejemplo, Supabase). La base de datos debe ser persistente y sus credenciales deben configurarse como variables de entorno; nunca se debe recrear como parte del despliegue.
 - En produccion el backend toma `PORT` automaticamente.
 - El frontend ya no depende de `localhost`; toma la API desde `BOUTIQUE_API_URL` o usa `/api` solo como fallback.
 - El frontend es una SPA con cambio de vistas dentro de un solo componente raiz, sin router activo.

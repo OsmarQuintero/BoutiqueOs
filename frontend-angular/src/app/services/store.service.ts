@@ -348,6 +348,7 @@ export class StoreService {
   newCustomerName = '';
   newCustomerPhone = '';
   newCustomerNotes = '';
+  editingCustomerId: number | null = null;
   customerSearchTerm = '';
   selectedCustomerHistory: Customer | null = null;
   customerSales: SaleRecord[] = [];
@@ -867,24 +868,7 @@ export class StoreService {
   }
 
   get productCategoryOptions(): ProductCategory[] {
-    const map = new Map<string, ProductCategory>();
-    for (const category of this.activeProductCategories) {
-      map.set(category.name.trim().toLowerCase(), category);
-    }
-    for (const preset of this.categoryPresets) {
-      const key = preset.name.trim().toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, {
-          id: -map.size - 1,
-          name: preset.name,
-          description: preset.description,
-          sizeLabel: preset.sizeLabel,
-          active: true,
-          createdAt: '',
-        });
-      }
-    }
-    return [...map.values()];
+    return this.activeProductCategories;
   }
 
   get currentProductCategory(): ProductCategory | null {
@@ -910,7 +894,7 @@ export class StoreService {
   }
 
   get categorySummary() {
-    return this.productCategoryOptions.map((category) => {
+    return this.productCategories.map((category) => {
       const products = this.products.filter((product) =>
         this.sameCategory(product.category, category.name),
       );
@@ -2319,8 +2303,13 @@ export class StoreService {
           }
           this.loadProductCategories();
         },
-        error: () => {
-          this.statusMessage = 'No se pudo eliminar la categoria. Revisa si ya tiene productos.';
+        error: (error: HttpErrorResponse) => {
+          this.statusMessage =
+            error.status === 409
+              ? 'No se puede eliminar la categoria porque tiene productos ligados'
+              : error.status === 404
+                ? 'La categoria ya no existe o no pertenece a esta cuenta'
+                : 'No se pudo eliminar la categoria';
         },
       });
   }
@@ -2447,8 +2436,11 @@ export class StoreService {
           }
           this.loadProducts();
         },
-        error: () => {
-          this.statusMessage = 'No se pudo eliminar el producto';
+        error: (error: HttpErrorResponse) => {
+          this.statusMessage =
+            error.status === 404
+              ? 'El producto ya no existe o no pertenece a esta cuenta'
+              : 'No se pudo eliminar el producto';
         },
       });
   }
@@ -2516,27 +2508,40 @@ export class StoreService {
       this.statusMessage = 'El cliente necesita nombre';
       return;
     }
+    const payload = {
+      name: this.newCustomerName.trim(),
+      phone: this.newCustomerPhone.trim() || null,
+      notes: this.newCustomerNotes.trim() || null,
+    };
+    const request = this.editingCustomerId
+      ? this.http.put<Customer>(this.apiUrl(`/customers/${this.editingCustomerId}`), payload)
+      : this.http.post<Customer>(this.apiUrl('/customers'), payload);
+
     this.refresh
-      .track(
-        'Guardando cliente...',
-        this.http.post<Customer>(this.apiUrl('/customers'), {
-          name: this.newCustomerName,
-          phone: this.newCustomerPhone || null,
-          notes: this.newCustomerNotes || null,
-        }),
-      )
+      .track(this.editingCustomerId ? 'Actualizando cliente...' : 'Guardando cliente...', request)
       .subscribe({
         next: () => {
-          this.statusMessage = 'Cliente agregado';
-          this.newCustomerName = '';
-          this.newCustomerPhone = '';
-          this.newCustomerNotes = '';
+          this.statusMessage = this.editingCustomerId ? 'Cliente actualizado' : 'Cliente agregado';
+          this.resetCustomerForm();
           this.loadCustomers();
         },
         error: () => {
-          this.statusMessage = 'No se pudo agregar el cliente';
+          this.statusMessage = this.editingCustomerId
+            ? 'No se pudo actualizar el cliente'
+            : 'No se pudo agregar el cliente';
         },
       });
+  }
+
+  editCustomer(customer: Customer): void {
+    this.editingCustomerId = customer.id;
+    this.newCustomerName = customer.name;
+    this.newCustomerPhone = customer.phone || '';
+    this.newCustomerNotes = customer.notes || '';
+  }
+
+  cancelCustomerEdit(): void {
+    this.resetCustomerForm();
   }
 
   savePromo(): void {
@@ -2647,10 +2652,14 @@ export class StoreService {
           this.statusMessage = `${customer.name} eliminado`;
           if (this.selectedCustomerId === customer.id) this.selectedCustomerId = null;
           if (this.selectedCustomerHistory?.id === customer.id) this.selectedCustomerHistory = null;
+          if (this.editingCustomerId === customer.id) this.resetCustomerForm();
           this.loadCustomers();
         },
-        error: () => {
-          this.statusMessage = 'No se pudo eliminar el cliente';
+        error: (error: HttpErrorResponse) => {
+          this.statusMessage =
+            error.status === 404
+              ? 'El cliente ya no existe o no pertenece a esta cuenta'
+              : 'No se pudo eliminar el cliente';
         },
       });
   }
@@ -3322,6 +3331,13 @@ export class StoreService {
 
   private normalizeInstagramHandle(value: string): string {
     return value.trim().replace(/^@+/, '').replace(/\s+/g, '');
+  }
+
+  private resetCustomerForm(): void {
+    this.editingCustomerId = null;
+    this.newCustomerName = '';
+    this.newCustomerPhone = '';
+    this.newCustomerNotes = '';
   }
 
   private loadProducts(): void {
