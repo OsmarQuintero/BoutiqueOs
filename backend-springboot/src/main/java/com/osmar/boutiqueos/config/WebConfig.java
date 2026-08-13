@@ -37,6 +37,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(apiSessionInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
+                        "/api/health",
                         "/api/checkout/start",
                         "/api/settings/login",
                         "/api/settings/password-reset/request",

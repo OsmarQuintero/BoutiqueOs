@@ -1,8 +1,11 @@
 package com.osmar.boutiqueos.sale;
 
+import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.product.Product;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.product.ProductStatus;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,9 +25,24 @@ class SaleServiceRefundTests {
     @Autowired
     private ProductRepository productRepository;
 
+    @Autowired
+    private AccountContext accountContext;
+
+    @BeforeEach
+    void setUp() {
+        accountContext.setAccountId(101L);
+    }
+
+    @AfterEach
+    void cleanup() {
+        accountContext.clear();
+        productRepository.deleteAll();
+    }
+
     @Test
     void refundingConfirmedSaleRestoresStockAndMarksSaleAsRefunded() {
         Product product = new Product();
+        product.setAccountId(101L);
         product.setName("Vestido prueba devolucion");
         product.setCategory("Vestidos");
         product.setSize("M");
@@ -59,6 +77,7 @@ class SaleServiceRefundTests {
     @Test
     void partialRefundRestoresOnlyRequestedUnitsAndKeepsSaleOpenForMoreRefunds() {
         Product product = new Product();
+        product.setAccountId(101L);
         product.setName("Blusa prueba parcial");
         product.setCategory("Blusas");
         product.setSize("S");

@@ -1,9 +1,9 @@
 package com.osmar.boutiqueos.settings;
 
 import com.osmar.boutiqueos.config.AccountContext;
-import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKeyFactory;
@@ -36,10 +36,12 @@ public class AppSettingsService {
         this.accountContext = accountContext;
     }
 
+    @Transactional
     public AppSettings getCurrent() {
         return getByAccountId(resolveCurrentAccountId());
     }
 
+    @Transactional
     public AppSettings getByAccountId(Long accountId) {
         return appSettingsRepository.findById(accountId)
                 .orElseGet(() -> {
@@ -51,6 +53,7 @@ public class AppSettingsService {
                 });
     }
 
+    @Transactional
     public AppSettings get() {
         return getCurrent();
     }
@@ -177,6 +180,7 @@ public class AppSettingsService {
         return settings;
     }
 
+    @Transactional
     public boolean validate(LoginRequest request) {
         return authenticate(request) != null;
     }

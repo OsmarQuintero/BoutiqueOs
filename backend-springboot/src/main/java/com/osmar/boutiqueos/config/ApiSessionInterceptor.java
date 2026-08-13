@@ -12,6 +12,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class ApiSessionInterceptor implements HandlerInterceptor {
     private static final String[] PUBLIC_API_PATHS = {
+            "/api/health",
             "/api/checkout/start",
             "/api/settings/login",
             "/api/settings/password-reset/request",

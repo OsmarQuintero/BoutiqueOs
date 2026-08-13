@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 @Service
+@Transactional(readOnly = true)
 public class ProductService {
     private static final Pattern SAFE_DATA_IMAGE = Pattern.compile(
             "^data:image/(png|jpeg|jpg|webp|gif);base64,[a-zA-Z0-9+/=\\r\\n]+$"
@@ -38,6 +39,7 @@ public class ProductService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 
+    @Transactional
     public Product create(ProductRequest request) {
         Product product = new Product();
         product.setAccountId(accountContext.requireAccountId());
@@ -45,6 +47,7 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public Product update(Long id, ProductRequest request) {
         Product product = get(id);
         apply(product, request);

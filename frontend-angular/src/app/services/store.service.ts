@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, NgZone, signal } from '@angular/core';
-import { finalize, timeout } from 'rxjs';
+import { finalize, retry, throwError, timeout, timer } from 'rxjs';
 import { RefreshService } from './refresh.service';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD';
@@ -240,7 +240,9 @@ interface OnboardingCompleteResponse {
   username: string;
 }
 
-const LOGIN_TIMEOUT_MS = 8000;
+const LOGIN_TIMEOUT_MS = 20000;
+const LOGIN_RETRY_COUNT = 3;
+const LOGIN_RETRY_DELAY_MS = 5000;
 const ONBOARDING_TIMEOUT_MS = 15000;
 const SAVE_TIMEOUT_MS = 4000;
 
@@ -257,6 +259,20 @@ export type ViewId =
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
 
 const PROMOS_STORAGE_KEY = 'boutiqueos.promotions.v1';
+
+const OFFLINE_QUEUE_KEY = 'boutiqueos.offline.sales.v1';
+
+interface OfflineSaleEntry {
+  id: string;
+  payload: {
+    paymentMethod: PaymentMethod;
+    discount: number;
+    cashReceived: number;
+    customerId: number | null;
+    items: Array<{ productId: number; quantity: number }>;
+  };
+  createdAt: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class StoreService {
@@ -549,6 +565,9 @@ export class StoreService {
     private readonly ngZone: NgZone,
   ) {
     this.loadPromotionsFromStorage();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => this.flushOfflineSales());
+    }
   }
 
   get loggedIn(): boolean {
@@ -1706,10 +1725,26 @@ export class StoreService {
     this.loginLoading = true;
     this.refresh
       .track(
-        'Cargando...',
+        'Iniciando sesion...',
         this.http
           .post<LoginResponse>(this.loginEndpoint, { username, password })
-          .pipe(timeout({ first: LOGIN_TIMEOUT_MS })),
+          .pipe(
+            timeout({ first: LOGIN_TIMEOUT_MS }),
+            retry({
+              count: LOGIN_RETRY_COUNT,
+              delay: (error: unknown, retryCount: number) => {
+                const isHttpError =
+                  error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500;
+                if (isHttpError) {
+                  return throwError(() => error);
+                }
+                if (retryCount > 1) {
+                  this.loginError = 'El servidor esta despertando, reintentando...';
+                }
+                return timer(LOGIN_RETRY_DELAY_MS);
+              },
+            }),
+          ),
       )
       .pipe(finalize(() => (this.loginLoading = false)))
       .subscribe({
@@ -1729,6 +1764,7 @@ export class StoreService {
           this.loadCustomers();
           this.loadPendingSales();
           this.refreshReportData();
+          this.flushOfflineSales();
         },
         error: (error: unknown) => {
           this.sessionToken = '';
@@ -1737,8 +1773,8 @@ export class StoreService {
             error instanceof HttpErrorResponse && error.status === 429
               ? 'Demasiados intentos. Espera unos minutos e intenta de nuevo.'
               : error instanceof Error && error.name === 'TimeoutError'
-              ? `El backend no respondio. Revisa que este corriendo en ${backendUrl}`
-              : `No pude conectar con el backend. Revisa ${backendUrl}`;
+                ? `El backend no respondio a tiempo. Si el servidor estaba dormido, espera y vuelve a intentar en ${backendUrl}`
+                : `No pude conectar con el backend. Revisa ${backendUrl}`;
         },
       });
   }
@@ -2094,7 +2130,24 @@ export class StoreService {
           this.loadPendingSales();
           this.refreshReportData();
         },
-        error: () => {
+        error: (error: unknown) => {
+          if (this.shouldQueueOffline(error)) {
+            this.queueOfflineSale({
+              paymentMethod: this.selectedPayment,
+              discount: this.cartDiscount,
+              cashReceived: this.selectedPayment === 'CASH' ? this.cashReceived : 0,
+              customerId: this.selectedCustomerId,
+              items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
+            });
+            this.cart = [];
+            this.selectedCustomerId = null;
+            this.selectedPromoId = null;
+            this.checkoutDiscount = 0;
+            this.cashReceived = 0;
+            this.isCharging = false;
+            this.statusMessage = 'Sin conexion. La venta quedo guardada y se sincronizara sola.';
+            return;
+          }
           this.statusMessage = 'No se pudo cobrar. Revisa backend o stock.';
           this.isCharging = false;
         },
@@ -3895,6 +3948,94 @@ export class StoreService {
   private syncSelectedPromo(): void {
     if (this.selectedPromoId && !this.activeCartPromo) {
       this.selectedPromoId = null;
+    }
+  }
+
+  private shouldQueueOffline(error: unknown): boolean {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return true;
+    }
+    return error instanceof HttpErrorResponse && error.status === 0;
+  }
+
+  private queueOfflineSale(payload: OfflineSaleEntry['payload']): void {
+    const entries = this.loadOfflineSales();
+    entries.push({
+      id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      payload,
+      createdAt: new Date().toISOString(),
+    });
+    this.saveOfflineSales(entries);
+  }
+
+  flushOfflineSales(): void {
+    if (
+      typeof navigator === 'undefined' ||
+      navigator.onLine === false ||
+      !this.loggedIn ||
+      !this.sessionToken
+    ) {
+      return;
+    }
+    const entries = this.loadOfflineSales();
+    if (!entries.length) {
+      return;
+    }
+
+    const remaining = entries.slice();
+    let cursor = 0;
+    const attemptNext = () => {
+      if (cursor >= remaining.length) {
+        this.saveOfflineSales([]);
+        if (remaining.length) {
+          const total = remaining.length;
+          this.statusMessage =
+            total === 1 ? 'Venta pendiente sincronizada.' : `${total} ventas pendientes sincronizadas.`;
+          this.loadProducts();
+          this.loadSalesToday();
+          this.loadPendingSales();
+          this.refreshReportData();
+        }
+        return;
+      }
+      const entry = remaining[cursor];
+      this.http.post<SaleRecord>(this.apiUrl('/sales'), entry.payload).subscribe({
+        next: () => {
+          cursor += 1;
+          attemptNext();
+        },
+        error: () => {
+          this.saveOfflineSales(remaining.slice(cursor));
+        },
+      });
+    };
+    attemptNext();
+  }
+
+  private loadOfflineSales(): OfflineSaleEntry[] {
+    if (typeof window === 'undefined') {
+      return [];
+    }
+    try {
+      const raw = window.localStorage.getItem(OFFLINE_QUEUE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveOfflineSales(entries: OfflineSaleEntry[]): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(entries));
+    } catch {
+      // Storage no disponible o lleno: se mantiene la venta en el carrito.
     }
   }
 

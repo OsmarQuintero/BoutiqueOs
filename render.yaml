@@ -4,7 +4,7 @@ services:
     plan: free
     dockerfilePath: backend-springboot/Dockerfile
     dockerContext: backend-springboot
-    healthCheckPath: /api/products
+    healthCheckPath: /api/health
     envVars:
       - key: SPRING_DATASOURCE_URL
         sync: false

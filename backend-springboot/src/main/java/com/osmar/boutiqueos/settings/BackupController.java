@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -65,6 +66,7 @@ public class BackupController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public Map<String, Object> export(@RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token) {
         if (!authSessionService.isValid(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");

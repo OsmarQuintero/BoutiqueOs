@@ -1,11 +1,11 @@
 package com.osmar.boutiqueos.config;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class AccountContext {
-
-    private static final Long DEFAULT_ACCOUNT_ID = 1L;
 
     private final ThreadLocal<Long> accountIdHolder = new ThreadLocal<>();
 
@@ -15,7 +15,10 @@ public class AccountContext {
 
     public Long requireAccountId() {
         Long accountId = accountIdHolder.get();
-        return accountId == null ? DEFAULT_ACCOUNT_ID : accountId;
+        if (accountId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account context missing");
+        }
+        return accountId;
     }
 
     public void clear() {

@@ -35,6 +35,7 @@ cd /home/osmariqv/BoutiqueOs/backend-springboot
 
 Endpoints principales:
 
+- `GET /api/health`
 - `GET /api/products`
 - `GET /api/products/{id}`
 - `POST /api/products`
@@ -62,13 +63,26 @@ Endpoints principales:
 - `POST /api/sales/{id}/cancel`
 - `POST /api/sales/{id}/refund`
 - `GET /api/reports/cash-count/today`
+- `GET /api/reports/cash-count/history`
 - `PUT /api/reports/cash-count/today`
+- `POST /api/reports/cash-count/today/close`
+- `POST /api/reports/cash-count/today/reopen`
 - `GET /api/settings`
 - `PUT /api/settings`
 - `PUT /api/settings/ticket`
 - `PUT /api/settings/credentials`
 - `POST /api/settings/login`
+- `POST /api/settings/logout`
+- `POST /api/settings/password-reset/request`
+- `GET /api/settings/password-reset/validate`
+- `POST /api/settings/password-reset/confirm`
+- `GET /api/checkout/start` (Stripe Checkout)
+- `POST /api/onboarding/start`
+- `POST /api/onboarding/complete`
 - `GET /api/backup`
+
+Las rutas autenticadas requieren el header `X-Boutique-Session` con el token JWT.
+Son publicas: login, password-reset, checkout, onboarding y health.
 
 H2 Console:
 
@@ -122,6 +136,8 @@ Backend en Render:
 - `SPRING_JPA_HIBERNATE_DDL_AUTO=update`
 - `SPRING_H2_CONSOLE_ENABLED=false`
 - `APP_CORS_ALLOWED_ORIGINS=http://localhost:4200,https://tu-frontend.vercel.app`
+- `APP_JWT_SECRET=clave-secreta-de-al-menos-32-caracteres` (obligatoria en produccion; sin ella se genera una aleatoria y las sesiones se invalidan al reiniciar)
+- `APP_JWT_TTL_HOURS=12` (duracion de la sesion JWT)
 
 ### Supabase
 
@@ -163,3 +179,13 @@ Backend en Render:
 - El frontend ya no depende de `localhost`; toma la API desde `BOUTIQUE_API_URL` o usa `/api` solo como fallback.
 - El frontend es una SPA con cambio de vistas dentro de un solo componente raiz, sin router activo.
 - Si ves `tenant/user ... not found` o `Unable to determine Dialect without JDBC metadata`, casi siempre estas mezclando datos de `Direct connection` con `Pooler`.
+
+### PWA y modo offline
+
+- El frontend es una PWA instalable (`manifest.webmanifest` + `service worker` en `public/`).
+- Sin conexion se conserva el shell de la app y el catalogo cacheado (las respuestas `GET /api/*` se cachean con estrategia network-first).
+- Si cobras sin internet, la venta se guarda en `localStorage` y se sincroniza sola al reconectar o al volver a iniciar sesion.
+
+### CI
+
+- `.github/workflows/ci.yml` corre los tests del backend y tests + build del frontend en cada push o PR a `main`.
