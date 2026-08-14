@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { ViewId } from '../../services/store.service';
+import { StoreService, ViewId } from '../../services/store.service';
 
 export interface ModuleStripItem {
   id: ViewId;
@@ -18,8 +18,13 @@ export interface ModuleStripItem {
 export class ModuleStripComponent {
   @Input({ required: true }) items: ModuleStripItem[] = [];
   @Input({ required: true }) activeView!: ViewId;
-  @Input() statusText = 'Sin novedades';
+  @Input() statusText = '';
+
   @Output() viewChange = new EventEmitter<ViewId>();
+
+  constructor(protected store: StoreService) {
+    this.statusText = this.store.t('tasks.noNews');
+  }
 
   isItemActive(viewId: ViewId): boolean {
     return this.activeView === viewId;

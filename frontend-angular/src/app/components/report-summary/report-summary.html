@@ -1,39 +1,63 @@
 <div class="card" id="reports-summary-section">
-  <div class="card-header"><h3>Resumen del {{ store.reportDate }}</h3></div>
+  <div class="card-header">
+    <h3>{{ store.t('summary.of', { date: store.reportDate }) }}</h3>
+  </div>
   <div class="card-content">
     @if (store.reportDayClosed) {
       <div class="report-closure-banner">
         <div>
-          <strong>Dia cerrado</strong>
+          <strong>{{ store.t('summary.dayClosed') }}</strong>
           <small class="muted-line">
-            Cerrado: {{ store.reportClosedAt ? store.formatDateTime(store.reportClosedAt) : 'Sin fecha' }}
+            {{
+              store.t('summary.closedAt', {
+                date: store.reportClosedAt
+                  ? store.formatDateTime(store.reportClosedAt)
+                  : store.t('summary.noDate'),
+              })
+            }}
           </small>
         </div>
-        <span class="pill pill-green">Bloqueado para edicion</span>
+        <span class="pill pill-green">{{ store.t('summary.locked') }}</span>
       </div>
     }
     <div class="executive-grid">
       <div class="executive-card executive-card-primary">
-        <div class="kpi-label">Vendido neto</div>
+        <div class="kpi-label">{{ store.t('summary.netSold') }}</div>
         <div class="kpi-value">{{ store.formatMoney(store.todayTotal) }}</div>
-        <small class="muted-line">{{ store.confirmedSalesToday.length }} ticket(s) cobrados</small>
+        <small class="muted-line">{{
+          store.t('summary.ticketsCharged', { n: store.confirmedSalesToday.length })
+        }}</small>
       </div>
       <div class="executive-card">
-        <div class="kpi-label">Utilidad neta</div>
+        <div class="kpi-label">{{ store.t('summary.netProfit') }}</div>
         <div class="kpi-value kpi-green">{{ store.formatMoney(store.todayProfit) }}</div>
-        <small class="muted-line">Margen {{ store.averageMarginToday.toFixed(1) }}%</small>
+        <small class="muted-line">{{
+          store.t('summary.margin', { n: store.averageMarginToday.toFixed(1) })
+        }}</small>
       </div>
       <div class="executive-card">
-        <div class="kpi-label">Caja total esperada</div>
+        <div class="kpi-label">{{ store.t('summary.expectedBox') }}</div>
         <div class="kpi-value">{{ store.formatMoney(store.expectedBoxTotal) }}</div>
-        <small class="muted-line">Efectivo esperado: {{ store.formatMoney(store.cashExpected) }}</small>
+        <small class="muted-line"
+          >{{ store.t('summary.expectedCash') }} {{ store.formatMoney(store.cashExpected) }}</small
+        >
       </div>
-      <div class="executive-card" [class.executive-card-risk]="store.cashDifferenceSeverity === 'risk'" [class.executive-card-warn]="store.cashDifferenceSeverity === 'warn'">
-        <div class="kpi-label">Diferencia</div>
-        <div class="kpi-value" [class.kpi-green]="store.cashDifference >= 0" [class.kpi-red]="store.cashDifference < 0">
+      <div
+        class="executive-card"
+        [class.executive-card-risk]="store.cashDifferenceSeverity === 'risk'"
+        [class.executive-card-warn]="store.cashDifferenceSeverity === 'warn'"
+      >
+        <div class="kpi-label">{{ store.t('summary.difference') }}</div>
+        <div
+          class="kpi-value"
+          [class.kpi-green]="store.cashDifference >= 0"
+          [class.kpi-red]="store.cashDifference < 0"
+        >
           {{ store.formatMoney(store.cashDifference) }}
         </div>
-        <small class="muted-line">Pendientes: {{ store.pendingSalesCount }}</small>
+        <small class="muted-line">{{
+          store.t('summary.pendingCount', { n: store.pendingSalesCount })
+        }}</small>
       </div>
     </div>
   </div>
@@ -45,12 +69,19 @@
       <div class="card-content comparison-card">
         <div class="comparison-top">
           <strong>{{ item.title }}</strong>
-          <span class="pill" [class.pill-green]="item.tone === 'good'" [class.pill-amber]="item.tone === 'warn'" [class.pill-red]="item.tone === 'risk'">
-            vs ayer
+          <span
+            class="pill"
+            [class.pill-green]="item.tone === 'good'"
+            [class.pill-amber]="item.tone === 'warn'"
+            [class.pill-red]="item.tone === 'risk'"
+          >
+            {{ store.t('summary.vsYesterday') }}
           </span>
         </div>
         <div class="comparison-now">{{ item.current }}</div>
-        <small class="muted-line">Ayer: {{ item.previous }}</small>
+        <small class="muted-line"
+          >{{ store.t('summary.yesterdayColon') }} {{ item.previous }}</small
+        >
         <small class="comparison-detail">{{ item.detail }}</small>
       </div>
     </div>
@@ -62,18 +93,31 @@
     <div class="card">
       <div class="card-content payment-card">
         <div class="payment-card-top">
-          <span class="pill" [class.pill-green]="item.value === 'CASH'" [class.pill-blue]="item.value === 'TRANSFER'" [class.pill-purple]="item.value === 'CARD'">{{ item.label }}</span>
-          <span class="payment-count">{{ item.count }} venta(s){{ item.refunds ? ' / ' + item.refunds + ' devol.' : '' }}</span>
+          <span
+            class="pill"
+            [class.pill-green]="item.value === 'CASH'"
+            [class.pill-blue]="item.value === 'TRANSFER'"
+            [class.pill-purple]="item.value === 'CARD'"
+            >{{ item.label }}</span
+          >
+          <span class="payment-count"
+            >{{ store.t('summary.countSales', { n: item.count })
+            }}{{
+              item.refunds ? ' / ' + store.t('summary.refundsShort', { n: item.refunds }) : ''
+            }}</span
+          >
         </div>
         <div class="payment-total">{{ store.formatMoney(item.total) }}</div>
-        <small class="muted-line">Ticket prom.: {{ store.formatMoney(item.average) }}</small>
+        <small class="muted-line"
+          >{{ store.t('summary.averageTicketShort') }} {{ store.formatMoney(item.average) }}</small
+        >
       </div>
     </div>
   }
   <div class="card">
     <div class="card-content payment-card">
       <div class="payment-card-top">
-        <span class="pill">Efectivo esperado</span>
+        <span class="pill">{{ store.t('summary.expectedCashPill') }}</span>
       </div>
       <div class="payment-total">{{ store.formatMoney(store.cashExpected) }}</div>
     </div>
@@ -82,9 +126,11 @@
 
 <div class="card section-gap">
   <div class="card-header">
-    <h3>Filtros rapidos de incidencias</h3>
+    <h3>{{ store.t('summary.incidentFilters') }}</h3>
     @if (store.reportIncidentFilter !== 'ALL') {
-      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">Limpiar filtro</button>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">
+        {{ store.t('summary.clearFilter') }}
+      </button>
     }
   </div>
   <div class="card-content incident-chip-grid">
@@ -92,7 +138,8 @@
       <button
         class="incident-chip"
         [class.incident-chip-active]="store.reportIncidentFilter === chip.id"
-        (click)="store.focusReportIncident(chip.id, chip.panel)">
+        (click)="store.focusReportIncident(chip.id, chip.panel)"
+      >
         <strong>{{ chip.label }}</strong>
         <span>{{ chip.count }}</span>
       </button>
@@ -102,32 +149,45 @@
 
 <div class="insight-grid">
   <div class="card">
-    <div class="card-header"><h3>Metricas del dia</h3></div>
+    <div class="card-header">
+      <h3>{{ store.t('summary.dayMetrics') }}</h3>
+    </div>
     <div class="card-content metric-list">
       <div class="metric-row">
-        <span>Ticket promedio</span>
+        <span>{{ store.t('summary.averageTicket') }}</span>
         <strong>{{ store.formatMoney(store.averageTicketToday) }}</strong>
       </div>
       <div class="metric-row">
-        <span>Piezas vendidas</span>
+        <span>{{ store.t('summary.piecesSold') }}</span>
         <strong>{{ store.piecesSoldToday }}</strong>
       </div>
       <div class="metric-row">
-        <span>Hora pico</span>
+        <span>{{ store.t('summary.peakHour') }}</span>
         <strong>{{ store.peakHourLabel }}</strong>
       </div>
       <div class="metric-row">
-        <span>Top producto</span>
-        <strong>{{ store.topSellingProductToday ? store.topSellingProductToday.name : 'Sin ventas' }}</strong>
+        <span>{{ store.t('summary.topProduct') }}</span>
+        <strong>{{
+          store.topSellingProductToday
+            ? store.topSellingProductToday.name
+            : store.t('summary.noSales')
+        }}</strong>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-header"><h3>Alertas</h3></div>
+    <div class="card-header">
+      <h3>{{ store.t('summary.alerts') }}</h3>
+    </div>
     <div class="card-content alert-stack">
       @for (alert of store.reportAlerts; track alert.title) {
-        <div class="alert-card" [class.alert-card-good]="alert.tone === 'good'" [class.alert-card-warn]="alert.tone === 'warn'" [class.alert-card-risk]="alert.tone === 'risk'">
+        <div
+          class="alert-card"
+          [class.alert-card-good]="alert.tone === 'good'"
+          [class.alert-card-warn]="alert.tone === 'warn'"
+          [class.alert-card-risk]="alert.tone === 'risk'"
+        >
           <strong>{{ alert.title }}</strong>
           <span>{{ alert.detail }}</span>
         </div>
@@ -137,48 +197,85 @@
 </div>
 
 <div class="card section-gap">
-  <div class="card-header"><h3>Corte de efectivo</h3></div>
+  <div class="card-header">
+    <h3>{{ store.t('summary.cashCut') }}</h3>
+  </div>
   <div class="card-content cash-cut-grid">
     <div class="kpi soft-kpi">
-      <div class="kpi-label">Esperado</div>
+      <div class="kpi-label">{{ store.t('summary.expected') }}</div>
       <div class="kpi-value">{{ store.formatMoney(store.cashExpected) }}</div>
     </div>
     <label class="field">
-      <span>Efectivo real en caja</span>
-      <input type="number" min="0" step="0.01" [(ngModel)]="store.actualCashInput" placeholder="0.00" [disabled]="store.reportDayClosed">
+      <span>{{ store.t('summary.actualCash') }}</span>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        [(ngModel)]="store.actualCashInput"
+        placeholder="0.00"
+        [disabled]="store.reportDayClosed"
+      />
     </label>
     <label class="field cash-notes">
-      <span>Notas del corte</span>
-      <input [(ngModel)]="store.cashCountNotes" placeholder="Opcional: faltante, cambio, retiro..." [disabled]="store.reportDayClosed">
+      <span>{{ store.t('summary.cashNotes') }}</span>
+      <input
+        [(ngModel)]="store.cashCountNotes"
+        [placeholder]="store.t('summary.cashNotesPlaceholder')"
+        [disabled]="store.reportDayClosed"
+      />
     </label>
     <div class="kpi soft-kpi">
-      <div class="kpi-label">Diferencia</div>
-      <div class="kpi-value" [class.kpi-green]="store.cashDifference >= 0" [class.kpi-red]="store.cashDifference < 0">
+      <div class="kpi-label">{{ store.t('summary.difference') }}</div>
+      <div
+        class="kpi-value"
+        [class.kpi-green]="store.cashDifference >= 0"
+        [class.kpi-red]="store.cashDifference < 0"
+      >
         {{ store.formatMoney(store.cashDifference) }}
       </div>
       @if (store.cashCountUpdatedAt) {
-        <small class="muted-line">Guardado: {{ store.formatDateTime(store.cashCountUpdatedAt) }}</small>
+        <small class="muted-line">{{
+          store.t('summary.savedAt', { date: store.formatDateTime(store.cashCountUpdatedAt) })
+        }}</small>
       }
       @if (store.reportClosedAt) {
-        <small class="muted-line">Cierre: {{ store.formatDateTime(store.reportClosedAt) }}</small>
+        <small class="muted-line">{{
+          store.t('summary.closingAt', { date: store.formatDateTime(store.reportClosedAt) })
+        }}</small>
       }
     </div>
     <div class="kpi soft-kpi">
-      <div class="kpi-label">Incidencias</div>
-      <div class="kpi-value">{{ store.refundedToday.length + store.pendingSalesCount + store.cancelledSalesCount }}</div>
-      <small class="muted-line">Devoluciones, pendientes y cancelaciones del dia</small>
+      <div class="kpi-label">{{ store.t('summary.incidents') }}</div>
+      <div class="kpi-value">
+        {{ store.refundedToday.length + store.pendingSalesCount + store.cancelledSalesCount }}
+      </div>
+      <small class="muted-line">{{ store.t('summary.incidentsHint') }}</small>
     </div>
     <div class="cash-actions">
-      <button class="btn btn-primary" [disabled]="store.isSavingCashCount || store.reportDayClosed" (click)="store.saveCashCount()">
-        {{ store.isSavingCashCount ? 'Guardando...' : 'Guardar corte' }}
+      <button
+        class="btn btn-primary"
+        [disabled]="store.isSavingCashCount || store.reportDayClosed"
+        (click)="store.saveCashCount()"
+      >
+        {{ store.isSavingCashCount ? store.t('common.saving') : store.t('summary.saveCut') }}
       </button>
       @if (!store.reportDayClosed) {
-        <button class="btn btn-outline" [disabled]="store.isClosingReportDay" (click)="store.closeReportDay()">
-          {{ store.isClosingReportDay ? 'Cerrando...' : 'Cerrar dia' }}
+        <button
+          class="btn btn-outline"
+          [disabled]="store.isClosingReportDay"
+          (click)="store.closeReportDay()"
+        >
+          {{ store.isClosingReportDay ? store.t('summary.closing') : store.t('summary.closeDay') }}
         </button>
       } @else {
-        <button class="btn btn-ghost" [disabled]="store.isReopeningReportDay" (click)="store.reopenReportDay()">
-          {{ store.isReopeningReportDay ? 'Reabriendo...' : 'Reabrir dia' }}
+        <button
+          class="btn btn-ghost"
+          [disabled]="store.isReopeningReportDay"
+          (click)="store.reopenReportDay()"
+        >
+          {{
+            store.isReopeningReportDay ? store.t('summary.reopening') : store.t('summary.reopenDay')
+          }}
         </button>
       }
     </div>
@@ -186,16 +283,18 @@
 </div>
 
 <div class="card section-gap">
-  <div class="card-header"><h3>Productos mas vendidos</h3></div>
+  <div class="card-header">
+    <h3>{{ store.t('summary.topProducts') }}</h3>
+  </div>
   <div class="card-content">
     <div class="tops-list">
       @for (item of store.topProductsToday; track item.name) {
         <div class="tops-row">
           <span>{{ item.name }}</span>
-          <strong>{{ item.qty }} uds</strong>
+          <strong>{{ item.qty }} {{ store.t('common.units') }}</strong>
         </div>
       } @empty {
-        <div class="empty-cell">Sin ventas confirmadas para esta fecha</div>
+        <div class="empty-cell">{{ store.t('summary.noConfirmedSales') }}</div>
       }
     </div>
   </div>

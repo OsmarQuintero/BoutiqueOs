@@ -1,13 +1,13 @@
 <div class="card" id="products-catalog-section">
   <div class="card-header products-header">
     <div>
-      <h3>Catalogo de productos</h3>
-      <small class="muted-line">Consulta, edita y abre el formulario solo cuando lo necesites</small>
+      <h3>{{ store.t('products.title') }}</h3>
+      <small class="muted-line">{{ store.t('products.subtitle') }}</small>
     </div>
     <div class="products-header-actions">
-      <span class="pill">{{ store.products.length }} productos</span>
+      <span class="pill">{{ store.t('products.count', { n: store.products.length }) }}</span>
       <button class="btn btn-primary btn-xs" (click)="store.openProductForm()">
-        {{ store.showProductForm ? 'Otro producto' : 'Nuevo producto' }}
+        {{ store.showProductForm ? store.t('products.another') : store.t('products.new') }}
       </button>
     </div>
   </div>
@@ -16,60 +16,113 @@
       <div class="dual-col with-form">
         <div class="card card-form card-form-inline" id="products-form-section">
           <div class="card-header">
-            <h3>{{ store.editingProductId ? 'Editar producto' : 'Capturar producto' }}</h3>
-            <button class="btn btn-ghost btn-xs" (click)="store.cancelProductEdit()">Cerrar</button>
+            <h3>
+              {{ store.editingProductId ? store.t('products.edit') : store.t('products.capture') }}
+            </h3>
+            <button class="btn btn-ghost btn-xs" (click)="store.cancelProductEdit()">
+              {{ store.t('common.close') }}
+            </button>
           </div>
           <div class="card-content">
             <div class="product-form-vertical">
-              <label class="field"><span>Nombre</span><input [(ngModel)]="store.productForm.name" placeholder="Nombre"></label>
+              <label class="field"
+                ><span>{{ store.t('products.name') }}</span
+                ><input
+                  [(ngModel)]="store.productForm.name"
+                  [placeholder]="store.t('products.name')"
+              /></label>
               <div class="field field-stack">
-                <span>Categoria</span>
+                <span>{{ store.t('products.category') }}</span>
                 <div class="category-field">
                   <select [(ngModel)]="store.productForm.category">
-                    <option value="">Selecciona una categoria</option>
+                    <option value="">{{ store.t('products.selectCategory') }}</option>
                     @for (category of store.productCategoryOptions; track category.id) {
                       <option [ngValue]="category.name">{{ category.name }}</option>
                     }
                   </select>
-                  <small>Elige una categoria y el sistema ajusta el campo de talla automaticamente.</small>
+                  <small>{{ store.t('products.categoryHint') }}</small>
                 </div>
               </div>
               <label class="field">
                 <span>{{ store.productSizeLabel }}</span>
-                <input [(ngModel)]="store.productForm.size" [placeholder]="store.productSizePlaceholder">
+                <input
+                  [(ngModel)]="store.productForm.size"
+                  [placeholder]="store.productSizePlaceholder"
+                />
               </label>
-              <label class="field"><span>Color</span><input [(ngModel)]="store.productForm.color" placeholder="Azul, Negro..."></label>
+              <label class="field"
+                ><span>{{ store.t('products.color') }}</span
+                ><input
+                  [(ngModel)]="store.productForm.color"
+                  [placeholder]="store.t('products.colorPlaceholder')"
+              /></label>
               <div class="field field-image">
-                <span>Imagen</span>
+                <span>{{ store.t('products.image') }}</span>
                 <div class="image-picker">
-                  <input #productImageInput type="file" accept="image/*" class="hidden-file-input" (change)="store.onProductImageSelected($event)">
+                  <input
+                    #productImageInput
+                    type="file"
+                    accept="image/*"
+                    class="hidden-file-input"
+                    (change)="store.onProductImageSelected($event)"
+                  />
                   <div class="image-picker-actions">
-                    <button type="button" class="btn btn-outline btn-xs" (click)="productImageInput.click()">Elegir imagen</button>
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-xs"
+                      (click)="productImageInput.click()"
+                    >
+                      {{ store.t('products.chooseImage') }}
+                    </button>
                     @if (store.productForm.imageUrl) {
-                      <button type="button" class="btn btn-ghost btn-xs" (click)="store.clearProductImage()">Quitar</button>
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-xs"
+                        (click)="store.clearProductImage()"
+                      >
+                        {{ store.t('products.remove') }}
+                      </button>
                     }
                   </div>
-                  <small class="image-file-name">{{ store.productImageFileName || 'Sin imagen seleccionada' }}</small>
+                  <small class="image-file-name">{{
+                    store.productImageFileName || store.t('products.noImage')
+                  }}</small>
                   @if (store.productForm.imageUrl) {
                     <div class="image-preview">
-                      <img [src]="store.productForm.imageUrl" alt="Vista previa">
+                      <img [src]="store.productForm.imageUrl" [alt]="store.t('settings.preview')" />
                     </div>
                   }
                 </div>
               </div>
-              <label class="field"><span>Costo ($)</span><input type="number" [(ngModel)]="store.productForm.costPrice" placeholder="0.00"></label>
-              <label class="field"><span>Precio ($)</span><input type="number" [(ngModel)]="store.productForm.salePrice" placeholder="0.00"></label>
-              <label class="field"><span>Stock</span><input type="number" [(ngModel)]="store.productForm.stock" placeholder="0"></label>
-              <label class="field"><span>SKU</span><input [(ngModel)]="store.productForm.sku" placeholder="Opcional"></label>
+              <label class="field"
+                ><span>{{ store.t('products.cost') }}</span
+                ><input type="number" [(ngModel)]="store.productForm.costPrice" placeholder="0.00"
+              /></label>
+              <label class="field"
+                ><span>{{ store.t('products.price') }}</span
+                ><input type="number" [(ngModel)]="store.productForm.salePrice" placeholder="0.00"
+              /></label>
+              <label class="field"
+                ><span>{{ store.t('products.stock') }}</span
+                ><input type="number" [(ngModel)]="store.productForm.stock" placeholder="0"
+              /></label>
+              <label class="field"
+                ><span>{{ store.t('products.sku') }}</span
+                ><input
+                  [(ngModel)]="store.productForm.sku"
+                  [placeholder]="store.t('common.optional')"
+              /></label>
               <label class="field">
-                <span>Estado</span>
+                <span>{{ store.t('products.status') }}</span>
                 <select [(ngModel)]="store.productForm.status">
                   @for (item of store.productStatuses; track item.value) {
                     <option [ngValue]="item.value">{{ item.label }}</option>
                   }
                 </select>
               </label>
-              <button class="btn btn-primary btn-form" (click)="store.createProduct()">{{ store.editingProductId ? 'Actualizar' : 'Guardar' }}</button>
+              <button class="btn btn-primary btn-form" (click)="store.createProduct()">
+                {{ store.editingProductId ? store.t('common.update') : store.t('common.save') }}
+              </button>
             </div>
           </div>
         </div>
@@ -79,7 +132,7 @@
               <div class="catalog-card">
                 <div class="catalog-media" [class.with-image]="!!p.imageUrl">
                   @if (p.imageUrl) {
-                    <img [src]="p.imageUrl" [alt]="p.name">
+                    <img [src]="p.imageUrl" [alt]="p.name" />
                   } @else {
                     <span>{{ p.name.charAt(0) }}</span>
                   }
@@ -88,30 +141,42 @@
                   <div class="catalog-top">
                     <div>
                       <div class="catalog-name">{{ p.name }}</div>
-                      <div class="catalog-meta">{{ p.category || 'Sin categoria' }} · {{ p.size || 'Sin talla' }}</div>
+                      <div class="catalog-meta">
+                        {{ p.category || store.t('products.withoutCategory') }} ·
+                        {{ p.size || store.t('products.withoutSize') }}
+                      </div>
                     </div>
-                    <span class="pill" [class.pill-red]="p.status === 'ARCHIVED'" [class.pill-amber]="p.status === 'OUT_OF_STOCK'" [class.pill-green]="p.status === 'ACTIVE'">
+                    <span
+                      class="pill"
+                      [class.pill-red]="p.status === 'ARCHIVED'"
+                      [class.pill-amber]="p.status === 'OUT_OF_STOCK'"
+                      [class.pill-green]="p.status === 'ACTIVE'"
+                    >
                       {{ store.productStatusLabel(p.status) }}
                     </span>
                   </div>
                   <div class="catalog-info">
                     <span>SKU: {{ p.sku || '—' }}</span>
-                    <span>Color: {{ p.color || '—' }}</span>
+                    <span>{{ store.t('products.color') }}: {{ p.color || '—' }}</span>
                   </div>
                   <div class="catalog-bottom">
                     <div>
                       <strong>{{ store.formatMoney(p.salePrice) }}</strong>
-                      <span>{{ p.stock }} uds</span>
+                      <span>{{ p.stock }} {{ store.t('common.units') }}</span>
                     </div>
                     <div class="catalog-actions">
-                      <button class="btn btn-outline btn-xs" (click)="store.editProduct(p)">Editar</button>
-                      <button class="btn btn-ghost btn-xs" (click)="store.deleteProduct(p)">Eliminar</button>
+                      <button class="btn btn-outline btn-xs" (click)="store.editProduct(p)">
+                        {{ store.t('common.edit') }}
+                      </button>
+                      <button class="btn btn-ghost btn-xs" (click)="store.deleteProduct(p)">
+                        {{ store.t('common.delete') }}
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
             } @empty {
-              <div class="empty-card">Sin productos registrados</div>
+              <div class="empty-card">{{ store.t('products.noProducts') }}</div>
             }
           </div>
         </div>
@@ -122,7 +187,7 @@
           <div class="catalog-card">
             <div class="catalog-media" [class.with-image]="!!p.imageUrl">
               @if (p.imageUrl) {
-                <img [src]="p.imageUrl" [alt]="p.name">
+                <img [src]="p.imageUrl" [alt]="p.name" />
               } @else {
                 <span>{{ p.name.charAt(0) }}</span>
               }
@@ -131,42 +196,68 @@
               <div class="catalog-top">
                 <div>
                   <div class="catalog-name">{{ p.name }}</div>
-                  <div class="catalog-meta">{{ p.category || 'Sin categoria' }} · {{ p.size || 'Sin talla' }}</div>
+                  <div class="catalog-meta">
+                    {{ p.category || store.t('products.withoutCategory') }} ·
+                    {{ p.size || store.t('products.withoutSize') }}
+                  </div>
                 </div>
-                <span class="pill" [class.pill-red]="p.status === 'ARCHIVED'" [class.pill-amber]="p.status === 'OUT_OF_STOCK'" [class.pill-green]="p.status === 'ACTIVE'">
+                <span
+                  class="pill"
+                  [class.pill-red]="p.status === 'ARCHIVED'"
+                  [class.pill-amber]="p.status === 'OUT_OF_STOCK'"
+                  [class.pill-green]="p.status === 'ACTIVE'"
+                >
                   {{ store.productStatusLabel(p.status) }}
                 </span>
               </div>
               <div class="catalog-info">
                 <span>SKU: {{ p.sku || '—' }}</span>
-                <span>Color: {{ p.color || '—' }}</span>
+                <span>{{ store.t('products.color') }}: {{ p.color || '—' }}</span>
               </div>
               <div class="catalog-bottom">
                 <div>
                   <strong>{{ store.formatMoney(p.salePrice) }}</strong>
-                  <span>{{ p.stock }} uds</span>
+                  <span>{{ p.stock }} {{ store.t('common.units') }}</span>
                 </div>
                 <div class="catalog-actions">
-                  <button class="btn btn-outline btn-xs" (click)="store.editProduct(p)">Editar</button>
-                  <button class="btn btn-ghost btn-xs" (click)="store.deleteProduct(p)">Eliminar</button>
+                  <button class="btn btn-outline btn-xs" (click)="store.editProduct(p)">
+                    {{ store.t('common.edit') }}
+                  </button>
+                  <button class="btn btn-ghost btn-xs" (click)="store.deleteProduct(p)">
+                    {{ store.t('common.delete') }}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         } @empty {
-          <div class="empty-card">Sin productos registrados</div>
+          <div class="empty-card">{{ store.t('products.noProducts') }}</div>
         }
       </div>
     }
 
     <div class="module-hint-row">
-      <span>Nuevos por tipo:</span>
+      <span>{{ store.t('products.newByType') }}</span>
       @for (preset of store.categoryPresets; track preset.name) {
-        <button class="btn btn-outline btn-xs" (click)="store.applyCategoryPreset(preset)">{{ preset.name }}</button>
+        <button class="btn btn-outline btn-xs" (click)="store.applyCategoryPreset(preset)">
+          {{ preset.name }}
+        </button>
       }
     </div>
     <table class="table">
-      <thead><tr><th>Nombre</th><th>Categoria</th><th>Talla</th><th>Color</th><th>SKU</th><th>Estado</th><th>Precio</th><th>Stock</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>{{ store.t('products.name') }}</th>
+          <th>{{ store.t('products.category') }}</th>
+          <th>{{ store.t('products.size') }}</th>
+          <th>{{ store.t('products.color') }}</th>
+          <th>{{ store.t('products.sku') }}</th>
+          <th>{{ store.t('products.status') }}</th>
+          <th>{{ store.t('products.price') }}</th>
+          <th>{{ store.t('products.stock') }}</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         @for (p of store.products; track p.id) {
           <tr>
@@ -176,16 +267,27 @@
             <td>{{ p.color || '—' }}</td>
             <td class="td-sku">{{ p.sku || '—' }}</td>
             <td>
-              <span class="pill" [class.pill-red]="p.status === 'ARCHIVED'" [class.pill-amber]="p.status === 'OUT_OF_STOCK'" [class.pill-green]="p.status === 'ACTIVE'">
+              <span
+                class="pill"
+                [class.pill-red]="p.status === 'ARCHIVED'"
+                [class.pill-amber]="p.status === 'OUT_OF_STOCK'"
+                [class.pill-green]="p.status === 'ACTIVE'"
+              >
                 {{ store.productStatusLabel(p.status) }}
               </span>
             </td>
             <td class="td-mono">{{ store.formatMoney(p.salePrice) }}</td>
-            <td><span class="pill" [class.pill-red]="p.stock <= 2">{{ p.stock }}</span></td>
+            <td>
+              <span class="pill" [class.pill-red]="p.stock <= 2">{{ p.stock }}</span>
+            </td>
             <td>
               <div class="action-group">
-                <button class="btn btn-outline btn-xs" (click)="store.editProduct(p)">Editar</button>
-                <button class="btn btn-ghost btn-xs" (click)="store.deleteProduct(p)">Eliminar</button>
+                <button class="btn btn-outline btn-xs" (click)="store.editProduct(p)">
+                  {{ store.t('common.edit') }}
+                </button>
+                <button class="btn btn-ghost btn-xs" (click)="store.deleteProduct(p)">
+                  {{ store.t('common.delete') }}
+                </button>
               </div>
             </td>
           </tr>

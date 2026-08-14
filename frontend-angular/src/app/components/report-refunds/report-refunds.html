@@ -1,23 +1,42 @@
 <div class="card section-gap" id="reports-refunds-section">
-  <div class="card-header"><h3>Devoluciones del {{ store.reportDate }}</h3><span class="pill">{{ store.refundedToday.length }} registros</span></div>
+  <div class="card-header">
+    <h3>{{ store.t('refunds.title', { date: store.reportDate }) }}</h3>
+    <span class="pill">{{ store.t('refunds.records', { n: store.refundedToday.length }) }}</span>
+  </div>
   @if (store.reportIncidentFilter !== 'ALL') {
     <div class="panel-filter-note">
-      Filtrando: <strong>{{ store.reportIncidentFilterLabel }}</strong>
-      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">Ver todo</button>
+      {{ store.t('sales.filtering') }} <strong>{{ store.reportIncidentFilterLabel }}</strong>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">
+        {{ store.t('sales.viewAll') }}
+      </button>
     </div>
   }
   <div class="card-content no-pad">
     <table class="table">
-      <thead><tr><th>Folio</th><th>Ticket</th><th>Fecha</th><th>Cliente</th><th>Metodo</th><th>Total</th></tr></thead>
+      <thead>
+        <tr>
+          <th>{{ store.t('refunds.folio') }}</th>
+          <th>{{ store.t('tickets.ticket') }}</th>
+          <th>{{ store.t('customers.date') }}</th>
+          <th>{{ store.t('sales.customer') }}</th>
+          <th>{{ store.t('customers.method') }}</th>
+          <th>{{ store.t('sales.total') }}</th>
+        </tr>
+      </thead>
       <tbody>
         @for (refund of store.filteredRefundedToday; track refund.id) {
           <tr class="row-cancelled">
             <td class="td-primary">#{{ refund.id }}</td>
             <td>#{{ refund.saleId }}</td>
             <td>{{ store.formatDateTime(refund.createdAt) }}</td>
-            <td>{{ refund.customerName || 'Mostrador' }}</td>
+            <td>{{ refund.customerName || store.t('pos.counter') }}</td>
             <td>
-              <span class="pill" [class.pill-green]="refund.paymentMethod === 'CASH'" [class.pill-blue]="refund.paymentMethod === 'TRANSFER'" [class.pill-purple]="refund.paymentMethod === 'CARD'">
+              <span
+                class="pill"
+                [class.pill-green]="refund.paymentMethod === 'CASH'"
+                [class.pill-blue]="refund.paymentMethod === 'TRANSFER'"
+                [class.pill-purple]="refund.paymentMethod === 'CARD'"
+              >
                 {{ store.paymentLabel(refund.paymentMethod) }}
               </span>
             </td>
@@ -36,7 +55,9 @@
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="6" class="empty-cell">Sin devoluciones para la fecha seleccionada</td></tr>
+          <tr>
+            <td colspan="6" class="empty-cell">{{ store.t('refunds.noRefunds') }}</td>
+          </tr>
         }
       </tbody>
     </table>

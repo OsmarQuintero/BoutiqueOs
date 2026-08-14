@@ -1,9 +1,9 @@
 <section class="module-strip">
   <div class="module-strip-copy">
-    <div class="module-strip-label">Modulos</div>
-    <div class="module-strip-caption">Accesos directos del sistema</div>
+    <div class="module-strip-label">{{ store.t('module.title') }}</div>
+    <div class="module-strip-caption">{{ store.t('module.caption') }}</div>
   </div>
-  <nav class="module-nav" aria-label="Modulos principales">
+  <nav class="module-nav" [attr.aria-label]="store.t('module.aria')">
     @for (item of items; track item.id) {
       <button
         type="button"

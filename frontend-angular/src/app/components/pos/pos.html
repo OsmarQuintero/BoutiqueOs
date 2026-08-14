@@ -1,9 +1,13 @@
 <div class="pos-grid">
   <div class="card">
     <div class="card-header">
-      <h3>Productos</h3>
+      <h3>{{ store.t('section.pos.products') }}</h3>
       <div class="search-field">
-        <input [(ngModel)]="store.searchTerm" placeholder="Buscar nombre, categoria o SKU..." class="input-sm">
+        <input
+          [(ngModel)]="store.searchTerm"
+          [placeholder]="store.t('pos.searchPlaceholder')"
+          class="input-sm"
+        />
       </div>
     </div>
     <div class="card-content no-pad">
@@ -17,12 +21,14 @@
             </div>
             <div class="tile-right">
               <div class="tile-price">{{ store.formatMoney(p.salePrice) }}</div>
-              <div class="tile-stock" [class.critical]="p.stock <= 2">{{ p.stock }} uds</div>
+              <div class="tile-stock" [class.critical]="p.stock <= 2">
+                {{ p.stock }} {{ store.t('common.units') }}
+              </div>
             </div>
             <div class="tile-add">+</div>
           </button>
         } @empty {
-          <div class="empty-state">No hay productos que coincidan</div>
+          <div class="empty-state">{{ store.t('pos.noMatch') }}</div>
         }
       </div>
     </div>
@@ -30,13 +36,19 @@
 
   <div class="card cart-card">
     <div class="card-header">
-      <h3>Venta</h3>
-      <button class="btn btn-ghost btn-xs" (click)="store.clearCart()">Limpiar</button>
+      <h3>{{ store.t('pos.sale') }}</h3>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearCart()">
+        {{ store.t('pos.clear') }}
+      </button>
     </div>
     <div class="customer-select-row">
-      <label class="customer-label">Cliente</label>
-      <select class="customer-select" [(ngModel)]="store.selectedCustomerId" (change)="store.selectCustomer(store.selectedCustomerId)">
-        <option [ngValue]="null">Mostrador</option>
+      <label class="customer-label">{{ store.t('pos.customer') }}</label>
+      <select
+        class="customer-select"
+        [(ngModel)]="store.selectedCustomerId"
+        (change)="store.selectCustomer(store.selectedCustomerId)"
+      >
+        <option [ngValue]="null">{{ store.t('pos.counter') }}</option>
         @for (c of store.customers; track c.id) {
           <option [ngValue]="c.id">{{ c.name }}</option>
         }
@@ -51,80 +63,117 @@
           </div>
           <div class="cart-row-right">
             <span class="cart-row-total">{{ store.formatMoney(item.qty * item.price) }}</span>
-            <button class="btn btn-icon btn-icon-sm" (click)="store.removeFromCart(item.productId)">−</button>
+            <button class="btn btn-icon btn-icon-sm" (click)="store.removeFromCart(item.productId)">
+              −
+            </button>
           </div>
         </div>
       } @empty {
-        <div class="empty-state-sm">Agrega productos</div>
+        <div class="empty-state-sm">{{ store.t('pos.addProducts') }}</div>
       }
     </div>
     <div class="cart-footer">
       <div class="payment-row">
-        <div class="payment-label">Metodo de pago</div>
+        <div class="payment-label">{{ store.t('pos.paymentMethod') }}</div>
         <div class="payment-group">
           @for (m of store.paymentMethods; track m.value) {
-            <button class="btn btn-payment" [class.active]="store.selectedPayment === m.value" (click)="store.selectPayment(m.value)">{{ m.label }}</button>
+            <button
+              class="btn btn-payment"
+              [class.active]="store.selectedPayment === m.value"
+              (click)="store.selectPayment(m.value)"
+            >
+              {{ m.label }}
+            </button>
           }
         </div>
       </div>
       <div class="discount-row">
-        <label class="payment-label" for="discount">Descuento</label>
-        <input id="discount" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.checkoutDiscount" placeholder="0">
+        <label class="payment-label" for="discount">{{ store.t('pos.discount') }}</label>
+        <input
+          id="discount"
+          type="number"
+          min="0"
+          step="1"
+          class="input-sm"
+          [(ngModel)]="store.checkoutDiscount"
+          placeholder="0"
+        />
       </div>
       <div class="discount-row">
-        <label class="payment-label" for="promoSelect">Promo</label>
+        <label class="payment-label" for="promoSelect">{{ store.t('pos.promo') }}</label>
         <select
           id="promoSelect"
           class="customer-select"
           [(ngModel)]="store.selectedPromoId"
           (change)="store.applyPromo(store.selectedPromoId)"
         >
-          <option [ngValue]="null">Sin promo</option>
+          <option [ngValue]="null">{{ store.t('pos.noPromo') }}</option>
           @for (promo of store.applicablePromotions; track promo.id) {
-            <option [ngValue]="promo.id">{{ promo.name }} · {{ store.promotionValueLabel(promo) }}</option>
+            <option [ngValue]="promo.id">
+              {{ promo.name }} · {{ store.promotionValueLabel(promo) }}
+            </option>
           }
         </select>
       </div>
       @if (store.selectedPromo) {
         <div class="promo-hint" [class.promo-hint-muted]="!store.activeCartPromo">
           @if (store.activeCartPromo) {
-            {{ store.selectedPromo.name }} aplicado con {{ store.promotionValueLabel(store.selectedPromo) }}
+            {{
+              store.t('pos.promoApplied', {
+                name: store.selectedPromo.name,
+                value: store.promotionValueLabel(store.selectedPromo),
+              })
+            }}
           } @else {
-            {{ store.selectedPromo.name }} ya no aplica a esta venta
+            {{ store.t('pos.promoNoLonger', { name: store.selectedPromo.name }) }}
           }
         </div>
       }
       @if (store.selectedPayment === 'CASH') {
         <div class="discount-row">
-          <label class="payment-label" for="cashReceived">Recibido</label>
-          <input id="cashReceived" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.cashReceived" placeholder="0">
+          <label class="payment-label" for="cashReceived">{{ store.t('pos.received') }}</label>
+          <input
+            id="cashReceived"
+            type="number"
+            min="0"
+            step="1"
+            class="input-sm"
+            [(ngModel)]="store.cashReceived"
+            placeholder="0"
+          />
         </div>
         <div class="cart-total-row summary-row">
-          <span>Cambio</span>
+          <span>{{ store.t('pos.change') }}</span>
           <strong>{{ store.formatMoney(store.cartChangeDue) }}</strong>
         </div>
       }
       <div class="cart-total-row summary-row">
-        <span>Piezas</span>
+        <span>{{ store.t('pos.pieces') }}</span>
         <strong>{{ store.cart.length }}</strong>
       </div>
       <div class="cart-total-row summary-row">
-        <span>Subtotal</span>
+        <span>{{ store.t('pos.subtotal') }}</span>
         <strong>{{ store.formatMoney(store.cartSubtotal) }}</strong>
       </div>
       <div class="cart-total-row summary-row">
-        <span>Descuento</span>
+        <span>{{ store.t('pos.discount') }}</span>
         <strong class="discount-value">-{{ store.formatMoney(store.manualCartDiscount) }}</strong>
       </div>
       <div class="cart-total-row summary-row">
-        <span>Promo</span>
+        <span>{{ store.t('pos.promo') }}</span>
         <strong class="discount-value">-{{ store.formatMoney(store.promoDiscount) }}</strong>
       </div>
       <div class="cart-total-row">
-        <span>Total</span>
+        <span>{{ store.t('pos.total') }}</span>
         <strong>{{ store.formatMoney(store.cartTotal) }}</strong>
       </div>
-      <button class="btn btn-primary btn-block" [disabled]="store.isCharging || !store.cart.length" (click)="store.checkout()">{{ store.isCharging ? 'Cobrando...' : 'Cobrar' }}</button>
+      <button
+        class="btn btn-primary btn-block"
+        [disabled]="store.isCharging || !store.cart.length"
+        (click)="store.checkout()"
+      >
+        {{ store.isCharging ? store.t('pos.charging') : store.t('pos.charge') }}
+      </button>
       <div class="status-line">{{ store.statusMessage }}</div>
     </div>
   </div>
@@ -133,33 +182,59 @@
 @if (store.lastTicket) {
   <div class="card ticket-card">
     <div class="card-header">
-      <h3>Ticket listo</h3>
-      <button class="btn btn-ghost btn-xs" (click)="store.clearTicket()">Cerrar</button>
+      <h3>{{ store.t('pos.ticketReady') }}</h3>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearTicket()">
+        {{ store.t('common.close') }}
+      </button>
     </div>
     <div class="card-content ticket-actions">
       <div class="ticket-meta">
         <div>
-          <strong>Venta #{{ store.lastTicket.id }}</strong>
+          <strong>{{ store.t('pos.sale') }} #{{ store.lastTicket.id }}</strong>
           <span>{{ store.formatDateTime(store.lastTicket.createdAt) }}</span>
         </div>
-        <div class="pill" [class.pill-amber]="store.lastTicket.status === 'PENDING'" [class.pill-blue]="store.lastTicket.status === 'PARTIALLY_REFUNDED'" [class.pill-red]="store.lastTicket.status === 'CANCELLED' || store.lastTicket.status === 'REFUNDED'" [class.pill-green]="store.lastTicket.status === 'CONFIRMED'">
+        <div
+          class="pill"
+          [class.pill-amber]="store.lastTicket.status === 'PENDING'"
+          [class.pill-blue]="store.lastTicket.status === 'PARTIALLY_REFUNDED'"
+          [class.pill-red]="
+            store.lastTicket.status === 'CANCELLED' || store.lastTicket.status === 'REFUNDED'
+          "
+          [class.pill-green]="store.lastTicket.status === 'CONFIRMED'"
+        >
           {{ store.saleStatusLabel(store.lastTicket.status) }}
         </div>
       </div>
       <div class="ticket-summary">
-        <div>Cliente: <strong>{{ store.lastTicket.customerName || 'Mostrador' }}</strong></div>
-        <div>Total: <strong>{{ store.formatMoney(store.lastTicket.total) }}</strong></div>
-        <div>Pago: <strong>{{ store.paymentLabel(store.lastTicket.paymentMethod) }}</strong></div>
+        <div>
+          {{ store.t('pos.customerColon') }}
+          <strong>{{ store.lastTicket.customerName || store.t('pos.counter') }}</strong>
+        </div>
+        <div>
+          {{ store.t('pos.totalColon') }}
+          <strong>{{ store.formatMoney(store.lastTicket.total) }}</strong>
+        </div>
+        <div>
+          {{ store.t('pos.paymentColon') }}
+          <strong>{{ store.paymentLabel(store.lastTicket.paymentMethod) }}</strong>
+        </div>
         @if (store.lastTicket.paymentMethod === 'CASH') {
-          <div>Cambio: <strong>{{ store.formatMoney(store.lastTicket.changeDue) }}</strong></div>
+          <div>
+            {{ store.t('pos.changeColon') }}
+            <strong>{{ store.formatMoney(store.lastTicket.changeDue) }}</strong>
+          </div>
         }
       </div>
       <div class="ticket-hint">
-        El PDF se abre al cobrar. Si no apareció, puedes volver a abrirlo aquí.
+        {{ store.t('pos.pdfHint') }}
       </div>
       <div class="ticket-buttons">
-        <button class="btn btn-primary" (click)="store.openLastTicketPdf()">Abrir PDF</button>
-        <button class="btn btn-ghost" (click)="store.clearTicket()">Ocultar</button>
+        <button class="btn btn-primary" (click)="store.openLastTicketPdf()">
+          {{ store.t('pos.openPdf') }}
+        </button>
+        <button class="btn btn-ghost" (click)="store.clearTicket()">
+          {{ store.t('pos.hide') }}
+        </button>
       </div>
     </div>
   </div>

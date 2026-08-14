@@ -1,24 +1,40 @@
 <div class="card" id="reports-shell-section">
   <div class="card-header report-shell-header">
     <div>
-      <h3>Corte diario</h3>
-      <small class="muted-line">Selecciona la fecha y luego el panel que quieres revisar</small>
+      <h3>{{ store.t('reports.daily') }}</h3>
+      <small class="muted-line">{{ store.t('reports.subtitle') }}</small>
     </div>
     <label class="report-date-picker">
-      <span>Fecha</span>
-      <input type="date" [ngModel]="store.reportDate" (ngModelChange)="store.changeReportDate($event)">
+      <span>{{ store.t('reports.date') }}</span>
+      <input
+        type="date"
+        [ngModel]="store.reportDate"
+        (ngModelChange)="store.changeReportDate($event)"
+      />
     </label>
   </div>
   <div class="card-content report-toolbar">
     <div class="date-quick-actions">
-      <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(-1)">Ayer</button>
-      <button class="btn btn-ghost btn-xs" (click)="store.goToTodayReport()">Hoy</button>
-      <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(1)">Mañana</button>
-      <button class="btn btn-outline btn-xs" (click)="store.exportDailyReportPdf()">Exportar PDF</button>
+      <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(-1)">
+        {{ store.t('common.yesterday') }}
+      </button>
+      <button class="btn btn-ghost btn-xs" (click)="store.goToTodayReport()">
+        {{ store.t('common.today') }}
+      </button>
+      <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(1)">
+        {{ store.t('common.tomorrow') }}
+      </button>
+      <button class="btn btn-outline btn-xs" (click)="store.exportDailyReportPdf()">
+        {{ store.t('reports.exportPdf') }}
+      </button>
     </div>
     <div class="panel-switch">
       @for (panel of store.reportPanels; track panel.id) {
-        <button class="btn btn-outline btn-xs" [class.active]="store.reportPanel === panel.id" (click)="store.setReportPanel(panel.id)">
+        <button
+          class="btn btn-outline btn-xs"
+          [class.active]="store.reportPanel === panel.id"
+          (click)="store.setReportPanel(panel.id)"
+        >
           {{ panel.label }}
         </button>
       }
@@ -27,10 +43,22 @@
 </div>
 
 @switch (store.reportPanel) {
-  @case ('summary') { <app-report-summary /> }
-  @case ('sales') { <app-report-sales /> }
-  @case ('tickets') { <app-report-tickets /> }
-  @case ('refunds') { <app-report-refunds /> }
-  @case ('movements') { <app-report-inventory-movements /> }
-  @case ('history') { <app-report-history /> }
+  @case ('summary') {
+    <app-report-summary />
+  }
+  @case ('sales') {
+    <app-report-sales />
+  }
+  @case ('tickets') {
+    <app-report-tickets />
+  }
+  @case ('refunds') {
+    <app-report-refunds />
+  }
+  @case ('movements') {
+    <app-report-inventory-movements />
+  }
+  @case ('history') {
+    <app-report-history />
+  }
 }

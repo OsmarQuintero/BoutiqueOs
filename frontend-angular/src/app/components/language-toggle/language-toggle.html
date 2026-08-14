@@ -1,0 +1,19 @@
+<div class="lang-toggle" [class.is-en]="active === 'en'" role="group" aria-label="Idioma">
+  <button
+    type="button"
+    class="lang-option"
+    [class.active]="active === 'es'"
+    (click)="switchTo('es')"
+  >
+    ES
+  </button>
+  <button
+    type="button"
+    class="lang-option"
+    [class.active]="active === 'en'"
+    (click)="switchTo('en')"
+  >
+    EN
+  </button>
+  <span class="lang-knob" aria-hidden="true"></span>
+</div>

@@ -1,43 +1,88 @@
 <div class="card section-gap">
-  <div class="card-header"><h3>Ventas del {{ store.reportDate }}</h3><span class="pill">{{ store.salesToday.length }} registros</span></div>
+  <div class="card-header">
+    <h3>{{ store.t('sales.title', { date: store.reportDate }) }}</h3>
+    <span class="pill">{{ store.t('sales.records', { n: store.salesToday.length }) }}</span>
+  </div>
   @if (store.reportIncidentFilter !== 'ALL') {
     <div class="panel-filter-note">
-      Filtrando: <strong>{{ store.reportIncidentFilterLabel }}</strong>
-      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">Ver todo</button>
+      {{ store.t('sales.filtering') }} <strong>{{ store.reportIncidentFilterLabel }}</strong>
+      <button class="btn btn-ghost btn-xs" (click)="store.clearReportIncidentFilter()">
+        {{ store.t('sales.viewAll') }}
+      </button>
     </div>
   }
   <div class="card-content no-pad">
     <table class="table">
-      <thead><tr><th>#</th><th>Cliente</th><th>Metodo</th><th>Estado</th><th>Total</th><th>Ganancia</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{{ store.t('sales.customer') }}</th>
+          <th>{{ store.t('customers.method') }}</th>
+          <th>{{ store.t('customers.status') }}</th>
+          <th>{{ store.t('sales.total') }}</th>
+          <th>{{ store.t('sales.profit') }}</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         @for (s of store.filteredSalesToday; track s.id) {
-          <tr [class.row-pending]="s.status === 'PENDING'" [class.row-cancelled]="s.status === 'CANCELLED' || s.status === 'REFUNDED'">
+          <tr
+            [class.row-pending]="s.status === 'PENDING'"
+            [class.row-cancelled]="s.status === 'CANCELLED' || s.status === 'REFUNDED'"
+          >
             <td class="td-primary">#{{ s.id }}</td>
-            <td>{{ s.customerName || 'Mostrador' }}</td>
+            <td>{{ s.customerName || store.t('pos.counter') }}</td>
             <td>
-              <span class="pill" [class.pill-green]="s.paymentMethod === 'CASH'" [class.pill-blue]="s.paymentMethod === 'TRANSFER'" [class.pill-purple]="s.paymentMethod === 'CARD'">
-                {{ s.paymentMethod === 'CASH' ? 'Efectivo' : s.paymentMethod === 'TRANSFER' ? 'Transferencia' : 'Tarjeta' }}
+              <span
+                class="pill"
+                [class.pill-green]="s.paymentMethod === 'CASH'"
+                [class.pill-blue]="s.paymentMethod === 'TRANSFER'"
+                [class.pill-purple]="s.paymentMethod === 'CARD'"
+              >
+                {{ store.paymentLabel(s.paymentMethod) }}
               </span>
             </td>
             <td>
-              @if (s.status === 'PENDING') { <span class="pill pill-amber">Pendiente</span> }
-              @else if (s.status === 'PARTIALLY_REFUNDED') { <span class="pill pill-blue">Parcial</span> }
-              @else if (s.status === 'CANCELLED') { <span class="pill pill-red">Cancelada</span> }
-              @else if (s.status === 'REFUNDED') { <span class="pill pill-red">Devuelta</span> }
-              @else { <span class="pill pill-green">Confirmada</span> }
+              @if (s.status === 'PENDING') {
+                <span class="pill pill-amber">{{ store.t('sales.pending') }}</span>
+              } @else if (s.status === 'PARTIALLY_REFUNDED') {
+                <span class="pill pill-blue">{{ store.t('sales.partial') }}</span>
+              } @else if (s.status === 'CANCELLED') {
+                <span class="pill pill-red">{{ store.t('sales.cancelled') }}</span>
+              } @else if (s.status === 'REFUNDED') {
+                <span class="pill pill-red">{{ store.t('sales.refunded') }}</span>
+              } @else {
+                <span class="pill pill-green">{{ store.t('sales.confirmed') }}</span>
+              }
             </td>
             <td class="td-mono">{{ store.formatMoney(s.total) }}</td>
             <td class="td-mono">{{ store.formatMoney(s.estimatedProfit) }}</td>
             <td>
               @if (s.status === 'PENDING') {
                 <div class="report-actions">
-                  <button class="btn btn-primary btn-xs" [disabled]="store.reportDayClosed" (click)="store.confirmSale(s.id)">Confirmar</button>
-                  <button class="btn btn-outline btn-xs" [disabled]="store.reportDayClosed" (click)="store.cancelSale(s.id)">Cancelar</button>
+                  <button
+                    class="btn btn-primary btn-xs"
+                    [disabled]="store.reportDayClosed"
+                    (click)="store.confirmSale(s.id)"
+                  >
+                    {{ store.t('sales.confirm') }}
+                  </button>
+                  <button
+                    class="btn btn-outline btn-xs"
+                    [disabled]="store.reportDayClosed"
+                    (click)="store.cancelSale(s.id)"
+                  >
+                    {{ store.t('sales.cancel') }}
+                  </button>
                 </div>
               }
             </td>
           </tr>
-        } @empty { <tr><td colspan="7" class="empty-cell">Sin ventas registradas para esta fecha</td></tr> }
+        } @empty {
+          <tr>
+            <td colspan="7" class="empty-cell">{{ store.t('sales.noSalesDate') }}</td>
+          </tr>
+        }
       </tbody>
     </table>
   </div>

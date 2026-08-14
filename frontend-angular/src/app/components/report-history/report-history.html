@@ -2,58 +2,62 @@
   <div class="card">
     <div class="card-content payment-card">
       <div class="payment-card-top">
-        <span class="pill pill-green">Cierres</span>
+        <span class="pill pill-green">{{ store.t('history.closings') }}</span>
       </div>
       <div class="payment-total">{{ store.reportHistoryClosedCount }}</div>
-      <small class="muted-line">Dias cerrados registrados</small>
+      <small class="muted-line">{{ store.t('history.daysClosed') }}</small>
     </div>
   </div>
   <div class="card">
     <div class="card-content payment-card">
       <div class="payment-card-top">
-        <span class="pill pill-amber">Abiertos</span>
+        <span class="pill pill-amber">{{ store.t('history.open') }}</span>
       </div>
       <div class="payment-total">{{ store.reportHistoryOpenCount }}</div>
-      <small class="muted-line">Dias aun editables en historial</small>
+      <small class="muted-line">{{ store.t('history.daysOpen') }}</small>
     </div>
   </div>
   <div class="card">
     <div class="card-content payment-card">
       <div class="payment-card-top">
-        <span class="pill">Ultimo cierre</span>
+        <span class="pill">{{ store.t('history.lastClosing') }}</span>
       </div>
       <div class="payment-total history-date">
-        {{ store.reportHistoryLastClosedAt ? store.formatDateTime(store.reportHistoryLastClosedAt) : 'Sin cierre' }}
+        {{
+          store.reportHistoryLastClosedAt
+            ? store.formatDateTime(store.reportHistoryLastClosedAt)
+            : store.t('history.noClosing')
+        }}
       </div>
-      <small class="muted-line">Registro mas reciente con cierre formal</small>
+      <small class="muted-line">{{ store.t('history.lastClosingHint') }}</small>
     </div>
   </div>
   <div class="card">
     <div class="card-content payment-card">
       <div class="payment-card-top">
-        <span class="pill">Seleccion actual</span>
+        <span class="pill">{{ store.t('history.currentSelection') }}</span>
       </div>
       <div class="payment-total history-date">{{ store.reportDate }}</div>
-      <small class="muted-line">Dia activo en el modulo</small>
+      <small class="muted-line">{{ store.t('history.currentHint') }}</small>
     </div>
   </div>
 </div>
 
 <div class="card section-gap">
   <div class="card-header">
-    <h3>Historial de cortes diarios</h3>
-    <span class="pill">{{ store.reportHistory.length }} registro(s)</span>
+    <h3>{{ store.t('history.title') }}</h3>
+    <span class="pill">{{ store.t('history.count', { n: store.reportHistory.length }) }}</span>
   </div>
   <div class="card-content no-pad">
     <table class="table">
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Estado</th>
-          <th>Efectivo real</th>
-          <th>Ultimo movimiento</th>
-          <th>Notas</th>
-          <th>Acciones</th>
+          <th>{{ store.t('customers.date') }}</th>
+          <th>{{ store.t('history.status') }}</th>
+          <th>{{ store.t('history.actualCash') }}</th>
+          <th>{{ store.t('history.lastMovement') }}</th>
+          <th>{{ store.t('promos.notes') }}</th>
+          <th>{{ store.t('history.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -61,26 +65,42 @@
           <tr>
             <td class="td-primary">{{ entry.businessDate }}</td>
             <td>
-              <span class="pill" [class.pill-green]="entry.closed" [class.pill-amber]="!entry.closed">
-                {{ entry.closed ? 'Cerrado' : 'Abierto' }}
+              <span
+                class="pill"
+                [class.pill-green]="entry.closed"
+                [class.pill-amber]="!entry.closed"
+              >
+                {{ entry.closed ? store.t('history.closed') : store.t('history.openBadge') }}
               </span>
               @if (entry.closedAt) {
-                <small class="muted-line">Cerrado: {{ store.formatDateTime(entry.closedAt) }}</small>
+                <small class="muted-line">{{
+                  store.t('history.closedAt', { date: store.formatDateTime(entry.closedAt) })
+                }}</small>
               }
             </td>
             <td class="td-mono">{{ store.formatMoney(entry.actualCash || 0) }}</td>
             <td>{{ store.formatDateTime(entry.updatedAt) }}</td>
-            <td>{{ entry.notes || 'Sin notas' }}</td>
+            <td>{{ entry.notes || store.t('history.noNotes') }}</td>
             <td>
               <div class="history-actions">
-                <button class="btn btn-outline btn-xs" (click)="store.openHistoricalReport(entry.businessDate, 'summary')">Ver corte</button>
-                <button class="btn btn-ghost btn-xs" (click)="store.openHistoricalReport(entry.businessDate, 'tickets')">Ver tickets</button>
+                <button
+                  class="btn btn-outline btn-xs"
+                  (click)="store.openHistoricalReport(entry.businessDate, 'summary')"
+                >
+                  {{ store.t('history.viewCut') }}
+                </button>
+                <button
+                  class="btn btn-ghost btn-xs"
+                  (click)="store.openHistoricalReport(entry.businessDate, 'tickets')"
+                >
+                  {{ store.t('history.viewTickets') }}
+                </button>
               </div>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="6" class="empty-cell">Aun no hay cortes guardados en el historial</td>
+            <td colspan="6" class="empty-cell">{{ store.t('history.noCuts') }}</td>
           </tr>
         }
       </tbody>

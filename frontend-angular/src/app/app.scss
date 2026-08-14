@@ -39,6 +39,10 @@
   object-fit: contain;
   margin-bottom: 20px;
 }
+.login-lang-toggle {
+  display: inline-flex;
+  margin-bottom: 16px;
+}
 .login-title {
   font-family: var(--font-display);
   font-size: 1.12rem;

@@ -1,11 +1,13 @@
 import { beforeAll, describe, expect, it, beforeEach, vi } from 'vitest';
 import { StoreService } from './store.service';
+import { LanguageService } from './language.service';
 
 function createStore(): StoreService {
   const store = new StoreService(
     {} as never,
     {} as never,
     {} as never,
+    new LanguageService(),
   );
   store.loggedIn = true;
   return store;

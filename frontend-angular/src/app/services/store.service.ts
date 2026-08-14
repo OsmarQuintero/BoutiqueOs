@@ -2,6 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, NgZone, signal } from '@angular/core';
 import { finalize, retry, throwError, timeout, timer } from 'rxjs';
+import { LanguageService, TranslateParams, AppLang } from './language.service';
 import { RefreshService } from './refresh.service';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD';
@@ -279,6 +280,13 @@ interface OfflineSaleEntry {
 export class StoreService {
   readonly apiBase = this.resolveApiBase();
 
+  get lang(): AppLang {
+    return this.language.lang();
+  }
+
+  readonly t: LanguageService['t'];
+  readonly toggleLang: () => void;
+
   private readonly loggedInState = signal(false);
   private readonly loginUserState = signal('');
   private readonly loginPassState = signal('');
@@ -345,7 +353,7 @@ export class StoreService {
   reportIncidentFilter: ReportIncidentFilter = 'ALL';
   selectedPayment: PaymentMethod = 'CASH';
   cashReceived = 0;
-  private _statusMessage = 'Listo para vender';
+  private _statusMessage = '';
   alertMessage = '';
   alertType: AlertType = 'info';
   private alertTimer: ReturnType<typeof setTimeout> | null = null;
@@ -493,53 +501,54 @@ export class StoreService {
     confirmPassword: '',
   };
 
-  readonly paymentMethods = [
-    { label: 'Efectivo', value: 'CASH' as PaymentMethod },
-    { label: 'Transferencia', value: 'TRANSFER' as PaymentMethod },
-    { label: 'Tarjeta', value: 'CARD' as PaymentMethod },
-  ];
+  get paymentMethods(): Array<{ label: string; value: PaymentMethod }> {
+    return [
+      { label: this.t('payment.CASH'), value: 'CASH' },
+      { label: this.t('payment.TRANSFER'), value: 'TRANSFER' },
+      { label: this.t('payment.CARD'), value: 'CARD' },
+    ];
+  }
 
-  readonly productStatuses = [
-    { label: 'Activo', value: 'ACTIVE' as ProductStatus },
-    { label: 'Agotado', value: 'OUT_OF_STOCK' as ProductStatus },
-    { label: 'Archivado', value: 'ARCHIVED' as ProductStatus },
-  ];
+  get productStatuses(): Array<{ label: string; value: ProductStatus }> {
+    return [
+      { label: this.t('productStatus.ACTIVE'), value: 'ACTIVE' },
+      { label: this.t('productStatus.OUT_OF_STOCK'), value: 'OUT_OF_STOCK' },
+      { label: this.t('productStatus.ARCHIVED'), value: 'ARCHIVED' },
+    ];
+  }
 
-  readonly promotionTypes = [
-    { label: 'Porcentaje', value: 'PERCENT' as PromotionType },
-    { label: 'Monto fijo', value: 'FIXED' as PromotionType },
-  ];
+  get promotionTypes(): Array<{ label: string; value: PromotionType }> {
+    return [
+      { label: this.t('promoType.PERCENT'), value: 'PERCENT' },
+      { label: this.t('promoType.FIXED'), value: 'FIXED' },
+    ];
+  }
 
-  readonly ticketPaperSizes = [
-    { label: 'Termica 58 mm', value: 'THERMAL_58' as TicketPaperSize },
-    { label: 'Termica 80 mm', value: 'THERMAL_80' as TicketPaperSize },
-    { label: 'Media carta', value: 'HALF_LETTER' as TicketPaperSize },
-  ];
+  get ticketPaperSizes(): Array<{ label: string; value: TicketPaperSize }> {
+    return [
+      { label: this.t('paper.THERMAL_58'), value: 'THERMAL_58' },
+      { label: this.t('paper.THERMAL_80'), value: 'THERMAL_80' },
+      { label: this.t('paper.HALF_LETTER'), value: 'HALF_LETTER' },
+    ];
+  }
 
-  readonly navItems = [
-    { id: 'pos' as ViewId, label: 'Punto de venta', icon: '🛒' },
-    { id: 'catalog' as ViewId, label: 'Catalogos', icon: '🏷️' },
-    { id: 'categories' as ViewId, label: 'Categorias', icon: '🗂️' },
-    { id: 'inventory' as ViewId, label: 'Inventario', icon: '📋' },
-    { id: 'customers' as ViewId, label: 'Clientes', icon: '👥' },
-    { id: 'promos' as ViewId, label: 'Promos', icon: '🎯' },
-    { id: 'reports' as ViewId, label: 'Corte diario', icon: '📊' },
-    { id: 'settings' as ViewId, label: 'Configuracion', icon: '⚙️' },
-  ];
+  get reportPanels(): Array<{ id: ReportPanel; label: string }> {
+    return [
+      { id: 'summary', label: this.t('reports.summary') },
+      { id: 'sales', label: this.t('reports.sales') },
+      { id: 'tickets', label: this.t('reports.tickets') },
+      { id: 'refunds', label: this.t('reports.refunds') },
+      { id: 'movements', label: this.t('reports.movements') },
+      { id: 'history', label: this.t('reports.history') },
+    ];
+  }
 
-  readonly reportPanels = [
-    { id: 'summary' as ReportPanel, label: 'Resumen' },
-    { id: 'sales' as ReportPanel, label: 'Ventas' },
-    { id: 'tickets' as ReportPanel, label: 'Tickets' },
-    { id: 'refunds' as ReportPanel, label: 'Devoluciones' },
-    { id: 'movements' as ReportPanel, label: 'Movimientos' },
-    { id: 'history' as ReportPanel, label: 'Historial' },
-  ];
-
-  readonly inventoryPanels = [
-    { id: 'summary' as InventoryPanel, label: 'Resumen' },
-    { id: 'purchases' as InventoryPanel, label: 'Compras' },
-  ];
+  get inventoryPanels(): Array<{ id: InventoryPanel; label: string }> {
+    return [
+      { id: 'summary', label: this.t('reports.summary') },
+      { id: 'purchases', label: this.t('inventory.purchases') },
+    ];
+  }
 
   readonly categoryPresets: CategoryPreset[] = [
     {
@@ -566,7 +575,11 @@ export class StoreService {
     private readonly http: HttpClient,
     private readonly refresh: RefreshService,
     private readonly ngZone: NgZone,
+    private readonly language: LanguageService,
   ) {
+    this.t = this.language.t;
+    this.toggleLang = this.language.toggleLang;
+    this._statusMessage = this.t('ok.ready');
     this.loadPromotionsFromStorage();
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => this.flushOfflineSales());
@@ -792,9 +805,9 @@ export class StoreService {
       return;
     }
     this.clearSessionState(false);
-    this.loginError = 'Tu sesion expiro. Vuelve a entrar.';
+    this.loginError = this.t('err.sessionExpired');
     this.alertType = 'warning';
-    this.showAlert('La sesion expiro. Vuelve a iniciar sesion.');
+    this.showAlert(this.t('err.sessionExpiredAlert'));
   }
 
   completeOnboarding(): void {
@@ -804,19 +817,19 @@ export class StoreService {
     const confirmPassword = this.onboardingForm.confirmPassword.trim();
 
     if (!this.onboardingToken) {
-      this.onboardingError = 'La sesion de activacion no es valida.';
+      this.onboardingError = this.t('err.onboardingSessionInvalid');
       return;
     }
     if (!storeName || !email || !password) {
-      this.onboardingError = 'Completa nombre del negocio, correo y contraseña.';
+      this.onboardingError = this.t('err.onboardingIncomplete');
       return;
     }
     if (password.length < 8) {
-      this.onboardingError = 'La contraseña debe tener al menos 8 caracteres.';
+      this.onboardingError = this.t('err.passwordTooShort');
       return;
     }
     if (password !== confirmPassword) {
-      this.onboardingError = 'Las contraseñas no coinciden.';
+      this.onboardingError = this.t('err.passwordsMismatch');
       return;
     }
 
@@ -838,7 +851,7 @@ export class StoreService {
       .subscribe({
         next: (result) => {
           if (!result.completed) {
-            this.onboardingError = 'No pude completar la activacion.';
+            this.onboardingError = this.t('err.onboardingCompleteFailed');
             return;
           }
           this.loginUser = result.username;
@@ -847,7 +860,7 @@ export class StoreService {
           this.onboardingToken = '';
           this.onboardingSessionId = '';
           this.clearOnboardingQuery();
-          this.showAlert('Cuenta creada. Ya puedes iniciar sesion.', 'success');
+          this.showAlert(this.t('ok.accountCreated'), 'success');
         },
         error: (error: unknown) => {
           this.onboardingError = this.describeOnboardingError(
@@ -1186,24 +1199,29 @@ export class StoreService {
     if (this.pendingSalesCount > 0) {
       alerts.push({
         tone: 'warn',
-        title: 'Ventas pendientes',
-        detail: `${this.pendingSalesCount} ticket(s) siguen pendientes de confirmar.`,
+        title: this.t('alert.pendingSales'),
+        detail: this.t('alert.pendingSalesDetail', { n: this.pendingSalesCount }),
       });
     }
 
     if (Math.abs(this.cashDifference) >= 0.01) {
       alerts.push({
         tone: this.cashDifferenceSeverity,
-        title: 'Diferencia en caja',
-        detail: `La diferencia actual es de ${this.formatMoney(this.cashDifference)}.`,
+        title: this.t('alert.cashDifference'),
+        detail: this.t('alert.cashDifferenceDetail', {
+          amount: this.formatMoney(this.cashDifference),
+        }),
       });
     }
 
     if (this.refundedToday.length > 0) {
       alerts.push({
         tone: this.refundedTodayTotal >= 500 ? 'risk' : 'warn',
-        title: 'Devoluciones registradas',
-        detail: `${this.refundedToday.length} devolucion(es) por ${this.formatMoney(this.refundedTodayTotal)}.`,
+        title: this.t('alert.refunds'),
+        detail: this.t('alert.refundsDetail', {
+          n: this.refundedToday.length,
+          amount: this.formatMoney(this.refundedTodayTotal),
+        }),
       });
     }
 
@@ -1213,16 +1231,16 @@ export class StoreService {
     if (adjustments > 0) {
       alerts.push({
         tone: adjustments >= 3 ? 'risk' : 'warn',
-        title: 'Ajustes de inventario',
-        detail: `${adjustments} ajuste(s) de inventario impactaron este dia.`,
+        title: this.t('alert.inventoryAdjustments'),
+        detail: this.t('alert.inventoryAdjustmentsDetail', { n: adjustments }),
       });
     }
 
     if (!alerts.length) {
       alerts.push({
         tone: 'good',
-        title: 'Corte sano',
-        detail: 'No se detectaron pendientes ni incidencias fuertes para esta fecha.',
+        title: this.t('alert.healthyCut'),
+        detail: this.t('alert.healthyCutDetail'),
       });
     }
 
@@ -1238,33 +1256,33 @@ export class StoreService {
   }> {
     return [
       {
-        title: 'Vendido neto',
+        title: this.t('comparison.netSold'),
         current: this.formatMoney(this.todayTotal),
         previous: this.formatMoney(this.yesterdayTotal),
         detail: this.describeMoneyDelta(this.todayTotal, this.yesterdayTotal),
         tone: this.deltaTone(this.todayTotal, this.yesterdayTotal),
       },
       {
-        title: 'Utilidad',
+        title: this.t('comparison.profit'),
         current: this.formatMoney(this.todayProfit),
         previous: this.formatMoney(this.yesterdayProfit),
         detail: this.describeMoneyDelta(this.todayProfit, this.yesterdayProfit),
         tone: this.deltaTone(this.todayProfit, this.yesterdayProfit),
       },
       {
-        title: 'Tickets cobrados',
+        title: this.t('comparison.tickets'),
         current: String(this.confirmedSalesToday.length),
         previous: String(this.confirmedSalesYesterday.length),
         detail: this.describeCountDelta(
           this.confirmedSalesToday.length,
           this.confirmedSalesYesterday.length,
-          'ticket',
+          this.t('tickets.ticket'),
           false,
         ),
         tone: this.deltaTone(this.confirmedSalesToday.length, this.confirmedSalesYesterday.length),
       },
       {
-        title: 'Devoluciones',
+        title: this.t('comparison.refunds'),
         current: this.formatMoney(this.refundedTodayTotal),
         previous: this.formatMoney(this.refundsYesterdayTotal),
         detail: this.describeMoneyDelta(this.refundedTodayTotal, this.refundsYesterdayTotal, true),
@@ -1282,25 +1300,25 @@ export class StoreService {
     return [
       {
         id: 'PENDING',
-        label: 'Pendientes',
+        label: this.t('incident.PENDING'),
         count: this.pendingSalesCount,
         panel: 'tickets',
       },
       {
         id: 'REFUNDS',
-        label: 'Devoluciones',
+        label: this.t('incident.REFUNDS'),
         count: this.refundedToday.length,
         panel: 'refunds',
       },
       {
         id: 'CANCELLED',
-        label: 'Canceladas',
+        label: this.t('incident.CANCELLED'),
         count: this.cancelledSalesCount,
         panel: 'tickets',
       },
       {
         id: 'ADJUSTMENTS',
-        label: 'Ajustes inventario',
+        label: this.t('incident.ADJUSTMENTS'),
         count: this.reportInventoryMovements.filter((item) => item.type === 'ADJUSTMENT').length,
         panel: 'movements',
       },
@@ -1380,7 +1398,7 @@ export class StoreService {
       counts.set(sale.paymentMethod, (counts.get(sale.paymentMethod) ?? 0) + 1);
     }
     const preferred = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    return preferred ? this.paymentLabel(preferred) : 'Sin preferencia';
+    return preferred ? this.paymentLabel(preferred) : this.t('customer.NoPreference');
   }
 
   get customerFavoriteProducts(): Array<{ name: string; qty: number }> {
@@ -1399,30 +1417,30 @@ export class StoreService {
 
   get customerRelationshipStage(): string {
     if (this.customerHistoryTotal >= 10000 || this.customerConfirmedSalesCount >= 8) {
-      return 'Cliente VIP';
+      return this.t('customerStage.VIP');
     }
     if (this.customerConfirmedSalesCount >= 4) {
-      return 'Cliente frecuente';
+      return this.t('customerStage.FREQUENT');
     }
     if (this.customerConfirmedSalesCount >= 1) {
-      return 'Cliente activo';
+      return this.t('customerStage.ACTIVE');
     }
-    return 'Cliente nuevo';
+    return this.t('customerStage.NEW');
   }
 
   get customerRecencyLabel(): string {
     const lastPurchase = this.customerLastPurchase;
     if (!lastPurchase) {
-      return 'Aun sin compras cerradas';
+      return this.t('customerRecency.NONE');
     }
 
     const diffMs = Date.now() - new Date(lastPurchase.createdAt).getTime();
     const diffDays = Math.max(Math.floor(diffMs / 86400000), 0);
-    if (diffDays === 0) return 'Compro hoy';
-    if (diffDays === 1) return 'Compro ayer';
-    if (diffDays < 7) return `Compro hace ${diffDays} dias`;
-    if (diffDays < 30) return `Compro hace ${Math.floor(diffDays / 7)} semana(s)`;
-    return `Compro hace ${Math.floor(diffDays / 30)} mes(es)`;
+    if (diffDays === 0) return this.t('customerRecency.TODAY');
+    if (diffDays === 1) return this.t('customerRecency.YESTERDAY');
+    if (diffDays < 7) return this.t('customerRecency.DAYS', { n: diffDays });
+    if (diffDays < 30) return this.t('customerRecency.WEEKS', { n: Math.floor(diffDays / 7) });
+    return this.t('customerRecency.MONTHS', { n: Math.floor(diffDays / 30) });
   }
 
   get refundedToday(): SaleRefundRecord[] {
@@ -1483,15 +1501,7 @@ export class StoreService {
   }
 
   get reportIncidentFilterLabel(): string {
-    return (
-      {
-        ALL: 'Todos',
-        PENDING: 'Pendientes',
-        REFUNDS: 'Devoluciones',
-        CANCELLED: 'Canceladas',
-        ADJUSTMENTS: 'Ajustes de inventario',
-      } as const
-    )[this.reportIncidentFilter];
+    return this.t(`incident.${this.reportIncidentFilter}`);
   }
 
   get reportHistoryClosedCount(): number {
@@ -1534,48 +1544,9 @@ export class StoreService {
   }
 
   sectionLabel(view: ViewId, section: ViewSectionId): string {
-    const labels: Record<ViewId, Record<string, string>> = {
-      pos: {
-        products: 'Productos',
-        sale: 'Venta actual',
-        ticket: 'Ticket listo',
-      },
-      products: {
-        form: 'Alta de producto',
-        catalog: 'Catalogo',
-      },
-      catalog: {
-        products: 'Productos',
-      },
-      categories: {
-        categories: 'Categorias',
-      },
-      inventory: {
-        summary: 'Resumen',
-        purchases: 'Compras',
-      },
-      customers: {
-        form: 'Nuevo cliente',
-        list: 'Listado',
-        history: 'Historial',
-      },
-      promos: {
-        form: 'Nueva promo',
-        list: 'Listado',
-      },
-      reports: {
-        summary: 'Resumen',
-        sales: 'Ventas',
-        tickets: 'Tickets',
-        refunds: 'Devoluciones',
-        movements: 'Movimientos',
-        history: 'Historial',
-      },
-      settings: {
-        profile: 'Configuracion',
-      },
-    };
-    return labels[view][section] ?? '';
+    const sectionKey = `${view}.${section}`;
+    const label = this.t(`section.${sectionKey}`);
+    return label === `section.${sectionKey}` ? '' : label;
   }
 
   changeReportDate(date: string): void {
@@ -1661,18 +1632,7 @@ export class StoreService {
   }
 
   get pageTitle(): string {
-    const titles: Record<ViewId, string> = {
-      pos: 'Punto de venta',
-      products: 'Productos',
-      catalog: 'Productos',
-      categories: 'Categorias',
-      inventory: 'Inventario',
-      customers: 'Clientes',
-      promos: 'Promos',
-      reports: 'Corte diario',
-      settings: 'Configuracion',
-    };
-    return titles[this.activeView];
+    return this.t(`nav.${this.activeView}`);
   }
 
   get pageTitleDetail(): string {
@@ -1685,36 +1645,40 @@ export class StoreService {
   get tasks(): string[] {
     const t: string[] = [];
     if (this.pendingSales.length > 0) {
-      t.push(`${this.pendingSales.length} pago(s) pendiente(s) por confirmar`);
+      t.push(this.t('tasks.pendingPayments', { n: this.pendingSales.length }));
     }
     for (const p of this.products.filter((product) => product.stock <= 2)) {
-      t.push(`Reponer ${p.name} (${p.stock} uds)`);
+      t.push(this.t('tasks.restock', { name: p.name, stock: p.stock }));
     }
-    if (t.length === 0) t.push('Sin novedades');
+    if (t.length === 0) t.push(this.t('tasks.noNews'));
     return t;
   }
 
   get stats() {
     return [
       {
-        label: 'Venta actual',
+        label: this.t('stats.currentSale'),
         value: this.formatMoney(this.cartTotal),
-        trend: `${this.cart.length} partidas`,
+        trend: this.t('stats.lines', { n: this.cart.length }),
       },
       {
-        label: 'Productos activos',
+        label: this.t('stats.activeProducts'),
         value: String(this.products.filter((product) => product.status !== 'ARCHIVED').length),
-        trend: 'Catalogo',
+        trend: this.t('stats.catalog'),
       },
       {
-        label: 'Pendientes',
+        label: this.t('stats.pending'),
         value: String(this.pendingSales.length),
-        trend: this.pendingSales.length ? 'Por confirmar' : 'Sin pendientes',
+        trend: this.pendingSales.length
+          ? this.t('stats.pendingConfirm')
+          : this.t('stats.noPending'),
       },
       {
-        label: 'Metodo pago',
+        label: this.t('stats.paymentMethod'),
         value: this.paymentLabel(this.selectedPayment),
-        trend: this.activeCartPromo ? `Promo: ${this.activeCartPromo.code}` : 'Seleccionado',
+        trend: this.activeCartPromo
+          ? this.t('stats.promo', { code: this.activeCartPromo.code })
+          : this.t('stats.selected'),
       },
     ];
   }
@@ -1732,7 +1696,7 @@ export class StoreService {
     const password = this.loginPass.trim();
 
     if (!username || !password) {
-      this.loginError = 'Escribe usuario y contraseña';
+      this.loginError = this.t('err.loginFieldsRequired');
       return;
     }
 
@@ -1740,7 +1704,7 @@ export class StoreService {
     this.loginLoading = true;
     this.refresh
       .track(
-        'Iniciando sesion...',
+        this.t('refresh.signingIn'),
         this.http.post<LoginResponse>(this.loginEndpoint, { username, password }).pipe(
           timeout({ first: LOGIN_TIMEOUT_MS }),
           retry({
@@ -1752,7 +1716,7 @@ export class StoreService {
                 return throwError(() => error);
               }
               if (retryCount > 1) {
-                this.loginError = 'El servidor esta despertando, reintentando...';
+                this.loginError = this.t('warn.serverWaking');
               }
               return timer(LOGIN_RETRY_DELAY_MS);
             },
@@ -1763,7 +1727,7 @@ export class StoreService {
       .subscribe({
         next: (result) => {
           if (!result.valid || !result.token) {
-            this.loginError = 'Usuario o contraseña incorrectos';
+            this.loginError = this.t('err.invalidCredentials');
             return;
           }
 
@@ -1784,10 +1748,10 @@ export class StoreService {
           const backendUrl = this.apiBase.replace(/\/api$/, '');
           this.loginError =
             error instanceof HttpErrorResponse && error.status === 429
-              ? 'Demasiados intentos. Espera unos minutos e intenta de nuevo.'
+              ? this.t('err.tooManyAttempts')
               : error instanceof Error && error.name === 'TimeoutError'
-                ? `El backend no respondio a tiempo. Si el servidor estaba dormido, espera y vuelve a intentar en ${backendUrl}`
-                : `No pude conectar con el backend. Revisa ${backendUrl}`;
+                ? this.t('err.backendTimeout', { url: backendUrl })
+                : this.t('err.backendUnreachable', { url: backendUrl });
         },
       });
   }
@@ -1811,7 +1775,7 @@ export class StoreService {
     const username = this.recoveryUser.trim();
 
     if (!username) {
-      this.recoveryError = 'Escribe tu correo o usuario';
+      this.recoveryError = this.t('err.recoveryUserRequired');
       this.recoveryInfo = '';
       return;
     }
@@ -1821,7 +1785,7 @@ export class StoreService {
     this.recoveryLoading = true;
     this.refresh
       .track(
-        'Enviando enlace...',
+        this.t('refresh.sendingLink'),
         this.http
           .post<PasswordResetRequestResponse>(this.passwordResetRequestEndpoint, { username })
           .pipe(timeout({ first: LOGIN_TIMEOUT_MS })),
@@ -1829,18 +1793,17 @@ export class StoreService {
       .pipe(finalize(() => (this.recoveryLoading = false)))
       .subscribe({
         next: () => {
-          this.recoveryInfo =
-            'Si el correo existe, te enviamos un enlace para restablecer la contraseña.';
+          this.recoveryInfo = this.t('ok.recoveryEmailSent');
           this.recoveryError = '';
         },
         error: (error: unknown) => {
           this.recoveryInfo = '';
           this.recoveryError =
             error instanceof HttpErrorResponse && error.status === 429
-              ? 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo.'
+              ? this.t('err.tooManyAttempts')
               : error instanceof HttpErrorResponse && error.status === 401
-                ? 'El backend rechazo la solicitud de recuperacion. Revisa que esa ruta este publica y reinicia el backend.'
-                : 'No pude iniciar la recuperación en este momento.';
+                ? this.t('err.recoveryRoute')
+                : this.t('err.recoveryStartFailed');
         },
       });
   }
@@ -1851,19 +1814,19 @@ export class StoreService {
     const confirmPassword = this.recoveryConfirmPass.trim();
 
     if (!token) {
-      this.recoveryError = 'El enlace de recuperación ya no es válido.';
+      this.recoveryError = this.t('err.resetLinkInvalid');
       this.recoveryInfo = '';
       return;
     }
 
     if (!newPassword || !confirmPassword) {
-      this.recoveryError = 'Escribe y confirma la nueva contraseña';
+      this.recoveryError = this.t('err.resetPassRequired');
       this.recoveryInfo = '';
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      this.recoveryError = 'Las contraseñas no coinciden';
+      this.recoveryError = this.t('err.passwordsMismatch');
       this.recoveryInfo = '';
       return;
     }
@@ -1873,7 +1836,7 @@ export class StoreService {
     this.recoveryLoading = true;
     this.refresh
       .track(
-        'Actualizando contraseña...',
+        this.t('refresh.updatingPassword'),
         this.http
           .post<PasswordResetConfirmResponse>(this.passwordResetConfirmEndpoint, {
             token,
@@ -1891,9 +1854,9 @@ export class StoreService {
           this.clearPasswordResetQuery();
           this.recoveryPass = '';
           this.recoveryConfirmPass = '';
-          this.recoveryInfo = 'Contraseña actualizada. Ya puedes iniciar sesión.';
+          this.recoveryInfo = this.t('ok.passwordUpdated');
           this.recoveryError = '';
-          this.showAlert('Contraseña actualizada. Ya puedes iniciar sesión.', 'success');
+          this.showAlert(this.t('ok.passwordUpdated'), 'success');
         },
         error: (error: unknown) => {
           this.recoveryInfo = '';
@@ -1913,7 +1876,7 @@ export class StoreService {
     this.onboardingActive = true;
     this.onboardingLoading = true;
     this.onboardingError = '';
-    this.onboardingInfo = 'Validando pago con Stripe...';
+    this.onboardingInfo = this.t('onboarding.checking');
     this.onboardingSessionId = sessionId;
 
     this.http
@@ -1930,14 +1893,13 @@ export class StoreService {
         next: (result) => {
           this.ngZone.run(() => {
             if (!result.ready || !result.onboardingToken) {
-              this.onboardingError = 'No pude preparar la activacion.';
+              this.onboardingError = this.t('err.onboardingPrepareFailed');
               return;
             }
             this.onboardingToken = result.onboardingToken;
             this.onboardingEmail = result.email || '';
             this.onboardingForm.email = result.email || '';
-            this.onboardingInfo =
-              'Pago confirmado. Completa los datos de tu empresa para activar el acceso.';
+            this.onboardingInfo = this.t('ok.onboardingReady');
             this.clearOnboardingQuery();
           });
         },
@@ -1945,7 +1907,7 @@ export class StoreService {
           this.ngZone.run(() => {
             this.onboardingError = this.describeOnboardingError(
               error,
-              'No pude validar el pago con Stripe.',
+              this.t('err.onboardingStripeFailed'),
             );
           });
         },
@@ -1974,11 +1936,11 @@ export class StoreService {
       .subscribe({
         next: (result) => {
           if (!result.valid) {
-            this.recoveryError = 'El enlace de recuperación ya no es válido.';
+            this.recoveryError = this.t('err.resetLinkInvalid');
             return;
           }
           this.recoveryMaskedEmail = result.email || '';
-          this.recoveryInfo = 'Crea una nueva contraseña para continuar.';
+          this.recoveryInfo = this.t('ok.createNewPassword');
         },
         error: (error: unknown) => {
           this.recoveryError = this.describePasswordResetError(error);
@@ -1987,7 +1949,7 @@ export class StoreService {
   }
 
   setView(view: ViewId, section?: ViewSectionId): void {
-    this.refresh.flash(`Cargando ${this.viewLabel(view)}...`);
+    this.refresh.flash(this.t('refresh.loadingView', { view: this.viewLabel(view) }));
     this.activeView = view;
     if (section) {
       this.activeSections = { ...this.activeSections, [view]: section };
@@ -2028,17 +1990,17 @@ export class StoreService {
     this.checkoutDiscount = 0;
     this.cashReceived = 0;
     this.lastTicket = null;
-    this.statusMessage = 'Listo para vender';
+    this.statusMessage = this.t('ok.ready');
     this.setView('pos', 'sale');
   }
 
   addToCart(product: Product): void {
     if (product.status === 'ARCHIVED') {
-      this.statusMessage = `${product.name} esta archivado`;
+      this.statusMessage = this.t('err.productArchived', { name: product.name });
       return;
     }
     if (product.stock <= this.quantityInCart(product.id)) {
-      this.statusMessage = `Sin stock disponible para ${product.name}`;
+      this.statusMessage = this.t('err.outOfStock', { name: product.name });
       return;
     }
     const current = this.cart.find((item) => item.productId === product.id);
@@ -2050,14 +2012,14 @@ export class StoreService {
         { productId: product.id, name: product.name, qty: 1, price: product.salePrice },
       ];
     }
-    this.statusMessage = `${product.name} agregado al carrito`;
+    this.statusMessage = this.t('ok.addedToCart', { name: product.name });
   }
 
   removeFromCart(productId: number): void {
     this.cart = this.cart
       .map((item) => (item.productId === productId ? { ...item, qty: item.qty - 1 } : item))
       .filter((item) => item.qty > 0);
-    this.statusMessage = 'Carrito actualizado';
+    this.statusMessage = this.t('ok.cartUpdated');
   }
 
   clearCart(): void {
@@ -2065,57 +2027,57 @@ export class StoreService {
     this.selectedPromoId = null;
     this.checkoutDiscount = 0;
     this.cashReceived = 0;
-    this.statusMessage = 'Venta limpiada';
+    this.statusMessage = this.t('ok.cartCleared');
   }
 
   selectPayment(method: PaymentMethod): void {
     this.selectedPayment = method;
-    this.statusMessage = `Metodo seleccionado: ${this.paymentLabel(method)}`;
+    this.statusMessage = this.t('ok.methodSelected', { method: this.paymentLabel(method) });
   }
 
   selectCustomer(customerId: number | null): void {
     this.selectedCustomerId = customerId;
     this.syncSelectedPromo();
-    this.statusMessage = `Cliente: ${
-      customerId
-        ? (this.customers.find((customer) => customer.id === customerId)?.name ?? 'Mostrador')
-        : 'Mostrador'
-    }`;
+    const customerName = customerId
+      ? (this.customers.find((customer) => customer.id === customerId)?.name ??
+        this.t('pos.counter'))
+      : this.t('pos.counter');
+    this.statusMessage = this.t('ok.customerSelected', { name: customerName });
   }
 
   applyPromo(promoId: string | null): void {
     if (!promoId) {
       this.selectedPromoId = null;
-      this.statusMessage = 'Promo removida';
+      this.statusMessage = this.t('ok.promoRemoved');
       return;
     }
 
     const promo = this.promotions.find((item) => item.id === promoId);
     if (!promo) {
       this.selectedPromoId = null;
-      this.statusMessage = 'La promo ya no existe';
+      this.statusMessage = this.t('err.promoMissing');
       return;
     }
     if (!this.isPromotionApplicable(promo)) {
       this.selectedPromoId = null;
-      this.statusMessage = 'Esa promo no aplica a la venta actual';
+      this.statusMessage = this.t('warn.promoNotApplicable');
       return;
     }
 
     this.selectedPromoId = promo.id;
-    this.statusMessage = `Promo aplicada: ${promo.name}`;
+    this.statusMessage = this.t('ok.promoApplied', { name: promo.name });
   }
 
   checkout(): void {
     if (!this.cart.length || this.isCharging) {
-      this.statusMessage = 'Agrega productos antes de cobrar';
+      this.statusMessage = this.t('warn.addProductsFirst');
       return;
     }
 
     this.isCharging = true;
     this.refresh
       .track(
-        'Procesando venta...',
+        this.t('refresh.processingSale'),
         this.http.post<SaleRecord>(this.apiUrl('/sales'), {
           paymentMethod: this.selectedPayment,
           discount: this.cartDiscount,
@@ -2138,10 +2100,13 @@ export class StoreService {
           }
           this.statusMessage =
             sale.status === 'PENDING'
-              ? `Pago con ${this.paymentLabel(sale.paymentMethod)} pendiente de confirmar.${this.settings.autoOpenTicket ? ' Ticket abierto.' : ''}`
+              ? this.t('warn.paymentPending', {
+                  method: this.paymentLabel(sale.paymentMethod),
+                  suffix: this.settings.autoOpenTicket ? this.t('warn.ticketOpenSuffix') : '',
+                })
               : this.settings.autoOpenTicket
-                ? 'Venta cobrada. Ticket abierto para imprimir.'
-                : 'Venta cobrada. Ticket listo.';
+                ? this.t('ok.saleChargedOpen')
+                : this.t('ok.saleCharged');
           this.isCharging = false;
           this.loadProducts();
           this.loadSalesToday();
@@ -2163,10 +2128,10 @@ export class StoreService {
             this.checkoutDiscount = 0;
             this.cashReceived = 0;
             this.isCharging = false;
-            this.statusMessage = 'Sin conexion. La venta quedo guardada y se sincronizara sola.';
+            this.statusMessage = this.t('warn.offlineQueued');
             return;
           }
-          this.statusMessage = 'No se pudo cobrar. Revisa backend o stock.';
+          this.statusMessage = this.t('err.checkoutFailed');
           this.isCharging = false;
         },
       });
@@ -2175,19 +2140,19 @@ export class StoreService {
   confirmSale(id: number): void {
     this.refresh
       .track(
-        'Confirmando pago...',
+        this.t('refresh.confirmingPayment'),
         this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/confirm`), {}),
       )
       .subscribe({
         next: (sale) => {
-          this.statusMessage = 'Pago confirmado';
+          this.statusMessage = this.t('ok.paymentConfirmed');
           this.lastTicket = sale;
           this.loadSalesToday();
           this.loadPendingSales();
           this.refreshReportData();
         },
         error: () => {
-          this.statusMessage = 'No se pudo confirmar el pago';
+          this.statusMessage = this.t('err.paymentConfirmFailed');
         },
       });
   }
@@ -2195,19 +2160,19 @@ export class StoreService {
   cancelSale(id: number): void {
     this.refresh
       .track(
-        'Cancelando venta...',
+        this.t('refresh.cancellingSale'),
         this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/cancel`), {}),
       )
       .subscribe({
         next: () => {
-          this.statusMessage = 'Venta pendiente cancelada y stock repuesto';
+          this.statusMessage = this.t('ok.saleCancelled');
           this.loadProducts();
           this.loadSalesToday();
           this.loadPendingSales();
           this.refreshReportData();
         },
         error: () => {
-          this.statusMessage = 'No se pudo cancelar la venta';
+          this.statusMessage = this.t('err.saleCancelFailed');
         },
       });
   }
@@ -2219,21 +2184,21 @@ export class StoreService {
       .filter((item) => item.quantity > 0);
 
     if (!items.length) {
-      this.statusMessage = 'Selecciona al menos una pieza para devolver o usa "Todo"';
+      this.statusMessage = this.t('warn.selectRefundUnits');
       return;
     }
 
     this.refresh
       .track(
-        'Procesando devolucion...',
+        this.t('refresh.processingRefund'),
         this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), { items }),
       )
       .subscribe({
         next: (sale) => {
           this.statusMessage =
             sale.status === 'REFUNDED'
-              ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
-              : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
+              ? this.t('ok.saleRefunded', { id: sale.id })
+              : this.t('ok.salePartialRefunded', { id: sale.id });
           this.lastTicket = sale;
           this.clearRefundDraft(id);
           this.loadProducts();
@@ -2242,7 +2207,7 @@ export class StoreService {
           this.refreshReportData();
         },
         error: () => {
-          this.statusMessage = 'No se pudo procesar la devolucion';
+          this.statusMessage = this.t('err.refundFailed');
         },
       });
   }
@@ -2250,15 +2215,15 @@ export class StoreService {
   refundAllRemaining(id: number): void {
     this.refresh
       .track(
-        'Procesando devolucion...',
+        this.t('refresh.processingRefund'),
         this.http.post<SaleRecord>(this.apiUrl(`/sales/${id}/refund`), null),
       )
       .subscribe({
         next: (sale) => {
           this.statusMessage =
             sale.status === 'REFUNDED'
-              ? `Venta #${sale.id} devuelta, stock repuesto y corte ajustado`
-              : `Venta #${sale.id} actualizada con devolucion parcial y corte ajustado`;
+              ? this.t('ok.saleRefunded', { id: sale.id })
+              : this.t('ok.salePartialRefunded', { id: sale.id });
           this.lastTicket = sale;
           this.clearRefundDraft(id);
           this.loadProducts();
@@ -2267,14 +2232,14 @@ export class StoreService {
           this.refreshReportData();
         },
         error: () => {
-          this.statusMessage = 'No se pudo procesar la devolucion';
+          this.statusMessage = this.t('err.refundFailed');
         },
       });
   }
 
   createProduct(): void {
     if (!this.productForm.name.trim()) {
-      this.statusMessage = 'El producto necesita nombre';
+      this.statusMessage = this.t('err.productNameRequired');
       return;
     }
     const payload = {
@@ -2287,24 +2252,29 @@ export class StoreService {
       : this.http.post<Product>(this.apiUrl('/products'), payload);
 
     this.refresh
-      .track(this.editingProductId ? 'Actualizando producto...' : 'Guardando producto...', request)
+      .track(
+        this.editingProductId ? this.t('refresh.updatingProduct') : this.t('refresh.savingProduct'),
+        request,
+      )
       .subscribe({
         next: () => {
-          this.statusMessage = this.editingProductId ? 'Producto actualizado' : 'Producto creado';
+          this.statusMessage = this.editingProductId
+            ? this.t('ok.productUpdated')
+            : this.t('ok.productCreated');
           this.closeProductForm();
           this.loadProducts();
         },
         error: () => {
           this.statusMessage = this.editingProductId
-            ? 'No se pudo actualizar el producto'
-            : 'No se pudo crear el producto';
+            ? this.t('err.productUpdateFailed')
+            : this.t('err.productCreateFailed');
         },
       });
   }
 
   createCategory(): void {
     if (!this.categoryForm.name.trim()) {
-      this.statusMessage = 'La categoria necesita nombre';
+      this.statusMessage = this.t('err.categoryNameRequired');
       return;
     }
 
@@ -2324,21 +2294,23 @@ export class StoreService {
 
     this.refresh
       .track(
-        this.editingCategoryId ? 'Actualizando categoria...' : 'Guardando categoria...',
+        this.editingCategoryId
+          ? this.t('refresh.updatingCategory')
+          : this.t('refresh.savingCategory'),
         request,
       )
       .subscribe({
         next: () => {
           this.statusMessage = this.editingCategoryId
-            ? 'Categoria actualizada'
-            : 'Categoria creada';
+            ? this.t('ok.categoryUpdated')
+            : this.t('ok.categoryCreated');
           this.resetCategoryForm();
           this.loadProductCategories();
         },
         error: () => {
           this.statusMessage = this.editingCategoryId
-            ? 'No se pudo actualizar la categoria'
-            : 'No se pudo crear la categoria';
+            ? this.t('err.categoryUpdateFailed')
+            : this.t('err.categoryCreateFailed');
         },
       });
   }
@@ -2360,15 +2332,15 @@ export class StoreService {
   }
 
   deleteCategory(category: ProductCategory): void {
-    if (!window.confirm(`Eliminar categoria ${category.name}?`)) return;
+    if (!window.confirm(this.t('confirm.deleteCategory', { name: category.name }))) return;
     this.refresh
       .track(
-        'Eliminando categoria...',
+        this.t('refresh.deletingCategory'),
         this.http.delete(this.apiUrl(`/product-categories/${category.id}`)),
       )
       .subscribe({
         next: () => {
-          this.statusMessage = 'Categoria eliminada';
+          this.statusMessage = this.t('ok.categoryDeleted');
           if (this.productForm.category === category.name) {
             this.productForm.category = '';
           }
@@ -2377,10 +2349,10 @@ export class StoreService {
         error: (error: HttpErrorResponse) => {
           this.statusMessage =
             error.status === 409
-              ? 'No se puede eliminar la categoria porque tiene productos ligados'
+              ? this.t('err.categoryInUse')
               : error.status === 404
-                ? 'La categoria ya no existe o no pertenece a esta cuenta'
-                : 'No se pudo eliminar la categoria';
+                ? this.t('err.categoryMissing')
+                : this.t('err.categoryDeleteFailed');
         },
       });
   }
@@ -2394,7 +2366,7 @@ export class StoreService {
   applyCategoryToProduct(name: string): void {
     this.showProductForm = true;
     this.productForm.category = name;
-    this.statusMessage = `Categoria seleccionada: ${name}`;
+    this.statusMessage = this.t('ok.categorySelected', { name });
     this.setView('catalog', 'products');
   }
 
@@ -2419,7 +2391,7 @@ export class StoreService {
       active: true,
     };
     this.productForm.category = preset.name;
-    this.statusMessage = `Preset cargado para ${preset.name}. Guardalo en Categorias para dejarlo fijo.`;
+    this.statusMessage = this.t('ok.presetLoaded', { name: preset.name });
     this.setView('categories', 'categories');
   }
 
@@ -2453,7 +2425,7 @@ export class StoreService {
       stock: product.stock,
       status: product.status,
     };
-    this.productImageFileName = product.imageUrl ? 'Imagen cargada' : '';
+    this.productImageFileName = product.imageUrl ? this.t('products.imageLoaded') : '';
     this.setView('catalog', 'products');
   }
 
@@ -2468,10 +2440,10 @@ export class StoreService {
     reader.onload = () => {
       this.productForm.imageUrl = typeof reader.result === 'string' ? reader.result : '';
       this.productImageFileName = file.name;
-      this.statusMessage = `Imagen lista: ${file.name}`;
+      this.statusMessage = this.t('ok.imageReady', { name: file.name });
     };
     reader.onerror = () => {
-      this.statusMessage = 'No se pudo leer la imagen';
+      this.statusMessage = this.t('err.imageReadFailed');
     };
     reader.readAsDataURL(file);
   }
@@ -2479,7 +2451,7 @@ export class StoreService {
   clearProductImage(): void {
     this.productForm.imageUrl = '';
     this.productImageFileName = '';
-    this.statusMessage = 'Imagen eliminada del formulario';
+    this.statusMessage = this.t('ok.imageCleared');
   }
 
   openProductForm(): void {
@@ -2498,10 +2470,13 @@ export class StoreService {
 
   deleteProduct(product: Product): void {
     this.refresh
-      .track('Eliminando producto...', this.http.delete(this.apiUrl(`/products/${product.id}`)))
+      .track(
+        this.t('refresh.deletingProduct'),
+        this.http.delete(this.apiUrl(`/products/${product.id}`)),
+      )
       .subscribe({
         next: () => {
-          this.statusMessage = `${product.name} eliminado`;
+          this.statusMessage = this.t('ok.productDeleted', { name: product.name });
           if (this.editingProductId === product.id) {
             this.resetProductForm();
           }
@@ -2509,9 +2484,7 @@ export class StoreService {
         },
         error: (error: HttpErrorResponse) => {
           this.statusMessage =
-            error.status === 404
-              ? 'El producto ya no existe o no pertenece a esta cuenta'
-              : 'No se pudo eliminar el producto';
+            error.status === 404 ? this.t('err.productMissing') : this.t('err.productDeleteFailed');
         },
       });
   }
@@ -2521,7 +2494,7 @@ export class StoreService {
       product.id,
       quantity,
       `Ajuste manual para ${product.name}`,
-      'Stock actualizado',
+      this.t('ok.stockUpdated'),
     );
   }
 
@@ -2530,23 +2503,23 @@ export class StoreService {
       product.id,
       -1,
       `Ajuste manual para ${product.name}`,
-      'Ajuste de inventario guardado',
+      this.t('ok.inventoryAdjustSaved'),
     );
   }
 
   registerPurchase(): void {
     if (!this.purchaseForm.productId) {
-      this.statusMessage = 'Selecciona un producto para registrar la compra';
+      this.statusMessage = this.t('warn.selectProduct');
       return;
     }
     if (this.purchaseForm.quantity < 1) {
-      this.statusMessage = 'La compra necesita al menos 1 unidad';
+      this.statusMessage = this.t('err.purchaseMinUnits');
       return;
     }
 
     this.refresh
       .track(
-        'Registrando compra...',
+        this.t('refresh.registeringPurchase'),
         this.http.post<PurchaseRecord>(this.apiUrl('/purchases'), {
           productId: this.purchaseForm.productId,
           supplierName: this.purchaseForm.supplierName || null,
@@ -2557,7 +2530,7 @@ export class StoreService {
       )
       .subscribe({
         next: () => {
-          this.statusMessage = 'Compra registrada y stock actualizado';
+          this.statusMessage = this.t('ok.purchaseRegistered');
           this.purchaseForm = {
             productId: null,
             supplierName: '',
@@ -2569,14 +2542,14 @@ export class StoreService {
           this.refreshInventoryData();
         },
         error: () => {
-          this.statusMessage = 'No se pudo registrar la compra';
+          this.statusMessage = this.t('err.purchaseFailed');
         },
       });
   }
 
   addCustomer(): void {
     if (!this.newCustomerName.trim()) {
-      this.statusMessage = 'El cliente necesita nombre';
+      this.statusMessage = this.t('err.customerNameRequired');
       return;
     }
     const payload = {
@@ -2589,17 +2562,24 @@ export class StoreService {
       : this.http.post<Customer>(this.apiUrl('/customers'), payload);
 
     this.refresh
-      .track(this.editingCustomerId ? 'Actualizando cliente...' : 'Guardando cliente...', request)
+      .track(
+        this.editingCustomerId
+          ? this.t('refresh.updatingCustomer')
+          : this.t('refresh.savingCustomer'),
+        request,
+      )
       .subscribe({
         next: () => {
-          this.statusMessage = this.editingCustomerId ? 'Cliente actualizado' : 'Cliente agregado';
+          this.statusMessage = this.editingCustomerId
+            ? this.t('ok.customerUpdated')
+            : this.t('ok.customerAdded');
           this.resetCustomerForm();
           this.loadCustomers();
         },
         error: () => {
           this.statusMessage = this.editingCustomerId
-            ? 'No se pudo actualizar el cliente'
-            : 'No se pudo agregar el cliente';
+            ? this.t('err.customerUpdateFailed')
+            : this.t('err.customerAddFailed');
         },
       });
   }
@@ -2622,19 +2602,19 @@ export class StoreService {
     const minSubtotal = Math.max(Number(this.promoForm.minSubtotal) || 0, 0);
 
     if (!name) {
-      this.statusMessage = 'La promo necesita nombre';
+      this.statusMessage = this.t('err.promoNameRequired');
       return;
     }
     if (!code) {
-      this.statusMessage = 'La promo necesita codigo';
+      this.statusMessage = this.t('err.promoCodeRequired');
       return;
     }
     if (value <= 0) {
-      this.statusMessage = 'La promo necesita un valor mayor a 0';
+      this.statusMessage = this.t('err.promoValueRequired');
       return;
     }
     if (this.promoForm.type === 'PERCENT' && value > 100) {
-      this.statusMessage = 'El porcentaje maximo es 100';
+      this.statusMessage = this.t('err.promoPercentMax');
       return;
     }
     if (
@@ -2642,7 +2622,7 @@ export class StoreService {
       this.promoForm.startsAt &&
       this.promoForm.endsAt < this.promoForm.startsAt
     ) {
-      this.statusMessage = 'La fecha final no puede ser menor a la inicial';
+      this.statusMessage = this.t('err.promoDateRange');
       return;
     }
     if (
@@ -2650,7 +2630,7 @@ export class StoreService {
         (promo) => promo.id !== this.editingPromoId && promo.code.toUpperCase() === code,
       )
     ) {
-      this.statusMessage = 'Ese codigo ya existe';
+      this.statusMessage = this.t('err.promoCodeExists');
       return;
     }
 
@@ -2676,7 +2656,7 @@ export class StoreService {
       : [nextPromo, ...this.promotions];
     this.persistPromotions();
     this.syncSelectedPromo();
-    this.statusMessage = this.editingPromoId ? 'Promo actualizada' : 'Promo guardada';
+    this.statusMessage = this.editingPromoId ? this.t('ok.promoUpdated') : this.t('ok.promoSaved');
     this.resetPromoForm();
     this.activeSections = { ...this.activeSections, promos: 'list' };
   }
@@ -2703,7 +2683,7 @@ export class StoreService {
   }
 
   deletePromo(promo: Promotion): void {
-    if (!window.confirm(`Eliminar promo ${promo.name}?`)) return;
+    if (!window.confirm(this.t('confirm.deletePromo', { name: promo.name }))) return;
     this.promotions = this.promotions.filter((item) => item.id !== promo.id);
     if (this.selectedPromoId === promo.id) {
       this.selectedPromoId = null;
@@ -2712,15 +2692,18 @@ export class StoreService {
       this.resetPromoForm();
     }
     this.persistPromotions();
-    this.statusMessage = 'Promo eliminada';
+    this.statusMessage = this.t('ok.promoDeleted');
   }
 
   deleteCustomer(customer: Customer): void {
     this.refresh
-      .track('Eliminando cliente...', this.http.delete(this.apiUrl(`/customers/${customer.id}`)))
+      .track(
+        this.t('refresh.deletingCustomer'),
+        this.http.delete(this.apiUrl(`/customers/${customer.id}`)),
+      )
       .subscribe({
         next: () => {
-          this.statusMessage = `${customer.name} eliminado`;
+          this.statusMessage = this.t('ok.customerDeleted', { name: customer.name });
           if (this.selectedCustomerId === customer.id) this.selectedCustomerId = null;
           if (this.selectedCustomerHistory?.id === customer.id) this.selectedCustomerHistory = null;
           if (this.editingCustomerId === customer.id) this.resetCustomerForm();
@@ -2729,8 +2712,8 @@ export class StoreService {
         error: (error: HttpErrorResponse) => {
           this.statusMessage =
             error.status === 404
-              ? 'El cliente ya no existe o no pertenece a esta cuenta'
-              : 'No se pudo eliminar el cliente';
+              ? this.t('err.customerMissing')
+              : this.t('err.customerDeleteFailed');
         },
       });
   }
@@ -2740,7 +2723,7 @@ export class StoreService {
     this.activeSections = { ...this.activeSections, customers: 'history' };
     this.refresh
       .track(
-        'Cargando historial...',
+        this.t('refresh.loadingHistory'),
         this.http.get<SaleRecord[]>(this.apiUrl(`/sales/customer/${customer.id}`)),
       )
       .subscribe({
@@ -2765,7 +2748,7 @@ export class StoreService {
 
   saveTicketSettings(): void {
     if (!this.settingsForm.storeName.trim()) {
-      this.settingsMessage = 'El nombre de la tienda es obligatorio';
+      this.settingsMessage = this.t('err.storeNameRequired');
       this.statusMessage = this.settingsMessage;
       return;
     }
@@ -2773,7 +2756,7 @@ export class StoreService {
     this.isSavingTicketSettings = true;
     this.refresh
       .track(
-        'Guardando datos del ticket...',
+        this.t('refresh.savingTicketData'),
         this.http
           .put<AppSettings>(
             this.apiUrl('/settings/ticket'),
@@ -2808,11 +2791,11 @@ export class StoreService {
       .subscribe({
         next: (settings) => {
           this.applySettings(settings);
-          this.settingsMessage = 'Datos del ticket guardados';
-          this.statusMessage = 'Datos del ticket guardados';
+          this.settingsMessage = this.t('ok.ticketSettingsSaved');
+          this.statusMessage = this.t('ok.ticketSettingsSaved');
         },
         error: () => {
-          this.settingsMessage = 'No se pudieron guardar los datos del ticket';
+          this.settingsMessage = this.t('err.ticketSettingsFailed');
           this.statusMessage = this.settingsMessage;
         },
       });
@@ -2820,12 +2803,12 @@ export class StoreService {
 
   saveCredentials(): void {
     if (!this.credentialsForm.username.trim()) {
-      this.credentialsMessage = 'El usuario es obligatorio';
+      this.credentialsMessage = this.t('err.usernameRequired');
       this.statusMessage = this.credentialsMessage;
       return;
     }
     if (!this.credentialsForm.currentPassword.trim()) {
-      this.credentialsMessage = 'Escribe la contrasena actual para confirmar el cambio';
+      this.credentialsMessage = this.t('err.currentPasswordRequired');
       this.statusMessage = this.credentialsMessage;
       return;
     }
@@ -2833,7 +2816,7 @@ export class StoreService {
     this.isSavingCredentials = true;
     this.refresh
       .track(
-        'Guardando acceso...',
+        this.t('refresh.savingAccess'),
         this.http
           .put<AppSettings>(
             this.apiUrl('/settings/credentials'),
@@ -2848,11 +2831,11 @@ export class StoreService {
           this.applySettings(settings);
           this.credentialsForm.currentPassword = '';
           this.credentialsForm.newPassword = '';
-          this.credentialsMessage = 'Usuario y contrasena guardados';
-          this.statusMessage = 'Acceso actualizado';
+          this.credentialsMessage = this.t('ok.credentialsSaved');
+          this.statusMessage = this.t('ok.accessUpdated');
         },
         error: () => {
-          this.credentialsMessage = 'No se guardo: revisa la contrasena actual';
+          this.credentialsMessage = this.t('err.credentialsFailed');
           this.statusMessage = this.credentialsMessage;
         },
       });
@@ -2866,33 +2849,33 @@ export class StoreService {
     reader.onload = () => {
       this.settingsForm.logoUrl = String(reader.result || '');
       this.logoFileName = file.name;
-      this.settingsMessage = 'Logo cargado, guarda la configuracion';
+      this.settingsMessage = this.t('ok.logoLoaded');
     };
     reader.readAsDataURL(file);
   }
 
   downloadBackup(): void {
-    this.runBackupExport('Generando respaldo Excel...', (backup) => {
+    this.runBackupExport(this.t('refresh.generatingExcel'), (backup) => {
       const payload = this.buildBackupWorkbook(backup);
       const blob = new Blob([payload], { type: 'application/vnd.ms-excel;charset=utf-8' });
       this.downloadBlob(blob, `boutique-os-respaldo-${this.todayDateString()}.xls`);
-      this.settingsMessage = 'Backup formal descargado en Excel';
+      this.settingsMessage = this.t('ok.backupExcel');
     });
   }
 
   downloadBackupCsv(): void {
-    this.runBackupExport('Generando respaldo CSV...', (backup) => {
+    this.runBackupExport(this.t('refresh.generatingCsv'), (backup) => {
       const payload = this.buildBackupCsv(backup);
       const blob = new Blob([payload], { type: 'text/csv;charset=utf-8' });
       this.downloadBlob(blob, `boutique-os-respaldo-${this.todayDateString()}.csv`);
-      this.settingsMessage = 'Backup formal descargado en CSV';
+      this.settingsMessage = this.t('ok.backupCsv');
     });
   }
 
   downloadBackupPdf(): void {
-    this.runBackupExport('Generando respaldo PDF...', async (backup) => {
+    this.runBackupExport(this.t('refresh.generatingPdf'), async (backup) => {
       await this.openBackupPdf(backup);
-      this.settingsMessage = 'Backup formal descargado en PDF';
+      this.settingsMessage = this.t('ok.backupPdf');
     });
   }
 
@@ -2902,13 +2885,13 @@ export class StoreService {
 
   saveCashCount(): void {
     if (this.reportDayClosed) {
-      this.statusMessage = 'El dia esta cerrado. Reabrelo para editar el corte.';
+      this.statusMessage = this.t('warn.dayClosed');
       return;
     }
     this.isSavingCashCount = true;
     this.refresh
       .track(
-        'Guardando corte...',
+        this.t('refresh.savingCashCount'),
         this.http.put<DailyCashCount>(
           this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`),
           {
@@ -2920,11 +2903,11 @@ export class StoreService {
       .subscribe({
         next: (cashCount) => {
           this.applyDailyCashCount(cashCount);
-          this.statusMessage = 'Corte de efectivo guardado';
+          this.statusMessage = this.t('ok.cashCountSaved');
           this.isSavingCashCount = false;
         },
         error: () => {
-          this.statusMessage = 'No se pudo guardar el efectivo real';
+          this.statusMessage = this.t('err.cashCountFailed');
           this.isSavingCashCount = false;
         },
       });
@@ -2932,13 +2915,13 @@ export class StoreService {
 
   closeReportDay(): void {
     if (this.reportDayClosed) {
-      this.statusMessage = 'Este dia ya estaba cerrado';
+      this.statusMessage = this.t('warn.alreadyClosed');
       return;
     }
     this.isClosingReportDay = true;
     this.refresh
       .track(
-        'Cerrando dia...',
+        this.t('refresh.closingDay'),
         this.http.post<DailyCashCount>(
           this.apiUrl(`/reports/cash-count/today/close?date=${this.reportDate}`),
           {},
@@ -2947,11 +2930,11 @@ export class StoreService {
       .subscribe({
         next: (cashCount) => {
           this.applyDailyCashCount(cashCount);
-          this.statusMessage = 'Dia cerrado correctamente';
+          this.statusMessage = this.t('ok.dayClosedSuccess');
           this.isClosingReportDay = false;
         },
         error: () => {
-          this.statusMessage = 'No se pudo cerrar el dia';
+          this.statusMessage = this.t('err.closeDayFailed');
           this.isClosingReportDay = false;
         },
       });
@@ -2959,13 +2942,13 @@ export class StoreService {
 
   reopenReportDay(): void {
     if (!this.reportDayClosed) {
-      this.statusMessage = 'Ese dia ya esta abierto';
+      this.statusMessage = this.t('warn.alreadyOpen');
       return;
     }
     this.isReopeningReportDay = true;
     this.refresh
       .track(
-        'Reabriendo dia...',
+        this.t('refresh.reopeningDay'),
         this.http.post<DailyCashCount>(
           this.apiUrl(`/reports/cash-count/today/reopen?date=${this.reportDate}`),
           {},
@@ -2974,11 +2957,11 @@ export class StoreService {
       .subscribe({
         next: (cashCount) => {
           this.applyDailyCashCount(cashCount);
-          this.statusMessage = 'Dia reabierto';
+          this.statusMessage = this.t('ok.dayReopened');
           this.isReopeningReportDay = false;
         },
         error: () => {
-          this.statusMessage = 'No se pudo reabrir el dia';
+          this.statusMessage = this.t('err.reopenDayFailed');
           this.isReopeningReportDay = false;
         },
       });
@@ -2986,16 +2969,16 @@ export class StoreService {
 
   openLastTicketPdf(): void {
     if (!this.lastTicket) {
-      this.statusMessage = 'No hay ticket reciente para imprimir';
+      this.statusMessage = this.t('warn.noRecentTicket');
       return;
     }
     void this.openTicketPdf(this.lastTicket);
-    this.statusMessage = 'PDF del ticket abierto';
+    this.statusMessage = this.t('ok.ticketPdfOpened');
   }
 
   openSaleTicketPdf(sale: SaleRecord): void {
     void this.openTicketPdf(sale);
-    this.statusMessage = `PDF del ticket #${sale.id} abierto`;
+    this.statusMessage = this.t('ok.ticketPdfOpenedId', { id: sale.id });
   }
 
   formatMoney(value: number): string {
@@ -3013,15 +2996,11 @@ export class StoreService {
   }
 
   paymentLabel(method: PaymentMethod): string {
-    return this.paymentMethods.find((item) => item.value === method)?.label ?? method;
+    return this.t(`payment.${method}`);
   }
 
   saleStatusLabel(status: SaleStatus): string {
-    if (status === 'PENDING') return 'Pendiente';
-    if (status === 'PARTIALLY_REFUNDED') return 'Parcialmente devuelta';
-    if (status === 'CANCELLED') return 'Cancelada';
-    if (status === 'REFUNDED') return 'Devuelta';
-    return 'Confirmada';
+    return this.t(`saleStatus.${status}`);
   }
 
   customerWhatsappHref(phone: string): string {
@@ -3030,7 +3009,7 @@ export class StoreService {
   }
 
   promotionTypeLabel(type: PromotionType): string {
-    return type === 'PERCENT' ? 'Porcentaje' : 'Monto fijo';
+    return this.t(`promoType.${type}`);
   }
 
   promotionValueLabel(promo: Promotion): string {
@@ -3038,24 +3017,32 @@ export class StoreService {
   }
 
   promotionScopeLabel(promo: Promotion): string {
-    if (promo.customerId == null) return 'Aplica a cualquier cliente';
+    if (promo.customerId == null) return this.t('promoScope.ANY');
     const customer = this.customers.find((item) => item.id === promo.customerId);
-    return customer ? `Solo para ${customer.name}` : 'Cliente especifico';
+    return customer
+      ? this.t('promoScope.ONLY', { name: customer.name })
+      : this.t('promoScope.SPECIFIC');
   }
 
   promotionWindowLabel(promo: Promotion): string {
-    return promo.endsAt ? `${promo.startsAt} al ${promo.endsAt}` : `Desde ${promo.startsAt}`;
+    return promo.endsAt
+      ? this.t('promoWindow.RANGE', { from: promo.startsAt, to: promo.endsAt })
+      : this.t('promoWindow.FROM', { from: promo.startsAt });
   }
 
   get ticketQrLabel(): string {
     return this.settingsForm.instagramHandle.trim() || this.settings.instagramHandle || '';
   }
 
+  promotionStatus(promo: Promotion): 'INACTIVE' | 'EXPIRED' | 'SCHEDULED' | 'ACTIVE' {
+    if (!promo.active) return 'INACTIVE';
+    if (this.isPromotionExpired(promo)) return 'EXPIRED';
+    if (this.isPromotionFuture(promo)) return 'SCHEDULED';
+    return 'ACTIVE';
+  }
+
   promotionStatusLabel(promo: Promotion): string {
-    if (!promo.active) return 'Inactiva';
-    if (this.isPromotionExpired(promo)) return 'Vencida';
-    if (this.isPromotionFuture(promo)) return 'Programada';
-    return 'Activa';
+    return this.t(`promoStatus.${this.promotionStatus(promo)}`);
   }
 
   customerInitials(customer: Customer | null): string {
@@ -3065,14 +3052,11 @@ export class StoreService {
   }
 
   productStatusLabel(status: ProductStatus): string {
-    return this.productStatuses.find((item) => item.value === status)?.label ?? status;
+    return this.t(`productStatus.${status}`);
   }
 
   inventoryMovementLabel(type: InventoryMovementType): string {
-    if (type === 'PURCHASE') return 'Compra';
-    if (type === 'SALE') return 'Venta';
-    if (type === 'RETURN') return 'Devolucion';
-    return 'Ajuste';
+    return this.t(`movement.${type}`);
   }
 
   private async openTicketPdf(sale: SaleRecord): Promise<void> {
@@ -3173,18 +3157,18 @@ export class StoreService {
     if (this.settings.showPhoneOnTicket && this.settings.phone) center(this.settings.phone, 7);
     if (this.settings.contactEmail) center(this.settings.contactEmail, 7);
     if (this.settings.instagramHandle) center(this.settings.instagramHandle, 7);
-    center('TICKET DE VENTA', 9, 'bold');
+    center(this.t('ticket.title'), 9, 'bold');
     y += 1;
-    row('Folio', ticketRef, true);
-    row('Fecha', this.formatDateTime(sale.createdAt));
+    row(this.t('ticket.folio'), ticketRef, true);
+    row(this.t('ticket.date'), this.formatDateTime(sale.createdAt));
     if (sale.refundedAt) {
-      row('Devuelta', this.formatDateTime(sale.refundedAt));
+      row(this.t('ticket.refunded'), this.formatDateTime(sale.refundedAt));
     }
     if (this.settings.showCustomerOnTicket) {
-      row('Cliente', sale.customerName || 'Mostrador');
+      row(this.t('ticket.customer'), sale.customerName || this.t('pos.counter'));
     }
-    row('Pago', this.paymentLabel(sale.paymentMethod));
-    row('Estado', this.saleStatusLabel(sale.status));
+    row(this.t('ticket.payment'), this.paymentLabel(sale.paymentMethod));
+    row(this.t('ticket.status'), this.saleStatusLabel(sale.status));
     line();
 
     for (const item of sale.items) {
@@ -3201,7 +3185,7 @@ export class StoreService {
       doc.setFontSize(8);
       const detail =
         item.refundedQuantity > 0
-          ? `${item.quantity} x ${this.formatMoney(item.unitPrice)} (${item.refundedQuantity} dev.)`
+          ? `${item.quantity} x ${this.formatMoney(item.unitPrice)} (${this.t('ticket.refundedQty', { n: item.refundedQuantity })})`
           : `${item.quantity} x ${this.formatMoney(item.unitPrice)}`;
       doc.text(detail, margin, y);
       doc.text(this.formatMoney(item.lineTotal), pageWidth - margin, y, { align: 'right' });
@@ -3209,21 +3193,21 @@ export class StoreService {
     }
 
     line();
-    row('Subtotal', this.formatMoney(sale.subtotal));
+    row(this.t('ticket.subtotal'), this.formatMoney(sale.subtotal));
     if (this.settings.showSavingsOnTicket && savings > 0) {
-      row('Ahorro', `-${this.formatMoney(savings)}`);
+      row(this.t('ticket.savings'), `-${this.formatMoney(savings)}`);
     }
     if (sale.refundedTotal > 0) {
-      row('Devuelto', `-${this.formatMoney(sale.refundedTotal)}`);
+      row(this.t('ticket.refundedTotal'), `-${this.formatMoney(sale.refundedTotal)}`);
     }
-    row('Total', this.formatMoney(sale.total), true);
+    row(this.t('ticket.total'), this.formatMoney(sale.total), true);
     if (sale.paymentMethod === 'CASH') {
-      row('Recibido', this.formatMoney(sale.cashReceived || 0));
+      row(this.t('ticket.received'), this.formatMoney(sale.cashReceived || 0));
       if (this.settings.showChangeOnTicket) {
-        row('Cambio', this.formatMoney(sale.changeDue || 0), true);
+        row(this.t('ticket.change'), this.formatMoney(sale.changeDue || 0), true);
       }
     }
-    row('Piezas', String(sale.items.reduce((sum, item) => sum + item.quantity, 0)));
+    row(this.t('ticket.pieces'), String(sale.items.reduce((sum, item) => sum + item.quantity, 0)));
     y += 3;
     line();
     const qrDataUrl = await this.generateTicketQrDataUrl();
@@ -3248,7 +3232,7 @@ export class StoreService {
       }
       line();
     }
-    center(this.settings.thankYouMessage || 'Gracias por tu compra', 8, 'bold');
+    center(this.settings.thankYouMessage || this.t('ticket.thankYou'), 8, 'bold');
     if (this.settings.ticketFooterNote) {
       center(this.settings.ticketFooterNote, 7);
     }
@@ -3258,7 +3242,7 @@ export class StoreService {
 
     if (!printWindow) {
       doc.save(this.ticketFilename(sale));
-      this.statusMessage = 'No pude abrir la ventana. Descargue el PDF del ticket.';
+      this.statusMessage = this.t('warn.couldNotOpenPdfWindow');
     }
   }
 
@@ -3316,77 +3300,93 @@ export class StoreService {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text(`Corte diario · ${this.settings.storeName || 'Boutique OS'}`, margin, y);
+    doc.text(
+      `${this.t('reportPdf.title')} · ${this.settings.storeName || 'Boutique OS'}`,
+      margin,
+      y,
+    );
     y += 7;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text(`Fecha: ${this.reportDate}`, margin, y);
-    doc.text(`Generado: ${this.formatDateTime(new Date().toISOString())}`, pageWidth - margin, y, {
-      align: 'right',
-    });
+    doc.text(`${this.t('reportPdf.date')} ${this.reportDate}`, margin, y);
+    doc.text(
+      `${this.t('reportPdf.generated')} ${this.formatDateTime(new Date().toISOString())}`,
+      pageWidth - margin,
+      y,
+      {
+        align: 'right',
+      },
+    );
     y += 10;
 
-    section('Resumen ejecutivo');
-    row('Vendido neto', this.formatMoney(this.todayTotal), true);
-    row('Utilidad neta', this.formatMoney(this.todayProfit));
-    row('Tickets cobrados', String(this.confirmedSalesToday.length));
-    row('Tickets pendientes', String(this.pendingSalesCount));
-    row('Caja total esperada', this.formatMoney(this.expectedBoxTotal));
-    row('Efectivo esperado', this.formatMoney(this.cashExpected));
-    row('Efectivo real', this.formatMoney(this.actualCashInput || 0));
-    row('Diferencia', this.formatMoney(this.cashDifference), true);
+    section(this.t('reportPdf.executive'));
+    row(this.t('reportPdf.netSold'), this.formatMoney(this.todayTotal), true);
+    row(this.t('reportPdf.netProfit'), this.formatMoney(this.todayProfit));
+    row(this.t('reportPdf.ticketsCharged'), String(this.confirmedSalesToday.length));
+    row(this.t('reportPdf.ticketsPending'), String(this.pendingSalesCount));
+    row(this.t('reportPdf.expectedBox'), this.formatMoney(this.expectedBoxTotal));
+    row(this.t('reportPdf.expectedCash'), this.formatMoney(this.cashExpected));
+    row(this.t('reportPdf.actualCash'), this.formatMoney(this.actualCashInput || 0));
+    row(this.t('reportPdf.difference'), this.formatMoney(this.cashDifference), true);
 
-    section('Comparacion vs ayer');
+    section(this.t('reportPdf.comparison'));
     for (const item of this.reportComparisonItems) {
-      paragraph(`${item.title}: hoy ${item.current} · ayer ${item.previous} · ${item.detail}`);
-    }
-
-    section('Metricas');
-    row('Ticket promedio', this.formatMoney(this.averageTicketToday));
-    row('Piezas vendidas', String(this.piecesSoldToday));
-    row('Margen promedio', `${this.averageMarginToday.toFixed(1)}%`);
-    row('Hora pico', this.peakHourLabel);
-    row(
-      'Top producto',
-      this.topSellingProductToday
-        ? `${this.topSellingProductToday.name} · ${this.topSellingProductToday.qty} uds`
-        : 'Sin ventas confirmadas',
-    );
-
-    section('Pago por metodo');
-    for (const item of this.paymentSummary) {
       paragraph(
-        `${item.label}: ${this.formatMoney(item.total)} · ${item.count} venta(s) · promedio ${this.formatMoney(item.average)}${item.refunds ? ` · ${item.refunds} devol.` : ''}`,
+        `${item.title}: ${this.t('reportPdf.today')} ${item.current} · ${this.t('reportPdf.yesterday')} ${item.previous} · ${item.detail}`,
       );
     }
 
-    section('Alertas e incidencias');
+    section(this.t('reportPdf.metrics'));
+    row(this.t('reportPdf.averageTicket'), this.formatMoney(this.averageTicketToday));
+    row(this.t('reportPdf.piecesSold'), String(this.piecesSoldToday));
+    row(this.t('reportPdf.averageMargin'), `${this.averageMarginToday.toFixed(1)}%`);
+    row(this.t('reportPdf.peakHour'), this.peakHourLabel);
+    row(
+      this.t('reportPdf.topProduct'),
+      this.topSellingProductToday
+        ? `${this.topSellingProductToday.name} · ${this.topSellingProductToday.qty} ${this.t('common.units')}`
+        : this.t('reportPdf.noConfirmedSales'),
+    );
+
+    section(this.t('reportPdf.byMethod'));
+    for (const item of this.paymentSummary) {
+      paragraph(
+        `${item.label}: ${this.formatMoney(item.total)} · ${this.t('summary.countSales', { n: item.count })} · ${this.t('reportPdf.averageShort', { value: this.formatMoney(item.average) })}${item.refunds ? ` · ${this.t('summary.refundsShort', { n: item.refunds })}` : ''}`,
+      );
+    }
+
+    section(this.t('reportPdf.alerts'));
     for (const alert of this.reportAlerts) {
       paragraph(`${alert.title}: ${alert.detail}`, 8.5, alert.tone === 'risk' ? 'bold' : 'normal');
     }
 
-    section('Corte de caja');
-    row('Diferencia actual', this.formatMoney(this.cashDifference), true);
-    row('Estado del dia', this.reportDayClosed ? 'Cerrado' : 'Abierto');
+    section(this.t('reportPdf.cashCut'));
+    row(this.t('reportPdf.currentDifference'), this.formatMoney(this.cashDifference), true);
     row(
-      'Cerrado a las',
-      this.reportClosedAt ? this.formatDateTime(this.reportClosedAt) : 'Sin cierre',
+      this.t('reportPdf.dayStatus'),
+      this.reportDayClosed ? this.t('reportPdf.closed') : this.t('reportPdf.open'),
     );
     row(
-      'Ultimo guardado',
-      this.cashCountUpdatedAt ? this.formatDateTime(this.cashCountUpdatedAt) : 'Sin guardar',
+      this.t('reportPdf.closedAt'),
+      this.reportClosedAt ? this.formatDateTime(this.reportClosedAt) : this.t('history.noClosing'),
     );
-    paragraph(`Notas: ${this.cashCountNotes || 'Sin notas registradas.'}`);
+    row(
+      this.t('reportPdf.lastSaved'),
+      this.cashCountUpdatedAt
+        ? this.formatDateTime(this.cashCountUpdatedAt)
+        : this.t('reportPdf.notSaved'),
+    );
+    paragraph(`${this.t('reportPdf.notes')} ${this.cashCountNotes || this.t('reportPdf.noNotes')}`);
 
     if (this.topProductsToday.length) {
-      section('Productos mas vendidos');
+      section(this.t('reportPdf.topProducts'));
       for (const item of this.topProductsToday) {
-        row(item.name, `${item.qty} uds`);
+        row(item.name, `${item.qty} ${this.t('common.units')}`);
       }
     }
 
     doc.save(`corte-diario-${this.reportDate}.pdf`);
-    this.statusMessage = 'PDF del corte diario descargado';
+    this.statusMessage = this.t('ok.reportPdfDownloaded');
   }
 
   async refreshTicketQrPreview(): Promise<void> {
@@ -3477,7 +3477,7 @@ export class StoreService {
         this.products = products;
       },
       error: () => {
-        this.statusMessage = 'No pude cargar productos del backend';
+        this.statusMessage = this.t('err.couldNotLoadProducts');
       },
     });
   }
@@ -3624,12 +3624,12 @@ export class StoreService {
       .subscribe({
         next: (backup) => {
           Promise.resolve(exporter(backup)).catch(() => {
-            this.settingsMessage = 'No se pudo generar el backup';
+            this.settingsMessage = this.t('err.backupFailed');
             this.statusMessage = this.settingsMessage;
           });
         },
         error: () => {
-          this.settingsMessage = 'No se pudo generar el backup';
+          this.settingsMessage = this.t('err.backupFailed');
           this.statusMessage = this.settingsMessage;
         },
       });
@@ -3652,12 +3652,12 @@ export class StoreService {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text('Respaldo Boutique OS', margin, y);
+    doc.text(this.t('backupPdf.title'), margin, y);
     y += 7;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text(
-      `Generado: ${this.formatDateTime(String(backup['generatedAt'] || new Date().toISOString()))}`,
+      `${this.t('reportPdf.generated')} ${this.formatDateTime(String(backup['generatedAt'] || new Date().toISOString()))}`,
       margin,
       y,
     );
@@ -3670,13 +3670,13 @@ export class StoreService {
       doc.roundedRect(margin, y - 5, maxWidth, 8, 1.5, 1.5, 'FD');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.text(`${section} (${rows.length})`, margin + 3, y);
+      doc.text(`${this.backupSectionLabel(section)} (${rows.length})`, margin + 3, y);
       y += 8;
 
       if (!rows.length) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.5);
-        doc.text('Sin datos', margin, y);
+        doc.text(this.t('backupPdf.noData'), margin, y);
         y += 6;
         continue;
       }
@@ -3687,7 +3687,10 @@ export class StoreService {
           .slice(0, 5)
           .map(([key, value]) => `${this.humanizeBackupHeader(key)}: ${value}`)
           .join(' | ');
-        const lines = doc.splitTextToSize(summary || 'Sin datos', maxWidth) as string[];
+        const lines = doc.splitTextToSize(
+          summary || this.t('backupPdf.noData'),
+          maxWidth,
+        ) as string[];
         ensureSpace(lines.length * 4 + 2);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.2);
@@ -3699,11 +3702,7 @@ export class StoreService {
         ensureSpace(6);
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(8);
-        doc.text(
-          `... ${rows.length - 18} registro(s) mas en el origen. Usa CSV o Excel para el detalle completo.`,
-          margin,
-          y,
-        );
+        doc.text(this.t('backupPdf.moreRecords', { n: rows.length - 18 }), margin, y);
         y += 6;
       }
 
@@ -3711,6 +3710,22 @@ export class StoreService {
     }
 
     doc.save(`boutique-os-respaldo-${this.todayDateString()}.pdf`);
+  }
+
+  private backupSectionLabel(section: string): string {
+    const keys: Record<string, string> = {
+      Configuracion: 'backup.configuration',
+      Productos: 'backup.products',
+      Categorias: 'backup.categories',
+      Clientes: 'backup.customers',
+      Ventas: 'backup.sales',
+      Devoluciones: 'backup.refunds',
+      Compras: 'backup.purchases',
+      'Movimientos de inventario': 'backup.inventoryMovements',
+      'Cortes de caja': 'backup.cashCounts',
+    };
+    const key = keys[section];
+    return key ? this.t(key) : section;
   }
 
   private escapeHtml(value: string): string {
@@ -3728,7 +3743,7 @@ export class StoreService {
         this.applySettings(settings);
       },
       error: () => {
-        this.settingsMessage = 'No se pudo cargar la configuracion';
+        this.settingsMessage = this.t('err.couldNotLoadSettings');
       },
     });
   }
@@ -3773,7 +3788,7 @@ export class StoreService {
         this.productCategories = categories;
       },
       error: () => {
-        this.statusMessage = 'No se pudieron cargar las categorias';
+        this.statusMessage = this.t('err.couldNotLoadCategories');
       },
     });
   }
@@ -3784,7 +3799,7 @@ export class StoreService {
         this.salesToday = sales;
       },
       error: () => {
-        this.statusMessage = 'No pude cargar el corte del dia';
+        this.statusMessage = this.t('err.couldNotLoadReport');
       },
     });
   }
@@ -3813,7 +3828,7 @@ export class StoreService {
         }
       },
       error: () => {
-        this.statusMessage = 'No pude cargar clientes del backend';
+        this.statusMessage = this.t('err.couldNotLoadCustomers');
       },
     });
   }
@@ -3961,7 +3976,7 @@ export class StoreService {
   ): void {
     this.refresh
       .track(
-        'Actualizando inventario...',
+        this.t('refresh.updatingInventory'),
         this.http.post<Product>(this.apiUrl('/inventory/adjustments'), {
           productId,
           quantityDelta,
@@ -3975,7 +3990,7 @@ export class StoreService {
           this.loadInventoryMovements();
         },
         error: () => {
-          this.statusMessage = 'No se pudo actualizar inventario';
+          this.statusMessage = this.t('err.couldNotUpdateInventory');
         },
       });
   }
@@ -4077,10 +4092,10 @@ export class StoreService {
         this.saveOfflineSales([]);
         if (remaining.length) {
           const total = remaining.length;
-          this.statusMessage =
-            total === 1
-              ? 'Venta pendiente sincronizada.'
-              : `${total} ventas pendientes sincronizadas.`;
+          this.statusMessage = this.t(
+            total === 1 ? 'ok.offlineSyncedOne' : 'ok.offlineSyncedMany',
+            { n: total },
+          );
           this.loadProducts();
           this.loadSalesToday();
           this.loadPendingSales();
@@ -4163,22 +4178,11 @@ export class StoreService {
   }
 
   private viewLabel(view: ViewId): string {
-    const labels: Record<ViewId, string> = {
-      pos: 'punto de venta',
-      products: 'productos',
-      catalog: 'catalogo',
-      categories: 'categorias',
-      inventory: 'inventario',
-      customers: 'clientes',
-      promos: 'promos',
-      reports: 'corte diario',
-      settings: 'configuracion',
-    };
-    return labels[view];
+    return this.t(`nav.${view}`);
   }
 
   private showAlert(message: string, type?: AlertType): void {
-    if (!message || message === 'Listo para vender') return;
+    if (!message || message === this.t('ok.ready')) return;
     this.alertMessage = message;
     this.alertType = type ?? this.inferAlertType(message);
     if (this.alertTimer) {
@@ -4211,31 +4215,29 @@ export class StoreService {
 
   private describeOnboardingError(error: unknown, fallback: string): string {
     if (error && typeof error === 'object' && 'name' in error && error.name === 'TimeoutError') {
-      return 'La validacion con Stripe tardo demasiado. Reintenta en unos segundos.';
+      return this.t('err.onboardingTimeout');
     }
     if (error instanceof HttpErrorResponse) {
-      if (error.status === 400) return 'Stripe no confirmo un pago valido para esta activacion.';
-      if (error.status === 404) return 'El enlace de activacion ya no es valido.';
-      if (error.status === 409) return 'Esta cuenta ya fue activada o este pago ya se uso.';
-      if (error.status === 410) return 'El enlace de activacion expiro. Vuelve desde Stripe.';
-      if (error.status === 503) return 'Stripe no esta configurado todavia en el backend.';
+      if (error.status === 400) return this.t('err.onboardingPaymentInvalid');
+      if (error.status === 404) return this.t('err.onboardingLinkInvalid');
+      if (error.status === 409) return this.t('err.onboardingAlreadyUsed');
+      if (error.status === 410) return this.t('err.onboardingLinkExpired');
+      if (error.status === 503) return this.t('err.onboardingStripeNotConfigured');
     }
     return fallback;
   }
 
   private describePasswordResetError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
-      if (error.status === 400)
-        return 'La contraseña debe tener mayúscula, minúscula y al menos un número.';
-      if (error.status === 404) return 'El enlace de recuperación ya no es válido.';
-      if (error.status === 410) return 'El enlace de recuperación expiró. Solicita uno nuevo.';
-      if (error.status === 429)
-        return 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo.';
+      if (error.status === 400) return this.t('err.resetPassFormat');
+      if (error.status === 404) return this.t('err.resetLinkInvalid');
+      if (error.status === 410) return this.t('err.resetLinkExpired');
+      if (error.status === 429) return this.t('err.tooManyAttempts');
     }
     if (error && typeof error === 'object' && 'name' in error && error.name === 'TimeoutError') {
-      return 'La operación tardó demasiado. Intenta otra vez.';
+      return this.t('err.operationTimeout');
     }
-    return 'No pude completar la recuperación en este momento.';
+    return this.t('err.resetGeneral');
   }
 
   private inferAlertType(message: string): AlertType {
@@ -4247,11 +4249,25 @@ export class StoreService {
       text.includes('sin stock') ||
       text.includes('necesita') ||
       text.includes('obligatorio') ||
-      text.includes('revisa')
+      text.includes('revisa') ||
+      text.includes('no se pudo') ||
+      text.includes('not have') ||
+      text.includes('no stock') ||
+      text.includes('required') ||
+      text.includes('failed') ||
+      text.includes('could not') ||
+      text.includes('check ')
     ) {
       return 'error';
     }
-    if (text.includes('pendiente') || text.includes('selecciona') || text.includes('actualizado')) {
+    if (
+      text.includes('pendiente') ||
+      text.includes('selecciona') ||
+      text.includes('actualizado') ||
+      text.includes('pending') ||
+      text.includes('select') ||
+      text.includes('updated')
+    ) {
       return 'warning';
     }
     if (
@@ -4260,7 +4276,13 @@ export class StoreService {
       text.includes('registrada') ||
       text.includes('confirmado') ||
       text.includes('descargado') ||
-      text.includes('cobrada')
+      text.includes('cobrada') ||
+      text.includes('saved') ||
+      text.includes('added') ||
+      text.includes('registered') ||
+      text.includes('confirmed') ||
+      text.includes('downloaded') ||
+      text.includes('charged')
     ) {
       return 'success';
     }
@@ -4370,15 +4392,9 @@ export class StoreService {
   private describeMoneyDelta(current: number, previous: number, lowerIsBetter = false): string {
     const diff = current - previous;
     if (Math.abs(diff) < 0.01) {
-      return 'Sin cambio contra ayer';
+      return this.t('comparison.noChange');
     }
-    const direction = lowerIsBetter
-      ? diff < 0
-        ? 'menos que ayer'
-        : 'mas que ayer'
-      : diff > 0
-        ? 'mas que ayer'
-        : 'menos que ayer';
+    const direction = this.describeDeltaDirection(diff, lowerIsBetter);
     return `${diff > 0 ? '+' : ''}${this.formatMoney(diff)} ${direction}`;
   }
 
@@ -4390,16 +4406,17 @@ export class StoreService {
   ): string {
     const diff = current - previous;
     if (diff === 0) {
-      return `Sin cambio en ${label}s`;
+      return this.t('comparison.noChangeIn', { label });
     }
-    const direction = lowerIsBetter
-      ? diff < 0
-        ? 'menos que ayer'
-        : 'mas que ayer'
-      : diff > 0
-        ? 'mas que ayer'
-        : 'menos que ayer';
+    const direction = this.describeDeltaDirection(diff, lowerIsBetter);
     return `${diff > 0 ? '+' : ''}${diff} ${label}(s) ${direction}`;
+  }
+
+  private describeDeltaDirection(diff: number, lowerIsBetter: boolean): string {
+    const goingUp = diff > 0;
+    const better = lowerIsBetter ? !goingUp : goingUp;
+    if (better) return this.t('comparison.lessThan');
+    return this.t('comparison.moreThan');
   }
 
   private apiUrl(path: string): string {

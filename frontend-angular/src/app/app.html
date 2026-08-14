@@ -13,14 +13,17 @@
         </div>
       </div>
       <div class="topbar-right">
+        <app-language-toggle />
         <button class="btn btn-outline btn-sm" (click)="store.newSale()">
-          <span>+</span> Nueva venta
+          <span>+</span> {{ store.t('topbar.newSale') }}
         </button>
         <div class="user-badge">
           <span class="user-avatar">A</span>
-          <span class="user-label">Admin</span>
+          <span class="user-label">{{ store.t('topbar.admin') }}</span>
         </div>
-        <button class="btn btn-ghost btn-sm" (click)="store.logout()">Salir</button>
+        <button class="btn btn-ghost btn-sm" (click)="store.logout()">
+          {{ store.t('topbar.logout') }}
+        </button>
       </div>
     </header>
 
@@ -90,8 +93,9 @@
     <div class="login-card onboarding-card">
       <div class="login-header">
         <img src="/logo.png" alt="Logo" class="login-logo" />
-        <div class="login-title">Activa tu empresa</div>
-        <div class="login-subtitle">Pago confirmado. Completa tu alta segura para entrar al sistema.</div>
+        <app-language-toggle class="login-lang-toggle" />
+        <div class="login-title">{{ store.t('onboarding.title') }}</div>
+        <div class="login-subtitle">{{ store.t('onboarding.subtitle') }}</div>
       </div>
 
       @if (store.onboardingInfo && !store.onboardingError) {
@@ -99,68 +103,134 @@
       }
       @if (store.onboardingError) {
         <div class="login-error">{{ store.onboardingError }}</div>
-        <button type="button" class="login-btn" (click)="store.retryOnboardingValidation()" [disabled]="store.onboardingLoading || !store.onboardingSessionId">
-          Reintentar validacion
+        <button
+          type="button"
+          class="login-btn"
+          (click)="store.retryOnboardingValidation()"
+          [disabled]="store.onboardingLoading || !store.onboardingSessionId"
+        >
+          {{ store.t('onboarding.retry') }}
         </button>
       }
 
       @if (store.onboardingLoading) {
         <div class="login-form onboarding-form">
-          <div class="login-subtitle">Estamos confirmando tu pago con Stripe. Esto normalmente tarda menos de un segundo.</div>
+          <div class="login-subtitle">{{ store.t('onboarding.checking') }}</div>
         </div>
       } @else {
-      <form class="login-form onboarding-form" (ngSubmit)="store.completeOnboarding()">
-        <div class="login-field">
-          <input [(ngModel)]="store.onboardingForm.storeName" name="storeName" id="storeName" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-          <label for="storeName">Nombre de la empresa</label>
-        </div>
-        <div class="onboarding-grid">
+        <form class="login-form onboarding-form" (ngSubmit)="store.completeOnboarding()">
           <div class="login-field">
-            <input [(ngModel)]="store.onboardingForm.phone" name="phone" id="phone" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-            <label for="phone">Telefono</label>
+            <input
+              [(ngModel)]="store.onboardingForm.storeName"
+              name="storeName"
+              id="storeName"
+              placeholder=" "
+              [disabled]="store.onboardingLoading || store.onboardingFinishing"
+            />
+            <label for="storeName">{{ store.t('onboarding.storeName') }}</label>
+          </div>
+          <div class="onboarding-grid">
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.onboardingForm.phone"
+                name="phone"
+                id="phone"
+                placeholder=" "
+                [disabled]="store.onboardingLoading || store.onboardingFinishing"
+              />
+              <label for="phone">{{ store.t('onboarding.phone') }}</label>
+            </div>
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.onboardingForm.email"
+                name="email"
+                id="email"
+                type="email"
+                placeholder=" "
+                [disabled]="store.onboardingLoading || store.onboardingFinishing"
+              />
+              <label for="email">{{ store.t('onboarding.email') }}</label>
+            </div>
           </div>
           <div class="login-field">
-            <input [(ngModel)]="store.onboardingForm.email" name="email" id="email" type="email" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-            <label for="email">Correo de acceso</label>
+            <input
+              [(ngModel)]="store.onboardingForm.street"
+              name="street"
+              id="street"
+              placeholder=" "
+              [disabled]="store.onboardingLoading || store.onboardingFinishing"
+            />
+            <label for="street">{{ store.t('onboarding.street') }}</label>
           </div>
-        </div>
-        <div class="login-field">
-          <input [(ngModel)]="store.onboardingForm.street" name="street" id="street" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-          <label for="street">Calle y numero</label>
-        </div>
-        <div class="onboarding-grid">
+          <div class="onboarding-grid">
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.onboardingForm.neighborhood"
+                name="neighborhood"
+                id="neighborhood"
+                placeholder=" "
+                [disabled]="store.onboardingLoading || store.onboardingFinishing"
+              />
+              <label for="neighborhood">{{ store.t('onboarding.neighborhood') }}</label>
+            </div>
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.onboardingForm.city"
+                name="city"
+                id="city"
+                placeholder=" "
+                [disabled]="store.onboardingLoading || store.onboardingFinishing"
+              />
+              <label for="city">{{ store.t('onboarding.city') }}</label>
+            </div>
+          </div>
           <div class="login-field">
-            <input [(ngModel)]="store.onboardingForm.neighborhood" name="neighborhood" id="neighborhood" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-            <label for="neighborhood">Colonia</label>
+            <input
+              [(ngModel)]="store.onboardingForm.postalCode"
+              name="postalCode"
+              id="postalCode"
+              placeholder=" "
+              [disabled]="store.onboardingLoading || store.onboardingFinishing"
+            />
+            <label for="postalCode">{{ store.t('onboarding.postalCode') }}</label>
           </div>
-          <div class="login-field">
-            <input [(ngModel)]="store.onboardingForm.city" name="city" id="city" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-            <label for="city">Ciudad</label>
+          <div class="onboarding-grid">
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.onboardingForm.password"
+                name="onboardingPassword"
+                id="onboardingPassword"
+                type="password"
+                placeholder=" "
+                [disabled]="store.onboardingLoading || store.onboardingFinishing"
+              />
+              <label for="onboardingPassword">{{ store.t('onboarding.password') }}</label>
+            </div>
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.onboardingForm.confirmPassword"
+                name="confirmPassword"
+                id="confirmPassword"
+                type="password"
+                placeholder=" "
+                [disabled]="store.onboardingLoading || store.onboardingFinishing"
+              />
+              <label for="confirmPassword">{{ store.t('onboarding.confirmPassword') }}</label>
+            </div>
           </div>
-        </div>
-        <div class="login-field">
-          <input [(ngModel)]="store.onboardingForm.postalCode" name="postalCode" id="postalCode" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-          <label for="postalCode">Codigo postal</label>
-        </div>
-        <div class="onboarding-grid">
-          <div class="login-field">
-            <input [(ngModel)]="store.onboardingForm.password" name="onboardingPassword" id="onboardingPassword" type="password" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-            <label for="onboardingPassword">Contraseña</label>
-          </div>
-          <div class="login-field">
-            <input [(ngModel)]="store.onboardingForm.confirmPassword" name="confirmPassword" id="confirmPassword" type="password" placeholder=" " [disabled]="store.onboardingLoading || store.onboardingFinishing" />
-            <label for="confirmPassword">Confirmar contraseña</label>
-          </div>
-        </div>
-        <button type="submit" class="login-btn" [disabled]="store.onboardingLoading || store.onboardingFinishing">
-          @if (store.onboardingLoading || store.onboardingFinishing) {
-            <span class="login-btn-spinner" aria-hidden="true"></span>
-            Activando
-          } @else {
-            Crear cuenta y continuar
-          }
-        </button>
-      </form>
+          <button
+            type="submit"
+            class="login-btn"
+            [disabled]="store.onboardingLoading || store.onboardingFinishing"
+          >
+            @if (store.onboardingLoading || store.onboardingFinishing) {
+              <span class="login-btn-spinner" aria-hidden="true"></span>
+              {{ store.t('onboarding.activating') }}
+            } @else {
+              {{ store.t('onboarding.create') }}
+            }
+          </button>
+        </form>
       }
     </div>
   </div>
@@ -170,6 +240,7 @@
     <div class="login-card">
       <div class="login-header">
         <img src="/logo.png" alt="Logo" class="login-logo" />
+        <app-language-toggle class="login-lang-toggle" />
         <div class="login-title">Boutique OS</div>
       </div>
       <form class="login-form" (ngSubmit)="store.login()">
@@ -181,7 +252,7 @@
             placeholder=" "
             autocomplete="off"
           />
-          <label for="user">Usuario</label>
+          <label for="user">{{ store.t('login.user') }}</label>
         </div>
         <div class="login-field">
           <input
@@ -191,7 +262,7 @@
             id="pass"
             placeholder=" "
           />
-          <label for="pass">Contraseña</label>
+          <label for="pass">{{ store.t('login.password') }}</label>
         </div>
         @if (store.loginError) {
           <div class="login-error">{{ store.loginError }}</div>
@@ -199,24 +270,24 @@
         <button type="submit" class="login-btn" [disabled]="store.loginLoading">
           @if (store.loginLoading) {
             <span class="login-btn-spinner" aria-hidden="true"></span>
-            Conectando
+            {{ store.t('login.connecting') }}
           } @else {
-            Entrar
+            {{ store.t('login.enter') }}
           }
         </button>
       </form>
       <button type="button" class="login-link-btn" (click)="store.toggleRecovery()">
         @if (store.recoveryOpen) {
-          Volver al login
+          {{ store.t('common.backToLogin') }}
         } @else {
-          ¿Olvidaste la contraseña?
+          {{ store.t('login.forgot') }}
         }
       </button>
       @if (store.recoveryOpen) {
         @if (store.recoveryMode === 'request') {
           <form class="login-form recovery-form" (ngSubmit)="store.requestPasswordReset()">
             <div class="recovery-copy">
-              Ingresa tu correo o usuario y te enviaremos un enlace para restablecer tu contraseña.
+              {{ store.t('recovery.copyRequest') }}
             </div>
             <div class="login-field">
               <input
@@ -226,7 +297,7 @@
                 placeholder=" "
                 [disabled]="store.recoveryLoading"
               />
-              <label for="recoveryUser">Correo o usuario</label>
+              <label for="recoveryUser">{{ store.t('recovery.userLabel') }}</label>
             </div>
             @if (store.recoveryInfo) {
               <div class="login-success">{{ store.recoveryInfo }}</div>
@@ -234,27 +305,31 @@
             @if (store.recoveryError) {
               <div class="login-error">{{ store.recoveryError }}</div>
             }
-            <button type="submit" class="login-btn login-btn-secondary" [disabled]="store.recoveryLoading">
+            <button
+              type="submit"
+              class="login-btn login-btn-secondary"
+              [disabled]="store.recoveryLoading"
+            >
               @if (store.recoveryLoading) {
                 <span class="login-btn-spinner" aria-hidden="true"></span>
-                Enviando
+                {{ store.t('recovery.sending') }}
               } @else {
-                Enviar enlace
+                {{ store.t('recovery.sendLink') }}
               }
             </button>
           </form>
         } @else {
           <form class="login-form recovery-form" (ngSubmit)="store.completePasswordReset()">
             <div class="recovery-copy">
-              Restablece tu contraseña
+              {{ store.t('recovery.title') }}
             </div>
             @if (store.recoveryMaskedEmail) {
               <div class="recovery-hint">
-                Estás recuperando la cuenta vinculada a {{ store.recoveryMaskedEmail }}.
+                {{ store.t('recovery.hintEmail', { email: store.recoveryMaskedEmail }) }}
               </div>
             }
             @if (store.recoveryTokenChecking) {
-              <div class="recovery-hint">Estamos validando tu enlace de recuperación...</div>
+              <div class="recovery-hint">{{ store.t('recovery.checking') }}</div>
             } @else {
               <div class="login-field">
                 <input
@@ -265,7 +340,7 @@
                   placeholder=" "
                   [disabled]="store.recoveryLoading"
                 />
-                <label for="recoveryPass">Nueva contraseña</label>
+                <label for="recoveryPass">{{ store.t('recovery.newPassword') }}</label>
               </div>
               <div class="login-field">
                 <input
@@ -276,10 +351,10 @@
                   placeholder=" "
                   [disabled]="store.recoveryLoading"
                 />
-                <label for="recoveryConfirmPass">Confirmar contraseña</label>
+                <label for="recoveryConfirmPass">{{ store.t('recovery.confirmPassword') }}</label>
               </div>
               <div class="recovery-hint">
-                La contraseña debe llevar mínimo 8 caracteres, una mayúscula, una minúscula y un número.
+                {{ store.t('recovery.passwordHint') }}
               </div>
             }
             @if (store.recoveryInfo) {
@@ -289,12 +364,16 @@
               <div class="login-error">{{ store.recoveryError }}</div>
             }
             @if (!store.recoveryTokenChecking) {
-              <button type="submit" class="login-btn login-btn-secondary" [disabled]="store.recoveryLoading">
+              <button
+                type="submit"
+                class="login-btn login-btn-secondary"
+                [disabled]="store.recoveryLoading"
+              >
                 @if (store.recoveryLoading) {
                   <span class="login-btn-spinner" aria-hidden="true"></span>
-                  Guardando
+                  {{ store.t('recovery.saving') }}
                 } @else {
-                  Guardar nueva contraseña
+                  {{ store.t('recovery.savePassword') }}
                 }
               </button>
             }
