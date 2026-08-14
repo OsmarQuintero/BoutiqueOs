@@ -3428,8 +3428,10 @@ export class StoreService {
     );
     if (!url) return '';
     try {
-      const QRCode = await import('qrcode');
-      return await QRCode.toDataURL(url, {
+      const module = await import('qrcode');
+      const toDataURL = module.toDataURL || (module as any).default?.toDataURL;
+      if (!toDataURL) return '';
+      return await toDataURL(url, {
         errorCorrectionLevel: 'M',
         margin: 1,
         width: 240,
