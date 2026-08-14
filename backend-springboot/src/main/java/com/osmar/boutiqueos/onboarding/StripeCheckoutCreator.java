@@ -2,6 +2,8 @@ package com.osmar.boutiqueos.onboarding;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.List;
 
 @Service
 public class StripeCheckoutCreator {
+
+    private static final Logger log = LoggerFactory.getLogger(StripeCheckoutCreator.class);
 
     private final String stripeSecretKey;
     private final String stripePriceId;
@@ -72,20 +76,39 @@ public class StripeCheckoutCreator {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 400) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe checkout session could not be created");
+                String detail = describeStripeError(response);
+                log.error("Stripe checkout session creation failed: status={} detail={}", response.statusCode(), detail);
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, detail);
             }
 
             JsonNode payload = objectMapper.readTree(response.body());
             String url = payload.path("url").asText("");
             if (url.isBlank()) {
+                log.error("Stripe checkout response missing url: {}", response.body());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe checkout URL is missing");
             }
             return url;
         } catch (ResponseStatusException exception) {
             throw exception;
         } catch (Exception exception) {
+            log.error("Stripe checkout session failed", exception);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe checkout session failed");
         }
+    }
+
+    private String describeStripeError(HttpResponse<String> response) {
+        try {
+            JsonNode error = objectMapper.readTree(response.body()).path("error");
+            String type = error.path("type").asText("");
+            String code = error.path("code").asText("");
+            String message = error.path("message").asText("");
+            if (!message.isBlank()) {
+                return "Stripe " + response.statusCode() + " (" + type + " / " + code + "): " + message;
+            }
+        } catch (Exception ignored) {
+            // fall through to generic message
+        }
+        return "Stripe returned " + response.statusCode();
     }
 
     private String encode(String value) {
