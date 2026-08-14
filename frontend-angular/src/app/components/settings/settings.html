@@ -3,7 +3,11 @@
     <div class="card">
       <div class="card-header">
         <h3>Ticket</h3>
-        <button class="btn btn-primary btn-sm" [disabled]="store.isSavingTicketSettings" (click)="store.saveTicketSettings()">
+        <button
+          class="btn btn-primary btn-sm"
+          [disabled]="store.isSavingTicketSettings"
+          (click)="store.saveTicketSettings()"
+        >
           {{ store.isSavingTicketSettings ? 'Guardando...' : 'Guardar' }}
         </button>
       </div>
@@ -13,35 +17,55 @@
           <div class="settings-subgrid">
             <label class="field">
               <span>Nombre de la tienda</span>
-              <input [(ngModel)]="store.settingsForm.storeName" placeholder="Boutique OS">
+              <input [(ngModel)]="store.settingsForm.storeName" placeholder="Boutique OS" />
             </label>
             <label class="field">
               <span>Telefono / WhatsApp</span>
-              <input [(ngModel)]="store.settingsForm.phone" placeholder="812 000 0000">
+              <input [(ngModel)]="store.settingsForm.phone" placeholder="812 000 0000" />
             </label>
             <label class="field">
               <span>Correo de contacto</span>
-              <input [(ngModel)]="store.settingsForm.contactEmail" placeholder="hola@boutiqueos.mx">
+              <input
+                [(ngModel)]="store.settingsForm.contactEmail"
+                placeholder="hola@boutiqueos.mx"
+              />
             </label>
+            <div class="field">
+              <span>Red social para el QR del ticket</span>
+              <select
+                [(ngModel)]="store.settingsForm.socialNetwork"
+                (ngModelChange)="store.refreshTicketQrPreview()"
+              >
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="FACEBOOK">Facebook</option>
+                <option value="TIKTOK">TikTok</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="CUSTOM">Enlace propio</option>
+              </select>
+            </div>
             <label class="field">
-              <span>Instagram</span>
-              <input [(ngModel)]="store.settingsForm.instagramHandle" (ngModelChange)="store.refreshTicketQrPreview()" placeholder="@boutiqueos">
+              <span>Cuenta o enlace</span>
+              <input
+                [(ngModel)]="store.settingsForm.instagramHandle"
+                (ngModelChange)="store.refreshTicketQrPreview()"
+                [placeholder]="store.ticketSocialPlaceholder"
+              />
             </label>
             <label class="field">
               <span>Calle</span>
-              <input [(ngModel)]="store.settingsForm.street" placeholder="Calle y numero">
+              <input [(ngModel)]="store.settingsForm.street" placeholder="Calle y numero" />
             </label>
             <label class="field">
               <span>Colonia</span>
-              <input [(ngModel)]="store.settingsForm.neighborhood" placeholder="Colonia">
+              <input [(ngModel)]="store.settingsForm.neighborhood" placeholder="Colonia" />
             </label>
             <label class="field">
               <span>Ciudad o municipio</span>
-              <input [(ngModel)]="store.settingsForm.city" placeholder="Monterrey">
+              <input [(ngModel)]="store.settingsForm.city" placeholder="Monterrey" />
             </label>
             <label class="field">
               <span>Codigo postal</span>
-              <input [(ngModel)]="store.settingsForm.postalCode" placeholder="64000">
+              <input [(ngModel)]="store.settingsForm.postalCode" placeholder="64000" />
             </label>
           </div>
         </div>
@@ -50,7 +74,7 @@
           <div class="settings-subgrid">
             <label class="field">
               <span>Prefijo del ticket</span>
-              <input [(ngModel)]="store.settingsForm.ticketPrefix" placeholder="BOS">
+              <input [(ngModel)]="store.settingsForm.ticketPrefix" placeholder="BOS" />
             </label>
             <label class="field">
               <span>Formato de papel</span>
@@ -62,18 +86,24 @@
             </label>
             <label class="field field-wide">
               <span>Mensaje de agradecimiento</span>
-              <input [(ngModel)]="store.settingsForm.thankYouMessage" placeholder="Gracias por tu compra">
+              <input
+                [(ngModel)]="store.settingsForm.thankYouMessage"
+                placeholder="Gracias por tu compra"
+              />
             </label>
             <label class="field field-wide">
               <span>Nota final / politica de cambios</span>
-              <input [(ngModel)]="store.settingsForm.ticketFooterNote" placeholder="Cambios dentro de 15 dias con ticket">
+              <input
+                [(ngModel)]="store.settingsForm.ticketFooterNote"
+                placeholder="Cambios dentro de 15 dias con ticket"
+              />
             </label>
           </div>
         </div>
         <div class="logo-field field-wide">
           <div class="logo-preview">
             @if (store.settingsForm.logoUrl) {
-              <img [src]="store.settingsForm.logoUrl" alt="Logo de la tienda">
+              <img [src]="store.settingsForm.logoUrl" alt="Logo de la tienda" />
             } @else {
               <span>Logo</span>
             }
@@ -81,9 +111,18 @@
           <div class="logo-actions">
             <label class="btn btn-outline">
               Cargar logo
-              <input type="file" accept="image/*" class="hidden-file-input" (change)="store.onLogoSelected($event)">
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden-file-input"
+                (change)="store.onLogoSelected($event)"
+              />
             </label>
-            <input class="input-sm" [(ngModel)]="store.settingsForm.logoUrl" placeholder="URL o imagen cargada">
+            <input
+              class="input-sm"
+              [(ngModel)]="store.settingsForm.logoUrl"
+              placeholder="URL o imagen cargada"
+            />
             @if (store.logoFileName) {
               <small>{{ store.logoFileName }}</small>
             }
@@ -93,38 +132,37 @@
           <div class="settings-section-title">Mostrar en el ticket</div>
           <div class="toggle-grid">
             <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showLogoOnTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showLogoOnTicket" />
               <span>Logo</span>
             </label>
             <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showAddressOnTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showAddressOnTicket" />
               <span>Direccion</span>
             </label>
             <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showPhoneOnTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showPhoneOnTicket" />
               <span>Telefono</span>
             </label>
             <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showCustomerOnTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showCustomerOnTicket" />
               <span>Cliente</span>
             </label>
             <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showSavingsOnTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showSavingsOnTicket" />
               <span>Ahorro / descuento</span>
             </label>
             <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showChangeOnTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showChangeOnTicket" />
               <span>Cambio</span>
             </label>
             <label class="toggle-option toggle-option-wide">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.autoOpenTicket">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.autoOpenTicket" />
               <span>Abrir ticket automaticamente al cobrar</span>
             </label>
           </div>
         </div>
       </div>
     </div>
-
   </div>
 
   <div class="settings-side">
@@ -134,19 +172,26 @@
       </div>
       <div class="card-content">
         <div class="ticket-preview-shell">
-          <div class="ticket-preview" [class.ticket-preview-wide]="store.settingsForm.ticketPaperSize === 'HALF_LETTER'">
+          <div
+            class="ticket-preview"
+            [class.ticket-preview-wide]="store.settingsForm.ticketPaperSize === 'HALF_LETTER'"
+          >
             @if (store.settingsForm.showLogoOnTicket) {
               <div class="ticket-preview-logo">
                 @if (store.settingsForm.logoUrl) {
-                  <img [src]="store.settingsForm.logoUrl" alt="Vista previa de logo">
+                  <img [src]="store.settingsForm.logoUrl" alt="Vista previa de logo" />
                 } @else {
                   <span>LOGO</span>
                 }
               </div>
             }
-            <div class="ticket-preview-store">{{ store.settingsForm.storeName || 'Boutique OS' }}</div>
+            <div class="ticket-preview-store">
+              {{ store.settingsForm.storeName || 'Boutique OS' }}
+            </div>
             @if (store.settingsForm.showAddressOnTicket) {
-              <div class="ticket-preview-line">{{ store.settingsForm.street || 'Calle y numero' }}</div>
+              <div class="ticket-preview-line">
+                {{ store.settingsForm.street || 'Calle y numero' }}
+              </div>
               <div class="ticket-preview-line">
                 {{ store.settingsForm.neighborhood || 'Colonia' }}
                 ·
@@ -223,12 +268,14 @@
             <div class="ticket-preview-divider"></div>
             @if (store.ticketQrDataUrl && store.ticketQrLabel) {
               <div class="ticket-preview-qr">
-                <img [src]="store.ticketQrDataUrl" alt="QR de Instagram">
+                <img [src]="store.ticketQrDataUrl" alt="QR de red social" />
                 <div class="ticket-preview-qr-label">{{ store.ticketQrLabel }}</div>
               </div>
               <div class="ticket-preview-divider"></div>
             }
-            <div class="ticket-preview-thanks">{{ store.settingsForm.thankYouMessage || 'Gracias por tu compra' }}</div>
+            <div class="ticket-preview-thanks">
+              {{ store.settingsForm.thankYouMessage || 'Gracias por tu compra' }}
+            </div>
             @if (store.settingsForm.ticketFooterNote) {
               <div class="ticket-preview-note">{{ store.settingsForm.ticketFooterNote }}</div>
             }
@@ -240,25 +287,38 @@
     <div class="card">
       <div class="card-header">
         <h3>Acceso</h3>
-        <button class="btn btn-primary btn-sm" [disabled]="store.isSavingCredentials" (click)="store.saveCredentials()">
+        <button
+          class="btn btn-primary btn-sm"
+          [disabled]="store.isSavingCredentials"
+          (click)="store.saveCredentials()"
+        >
           {{ store.isSavingCredentials ? 'Guardando...' : 'Guardar acceso' }}
         </button>
       </div>
       <div class="card-content settings-form">
         <label class="field">
           <span>Usuario</span>
-          <input [(ngModel)]="store.credentialsForm.username" autocomplete="off">
+          <input [(ngModel)]="store.credentialsForm.username" autocomplete="off" />
         </label>
         <label class="field">
           <span>Nueva contrasena</span>
-          <input type="password" [(ngModel)]="store.credentialsForm.newPassword" placeholder="Dejar vacio para conservar">
+          <input
+            type="password"
+            [(ngModel)]="store.credentialsForm.newPassword"
+            placeholder="Dejar vacio para conservar"
+          />
         </label>
         <label class="field field-wide">
           <span>Contrasena actual</span>
-          <input type="password" [(ngModel)]="store.credentialsForm.currentPassword" placeholder="Obligatoria para guardar acceso">
+          <input
+            type="password"
+            [(ngModel)]="store.credentialsForm.currentPassword"
+            placeholder="Obligatoria para guardar acceso"
+          />
         </label>
         <div class="settings-note field-wide">
-          Advertencia: por seguridad necesitas confirmar la contrasena actual antes de cambiar usuario o contrasena.
+          Advertencia: por seguridad necesitas confirmar la contrasena actual antes de cambiar
+          usuario o contrasena.
         </div>
         @if (store.credentialsMessage) {
           <div class="settings-note field-wide">{{ store.credentialsMessage }}</div>
@@ -273,7 +333,10 @@
       <div class="card-content backup-panel">
         <div>
           <strong>Respaldo de datos</strong>
-          <p>Descarga productos, categorias, clientes, ventas, devoluciones, compras, movimientos, cortes y configuracion en Excel, CSV o PDF.</p>
+          <p>
+            Descarga productos, categorias, clientes, ventas, devoluciones, compras, movimientos,
+            cortes y configuracion en Excel, CSV o PDF.
+          </p>
         </div>
         <div class="backup-actions">
           <button class="btn btn-outline" (click)="store.downloadBackup()">Excel</button>

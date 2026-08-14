@@ -11,6 +11,7 @@ public record TicketSettingsRequest(
         String postalCode,
         String contactEmail,
         String instagramHandle,
+        String socialNetwork,
         String logoUrl,
         String thankYouMessage,
         String ticketPrefix,

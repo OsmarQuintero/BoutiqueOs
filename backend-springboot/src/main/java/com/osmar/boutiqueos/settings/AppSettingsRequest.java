@@ -8,6 +8,7 @@ public record AppSettingsRequest(
         String address,
         String contactEmail,
         String instagramHandle,
+        String socialNetwork,
         String logoUrl,
         String thankYouMessage,
         String ticketPrefix,

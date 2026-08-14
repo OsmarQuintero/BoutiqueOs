@@ -66,6 +66,7 @@ public class AppSettingsService {
         settings.setAddress(cleanOrEmpty(request.address()));
         settings.setContactEmail(cleanOrEmpty(request.contactEmail()));
         settings.setInstagramHandle(normalizeInstagramHandle(request.instagramHandle()));
+        settings.setSocialNetwork(normalizeSocialNetwork(request.socialNetwork()));
         settings.setLogoUrl(normalizeImageUrl(request.logoUrl()));
         settings.setThankYouMessage(cleanOrDefault(request.thankYouMessage(), "Gracias por tu compra"));
         settings.setTicketPrefix(normalizeTicketPrefix(request.ticketPrefix()));
@@ -98,6 +99,7 @@ public class AppSettingsService {
         settings.setAddress(composeAddress(settings));
         settings.setContactEmail(cleanOrEmpty(request.contactEmail()));
         settings.setInstagramHandle(normalizeInstagramHandle(request.instagramHandle()));
+        settings.setSocialNetwork(normalizeSocialNetwork(request.socialNetwork()));
         settings.setLogoUrl(normalizeImageUrl(request.logoUrl()));
         settings.setThankYouMessage(cleanOrDefault(request.thankYouMessage(), "Gracias por tu compra"));
         settings.setTicketPrefix(normalizeTicketPrefix(request.ticketPrefix()));
@@ -209,6 +211,14 @@ public class AppSettingsService {
     private String normalizeInstagramHandle(String value) {
         String clean = cleanOrEmpty(value).replace("@", "");
         return clean.isBlank() ? "" : "@" + clean.replaceAll("\\s+", "");
+    }
+
+    private String normalizeSocialNetwork(String value) {
+        String clean = cleanOrEmpty(value).toUpperCase(Locale.ROOT);
+        return switch (clean) {
+            case "INSTAGRAM", "FACEBOOK", "TIKTOK", "WHATSAPP", "CUSTOM" -> clean;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported social network");
+        };
     }
 
     private String normalizeTicketPrefix(String value) {

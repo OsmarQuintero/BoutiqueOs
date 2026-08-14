@@ -192,6 +192,7 @@ export interface AppSettings {
   postalCode: string;
   contactEmail: string;
   instagramHandle: string;
+  socialNetwork: string;
   logoUrl: string;
   thankYouMessage: string;
   ticketPrefix: string;
@@ -435,6 +436,7 @@ export class StoreService {
     postalCode: '',
     contactEmail: '',
     instagramHandle: '',
+    socialNetwork: 'INSTAGRAM',
     logoUrl: '',
     thankYouMessage: 'Gracias por tu compra',
     ticketPrefix: 'BOS',
@@ -459,6 +461,7 @@ export class StoreService {
     postalCode: '',
     contactEmail: '',
     instagramHandle: '',
+    socialNetwork: 'INSTAGRAM',
     logoUrl: '',
     address: '',
     thankYouMessage: 'Gracias por tu compra',
@@ -847,7 +850,10 @@ export class StoreService {
           this.showAlert('Cuenta creada. Ya puedes iniciar sesion.', 'success');
         },
         error: (error: unknown) => {
-          this.onboardingError = this.describeOnboardingError(error, 'No pude completar la activacion.');
+          this.onboardingError = this.describeOnboardingError(
+            error,
+            'No pude completar la activacion.',
+          );
         },
       });
   }
@@ -982,7 +988,9 @@ export class StoreService {
     return this.promotions
       .filter((promo) => this.isPromotionApplicable(promo))
       .sort((a, b) => {
-        const discountDiff = this.promotionDiscountAmount(b, this.cartSubtotal) - this.promotionDiscountAmount(a, this.cartSubtotal);
+        const discountDiff =
+          this.promotionDiscountAmount(b, this.cartSubtotal) -
+          this.promotionDiscountAmount(a, this.cartSubtotal);
         if (discountDiff !== 0) return discountDiff;
         return a.name.localeCompare(b.name, 'es-MX');
       });
@@ -995,7 +1003,10 @@ export class StoreService {
   get promoDiscount(): number {
     const promo = this.activeCartPromo;
     if (!promo) return 0;
-    return this.promotionDiscountAmount(promo, Math.max(this.cartSubtotal - this.manualCartDiscount, 0));
+    return this.promotionDiscountAmount(
+      promo,
+      Math.max(this.cartSubtotal - this.manualCartDiscount, 0),
+    );
   }
 
   get cartSubtotal(): number {
@@ -1052,7 +1063,9 @@ export class StoreService {
   }
 
   get confirmedSalesToday(): SaleRecord[] {
-    return this.salesToday.filter((sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED');
+    return this.salesToday.filter(
+      (sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED',
+    );
   }
 
   get confirmedSalesYesterday(): SaleRecord[] {
@@ -1194,7 +1207,9 @@ export class StoreService {
       });
     }
 
-    const adjustments = this.reportInventoryMovements.filter((item) => item.type === 'ADJUSTMENT').length;
+    const adjustments = this.reportInventoryMovements.filter(
+      (item) => item.type === 'ADJUSTMENT',
+    ).length;
     if (adjustments > 0) {
       alerts.push({
         tone: adjustments >= 3 ? 'risk' : 'warn',
@@ -1726,25 +1741,23 @@ export class StoreService {
     this.refresh
       .track(
         'Iniciando sesion...',
-        this.http
-          .post<LoginResponse>(this.loginEndpoint, { username, password })
-          .pipe(
-            timeout({ first: LOGIN_TIMEOUT_MS }),
-            retry({
-              count: LOGIN_RETRY_COUNT,
-              delay: (error: unknown, retryCount: number) => {
-                const isHttpError =
-                  error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500;
-                if (isHttpError) {
-                  return throwError(() => error);
-                }
-                if (retryCount > 1) {
-                  this.loginError = 'El servidor esta despertando, reintentando...';
-                }
-                return timer(LOGIN_RETRY_DELAY_MS);
-              },
-            }),
-          ),
+        this.http.post<LoginResponse>(this.loginEndpoint, { username, password }).pipe(
+          timeout({ first: LOGIN_TIMEOUT_MS }),
+          retry({
+            count: LOGIN_RETRY_COUNT,
+            delay: (error: unknown, retryCount: number) => {
+              const isHttpError =
+                error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500;
+              if (isHttpError) {
+                return throwError(() => error);
+              }
+              if (retryCount > 1) {
+                this.loginError = 'El servidor esta despertando, reintentando...';
+              }
+              return timer(LOGIN_RETRY_DELAY_MS);
+            },
+          }),
+        ),
       )
       .pipe(finalize(() => (this.loginLoading = false)))
       .subscribe({
@@ -1816,7 +1829,8 @@ export class StoreService {
       .pipe(finalize(() => (this.recoveryLoading = false)))
       .subscribe({
         next: () => {
-          this.recoveryInfo = 'Si el correo existe, te enviamos un enlace para restablecer la contraseña.';
+          this.recoveryInfo =
+            'Si el correo existe, te enviamos un enlace para restablecer la contraseña.';
           this.recoveryError = '';
         },
         error: (error: unknown) => {
@@ -1825,8 +1839,8 @@ export class StoreService {
             error instanceof HttpErrorResponse && error.status === 429
               ? 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo.'
               : error instanceof HttpErrorResponse && error.status === 401
-              ? 'El backend rechazo la solicitud de recuperacion. Revisa que esa ruta este publica y reinicia el backend.'
-              : 'No pude iniciar la recuperación en este momento.';
+                ? 'El backend rechazo la solicitud de recuperacion. Revisa que esa ruta este publica y reinicia el backend.'
+                : 'No pude iniciar la recuperación en este momento.';
         },
       });
   }
@@ -1910,7 +1924,7 @@ export class StoreService {
           this.ngZone.run(() => {
             this.onboardingLoading = false;
           });
-        })
+        }),
       )
       .subscribe({
         next: (result) => {
@@ -1922,13 +1936,17 @@ export class StoreService {
             this.onboardingToken = result.onboardingToken;
             this.onboardingEmail = result.email || '';
             this.onboardingForm.email = result.email || '';
-            this.onboardingInfo = 'Pago confirmado. Completa los datos de tu empresa para activar el acceso.';
+            this.onboardingInfo =
+              'Pago confirmado. Completa los datos de tu empresa para activar el acceso.';
             this.clearOnboardingQuery();
           });
         },
         error: (error: unknown) => {
           this.ngZone.run(() => {
-            this.onboardingError = this.describeOnboardingError(error, 'No pude validar el pago con Stripe.');
+            this.onboardingError = this.describeOnboardingError(
+              error,
+              'No pude validar el pago con Stripe.',
+            );
           });
         },
       });
@@ -2768,6 +2786,7 @@ export class StoreService {
               postalCode: this.settingsForm.postalCode,
               contactEmail: this.settingsForm.contactEmail,
               instagramHandle: this.settingsForm.instagramHandle,
+              socialNetwork: this.settingsForm.socialNetwork,
               logoUrl: this.settingsForm.logoUrl,
               thankYouMessage: this.settingsForm.thankYouMessage,
               ticketPrefix: this.settingsForm.ticketPrefix,
@@ -3133,7 +3152,8 @@ export class StoreService {
     }
 
     center(this.settings.storeName || 'Boutique OS', 12, 'bold');
-    if (this.settings.showAddressOnTicket && this.settings.address) center(this.settings.address, 7);
+    if (this.settings.showAddressOnTicket && this.settings.address)
+      center(this.settings.address, 7);
     if (this.settings.showAddressOnTicket && !this.settings.address && this.settings.street) {
       center(this.settings.street, 7);
     }
@@ -3211,7 +3231,16 @@ export class StoreService {
       const qrSize = this.settings.ticketPaperSize === 'HALF_LETTER' ? 28 : 22;
       ensureSpace(qrSize + 16);
       try {
-        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrSize) / 2, y, qrSize, qrSize, undefined, 'FAST');
+        doc.addImage(
+          qrDataUrl,
+          'PNG',
+          (pageWidth - qrSize) / 2,
+          y,
+          qrSize,
+          qrSize,
+          undefined,
+          'FAST',
+        );
         y += qrSize + 4;
         center(this.ticketQrLabel, 7, 'bold');
       } catch {
@@ -3339,8 +3368,14 @@ export class StoreService {
     section('Corte de caja');
     row('Diferencia actual', this.formatMoney(this.cashDifference), true);
     row('Estado del dia', this.reportDayClosed ? 'Cerrado' : 'Abierto');
-    row('Cerrado a las', this.reportClosedAt ? this.formatDateTime(this.reportClosedAt) : 'Sin cierre');
-    row('Ultimo guardado', this.cashCountUpdatedAt ? this.formatDateTime(this.cashCountUpdatedAt) : 'Sin guardar');
+    row(
+      'Cerrado a las',
+      this.reportClosedAt ? this.formatDateTime(this.reportClosedAt) : 'Sin cierre',
+    );
+    row(
+      'Ultimo guardado',
+      this.cashCountUpdatedAt ? this.formatDateTime(this.cashCountUpdatedAt) : 'Sin guardar',
+    );
     paragraph(`Notas: ${this.cashCountNotes || 'Sin notas registradas.'}`);
 
     if (this.topProductsToday.length) {
@@ -3363,12 +3398,38 @@ export class StoreService {
     this.ticketQrDataUrl = nextDataUrl;
   }
 
+  get currentSocialNetwork(): string {
+    return (
+      this.settingsForm.socialNetwork ||
+      this.settings.socialNetwork ||
+      'INSTAGRAM'
+    ).toUpperCase();
+  }
+
+  get ticketSocialPlaceholder(): string {
+    switch (this.currentSocialNetwork) {
+      case 'FACEBOOK':
+        return 'tu-pagina';
+      case 'TIKTOK':
+        return '@tu-usuario';
+      case 'WHATSAPP':
+        return '81 0000 0000';
+      case 'CUSTOM':
+        return 'https://tuenlace.com';
+      default:
+        return '@tu-usuario';
+    }
+  }
+
   private async generateTicketQrDataUrl(): Promise<string> {
-    const handle = this.normalizeInstagramHandle(this.settingsForm.instagramHandle || this.settings.instagramHandle);
-    if (!handle) return '';
+    const url = this.ticketSocialUrl(
+      this.currentSocialNetwork,
+      this.settingsForm.instagramHandle || this.settings.instagramHandle,
+    );
+    if (!url) return '';
     try {
       const QRCode = await import('qrcode');
-      return await QRCode.toDataURL(`https://instagram.com/${handle}`, {
+      return await QRCode.toDataURL(url, {
         errorCorrectionLevel: 'M',
         margin: 1,
         width: 240,
@@ -3382,8 +3443,23 @@ export class StoreService {
     }
   }
 
-  private normalizeInstagramHandle(value: string): string {
-    return value.trim().replace(/^@+/, '').replace(/\s+/g, '');
+  private ticketSocialUrl(network: string, value: string): string {
+    const clean = (value || '').trim().replace(/^@+/, '').replace(/\s+/g, '');
+    if (!clean) return '';
+    switch (network) {
+      case 'FACEBOOK':
+        return `https://facebook.com/${clean}`;
+      case 'TIKTOK':
+        return `https://tiktok.com/@${clean}`;
+      case 'WHATSAPP': {
+        const digits = clean.replace(/\D+/g, '');
+        return digits ? `https://wa.me/${digits}` : '';
+      }
+      case 'CUSTOM':
+        return /^https?:\/\//i.test(clean) ? clean : `https://${clean}`;
+      default:
+        return `https://instagram.com/${clean}`;
+    }
   }
 
   private resetCustomerForm(): void {
@@ -3407,9 +3483,7 @@ export class StoreService {
   private buildBackupWorkbook(backup: Record<string, unknown>): string {
     const sections = this.backupSections(backup);
     const generatedAt = this.escapeHtml(String(backup['generatedAt'] || new Date().toISOString()));
-    const body = sections
-      .map(([title, data]) => this.backupSection(title, data))
-      .join('');
+    const body = sections.map(([title, data]) => this.backupSection(title, data)).join('');
 
     return `<!doctype html>
 <html>
@@ -3498,7 +3572,10 @@ export class StoreService {
 
   private buildBackupCsv(backup: Record<string, unknown>): string {
     const rows = this.normalizedBackupRows(backup);
-    const headers = ['seccion', ...new Set(rows.flatMap((row) => Object.keys(row).filter((key) => key !== 'seccion')))];
+    const headers = [
+      'seccion',
+      ...new Set(rows.flatMap((row) => Object.keys(row).filter((key) => key !== 'seccion'))),
+    ];
     const csvRows = [
       headers.join(','),
       ...rows.map((row) => headers.map((header) => this.csvCell(row[header] ?? '')).join(',')),
@@ -3577,7 +3654,11 @@ export class StoreService {
     y += 7;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text(`Generado: ${this.formatDateTime(String(backup['generatedAt'] || new Date().toISOString()))}`, margin, y);
+    doc.text(
+      `Generado: ${this.formatDateTime(String(backup['generatedAt'] || new Date().toISOString()))}`,
+      margin,
+      y,
+    );
     y += 8;
 
     for (const [section, rows] of this.backupSections(backup)) {
@@ -3616,7 +3697,11 @@ export class StoreService {
         ensureSpace(6);
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(8);
-        doc.text(`... ${rows.length - 18} registro(s) mas en el origen. Usa CSV o Excel para el detalle completo.`, margin, y);
+        doc.text(
+          `... ${rows.length - 18} registro(s) mas en el origen. Usa CSV o Excel para el detalle completo.`,
+          margin,
+          y,
+        );
         y += 6;
       }
 
@@ -3657,6 +3742,7 @@ export class StoreService {
       postalCode: settings.postalCode || '',
       contactEmail: settings.contactEmail || '',
       instagramHandle: settings.instagramHandle || '',
+      socialNetwork: settings.socialNetwork || 'INSTAGRAM',
       logoUrl: settings.logoUrl || '',
       address: settings.address || '',
       thankYouMessage: settings.thankYouMessage || 'Gracias por tu compra',
@@ -3990,7 +4076,9 @@ export class StoreService {
         if (remaining.length) {
           const total = remaining.length;
           this.statusMessage =
-            total === 1 ? 'Venta pendiente sincronizada.' : `${total} ventas pendientes sincronizadas.`;
+            total === 1
+              ? 'Venta pendiente sincronizada.'
+              : `${total} ventas pendientes sincronizadas.`;
           this.loadProducts();
           this.loadSalesToday();
           this.loadPendingSales();
@@ -4135,10 +4223,12 @@ export class StoreService {
 
   private describePasswordResetError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
-      if (error.status === 400) return 'La contraseña debe tener mayúscula, minúscula y al menos un número.';
+      if (error.status === 400)
+        return 'La contraseña debe tener mayúscula, minúscula y al menos un número.';
       if (error.status === 404) return 'El enlace de recuperación ya no es válido.';
       if (error.status === 410) return 'El enlace de recuperación expiró. Solicita uno nuevo.';
-      if (error.status === 429) return 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo.';
+      if (error.status === 429)
+        return 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo.';
     }
     if (error && typeof error === 'object' && 'name' in error && error.name === 'TimeoutError') {
       return 'La operación tardó demasiado. Intenta otra vez.';
@@ -4265,7 +4355,11 @@ export class StoreService {
     return true;
   }
 
-  private deltaTone(current: number, previous: number, lowerIsBetter = false): 'good' | 'warn' | 'risk' {
+  private deltaTone(
+    current: number,
+    previous: number,
+    lowerIsBetter = false,
+  ): 'good' | 'warn' | 'risk' {
     if (current === previous) return 'warn';
     const improved = lowerIsBetter ? current < previous : current > previous;
     return improved ? 'good' : 'risk';

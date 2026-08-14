@@ -61,6 +61,7 @@ class AppSettingsServiceTests {
                 "64000",
                 "hola@boutique.demo",
                 "@boutiquedemo",
+                "INSTAGRAM",
                 "",
                 "Gracias por comprar con nosotras",
                 "BDM",
@@ -78,6 +79,7 @@ class AppSettingsServiceTests {
         assertEquals("Boutique Demo", updated.getStoreName());
         assertEquals("hola@boutique.demo", updated.getContactEmail());
         assertEquals("@boutiquedemo", updated.getInstagramHandle());
+        assertEquals("INSTAGRAM", updated.getSocialNetwork());
         assertEquals("BDM", updated.getTicketPrefix());
         assertEquals("THERMAL_58", updated.getTicketPaperSize());
         assertFalse(updated.isShowCustomerOnTicket());

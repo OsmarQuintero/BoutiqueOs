@@ -36,6 +36,9 @@ public class AppSettings {
 
     private String instagramHandle = "";
 
+    @Column(nullable = false)
+    private String socialNetwork = "INSTAGRAM";
+
     @Column(columnDefinition = "TEXT")
     private String logoUrl = "";
 
@@ -112,6 +115,9 @@ public class AppSettings {
 
     public String getInstagramHandle() { return instagramHandle; }
     public void setInstagramHandle(String instagramHandle) { this.instagramHandle = instagramHandle; }
+
+    public String getSocialNetwork() { return socialNetwork; }
+    public void setSocialNetwork(String socialNetwork) { this.socialNetwork = socialNetwork; }
 
     public String getLogoUrl() { return logoUrl; }
     public void setLogoUrl(String logoUrl) { this.logoUrl = logoUrl; }
