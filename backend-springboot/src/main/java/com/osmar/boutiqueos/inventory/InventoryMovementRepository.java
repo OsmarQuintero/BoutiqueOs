@@ -10,4 +10,6 @@ public interface InventoryMovementRepository extends JpaRepository<InventoryMove
     List<InventoryMovement> findTop50ByAccountIdOrderByCreatedAtDesc(Long accountId);
 
     List<InventoryMovement> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(Long accountId, Instant start, Instant end);
+
+    java.util.Optional<InventoryMovement> findFirstByAccountIdAndSourceIdOrderByCreatedAtDesc(Long accountId, Long sourceId);
 }

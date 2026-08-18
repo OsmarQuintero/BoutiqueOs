@@ -13,6 +13,7 @@
           <th>{{ store.t('movements.quantity') }}</th>
           <th>{{ store.t('movements.cost') }}</th>
           <th>{{ store.t('movements.note') }}</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -36,10 +37,17 @@
               {{ movement.unitCost ? store.formatMoney(movement.unitCost) : '—' }}
             </td>
             <td>{{ movement.note || '—' }}</td>
+            <td>
+              @if (movement.type === 'PURCHASE' || movement.type === 'ADJUSTMENT') {
+                <button class="btn btn-ghost btn-xs" (click)="store.deleteMovement(movement)">
+                  {{ store.t('common.delete') }}
+                </button>
+              }
+            </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="6" class="empty-cell">{{ store.t('movements.noMovements') }}</td>
+            <td colspan="7" class="empty-cell">{{ store.t('movements.noMovements') }}</td>
           </tr>
         }
       </tbody>

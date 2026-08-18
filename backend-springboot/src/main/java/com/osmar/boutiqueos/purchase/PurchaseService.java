@@ -68,7 +68,60 @@ public class PurchaseService {
 
         productRepository.save(product);
         Purchase saved = purchaseRepository.save(purchase);
-        inventoryService.recordMovement(product, InventoryMovementType.PURCHASE, request.quantity(), unitCost, request.note());
+        inventoryService.recordMovement(product, InventoryMovementType.PURCHASE, request.quantity(), unitCost, request.note(), saved.getId());
         return PurchaseResponse.from(saved);
+    }
+
+    @Transactional
+    public PurchaseResponse update(Long id, PurchaseRequest request) {
+        Long accountId = accountContext.requireAccountId();
+        Purchase purchase = purchaseRepository.findById(id)
+                .filter(p -> p.getAccountId().equals(accountId))
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Purchase not found: " + id));
+
+        Product product = productRepository.findByIdAndAccountId(purchase.getProductId(), accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + purchase.getProductId()));
+
+        int oldQty = purchase.getQuantity();
+        int newQty = request.quantity();
+        BigDecimal oldCost = purchase.getUnitCost();
+        BigDecimal newUnitCost = request.unitCost() == null ? oldCost : request.unitCost();
+
+        product.setStock(product.getStock() - oldQty + newQty);
+        product.setCostPrice(newUnitCost);
+        inventoryService.syncProductStatus(product);
+
+        purchase.setSupplierName(request.supplierName());
+        purchase.setQuantity(newQty);
+        purchase.setUnitCost(newUnitCost);
+        purchase.setTotalCost(newUnitCost.multiply(BigDecimal.valueOf(newQty)));
+        purchase.setNote(request.note());
+
+        inventoryService.removeMovementBySource(accountId, purchase.getId());
+        productRepository.save(product);
+        Purchase saved = purchaseRepository.save(purchase);
+        inventoryService.recordMovement(product, InventoryMovementType.PURCHASE, newQty, newUnitCost, request.note(), saved.getId());
+        return PurchaseResponse.from(saved);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        Long accountId = accountContext.requireAccountId();
+        Purchase purchase = purchaseRepository.findById(id)
+                .filter(p -> p.getAccountId().equals(accountId))
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Purchase not found: " + id));
+
+        Product product = productRepository.findByIdAndAccountId(purchase.getProductId(), accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + purchase.getProductId()));
+
+        product.setStock(product.getStock() - purchase.getQuantity());
+        if (product.getStock() < 0) {
+            throw new IllegalArgumentException("No se puede eliminar: el stock quedaría negativo");
+        }
+        inventoryService.syncProductStatus(product);
+
+        inventoryService.removeMovementBySource(accountId, purchase.getId());
+        productRepository.save(product);
+        purchaseRepository.deleteById(id);
     }
 }

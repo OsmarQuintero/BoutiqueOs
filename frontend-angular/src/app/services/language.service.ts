@@ -97,6 +97,9 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'refresh.deletingCategory': { es: 'Eliminando categoria...', en: 'Deleting category...' },
   'refresh.deletingProduct': { es: 'Eliminando producto...', en: 'Deleting product...' },
   'refresh.registeringPurchase': { es: 'Registrando compra...', en: 'Registering purchase...' },
+  'refresh.updatingPurchase': { es: 'Actualizando compra...', en: 'Updating purchase...' },
+  'refresh.deletingPurchase': { es: 'Eliminando compra...', en: 'Deleting purchase...' },
+  'refresh.deletingMovement': { es: 'Eliminando movimiento...', en: 'Deleting movement...' },
   'refresh.updatingCustomer': { es: 'Actualizando cliente...', en: 'Updating customer...' },
   'refresh.savingCustomer': { es: 'Guardando cliente...', en: 'Saving customer...' },
   'refresh.deletingCustomer': { es: 'Eliminando cliente...', en: 'Deleting customer...' },
@@ -263,6 +266,11 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   // ----- confirm dialogs -----
   'confirm.deleteCategory': { es: 'Eliminar categoria {name}?', en: 'Delete category {name}?' },
   'confirm.deletePromo': { es: 'Eliminar promo {name}?', en: 'Delete promo {name}?' },
+  'confirm.deletePurchase': { es: 'Eliminar compra de {name}?', en: 'Delete purchase of {name}?' },
+  'confirm.deleteMovement': {
+    es: 'Eliminar movimiento de {name}?',
+    en: 'Delete movement of {name}?',
+  },
 
   // ----- categories -----
   'categories.edit': { es: 'Editar categoria', en: 'Edit category' },
@@ -307,6 +315,7 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'inventory.outflows': { es: 'Salidas', en: 'Outflows' },
   'inventory.returns': { es: 'Devoluciones', en: 'Returns' },
   'inventory.registerPurchase': { es: 'Registrar compra', en: 'Register purchase' },
+  'inventory.editPurchase': { es: 'Editar compra', en: 'Edit purchase' },
   'inventory.product': { es: 'Producto', en: 'Product' },
   'inventory.selectProduct': { es: 'Selecciona producto', en: 'Select product' },
   'inventory.supplier': { es: 'Proveedor', en: 'Supplier' },
@@ -890,6 +899,18 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
     es: 'Compra registrada y stock actualizado',
     en: 'Purchase registered and stock updated',
   },
+  'ok.purchaseUpdated': {
+    es: 'Compra actualizada y stock ajustado',
+    en: 'Purchase updated and stock adjusted',
+  },
+  'ok.purchaseDeleted': {
+    es: 'Compra eliminada y stock revertido',
+    en: 'Purchase deleted and stock reversed',
+  },
+  'ok.movementDeleted': {
+    es: 'Movimiento eliminado y stock revertido',
+    en: 'Movement deleted and stock reversed',
+  },
   'ok.customerUpdated': { es: 'Cliente actualizado', en: 'Customer updated' },
   'ok.customerAdded': { es: 'Cliente agregado', en: 'Customer added' },
   'ok.promoUpdated': { es: 'Promo actualizada', en: 'Promo updated' },
@@ -1061,6 +1082,18 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'err.purchaseFailed': {
     es: 'No se pudo registrar la compra',
     en: 'Could not register the purchase',
+  },
+  'err.purchaseUpdateFailed': {
+    es: 'No se pudo actualizar la compra',
+    en: 'Could not update the purchase',
+  },
+  'err.purchaseDeleteFailed': {
+    es: 'No se pudo eliminar la compra',
+    en: 'Could not delete the purchase',
+  },
+  'err.movementDeleteFailed': {
+    es: 'No se pudo eliminar el movimiento',
+    en: 'Could not delete the movement',
   },
   'err.customerNameRequired': { es: 'El cliente necesita nombre', en: 'The customer needs a name' },
   'err.customerUpdateFailed': {

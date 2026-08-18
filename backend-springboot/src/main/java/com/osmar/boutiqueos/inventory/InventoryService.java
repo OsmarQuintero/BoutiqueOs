@@ -61,6 +61,10 @@ public class InventoryService {
     }
 
     public void recordMovement(Product product, InventoryMovementType type, int quantity, BigDecimal unitCost, String note) {
+        recordMovement(product, type, quantity, unitCost, note, null);
+    }
+
+    public void recordMovement(Product product, InventoryMovementType type, int quantity, BigDecimal unitCost, String note, Long sourceId) {
         InventoryMovement movement = new InventoryMovement();
         movement.setAccountId(product.getAccountId());
         movement.setProductId(product.getId());
@@ -69,6 +73,7 @@ public class InventoryService {
         movement.setQuantity(quantity);
         movement.setUnitCost(unitCost);
         movement.setNote(note);
+        movement.setSourceId(sourceId);
         movementRepository.save(movement);
     }
 
@@ -76,5 +81,31 @@ public class InventoryService {
         if (product.getStatus() != ProductStatus.ARCHIVED) {
             product.setStatus(product.getStock() == 0 ? ProductStatus.OUT_OF_STOCK : ProductStatus.ACTIVE);
         }
+    }
+
+    @Transactional
+    public void removeMovementBySource(Long accountId, Long sourceId) {
+        movementRepository.findFirstByAccountIdAndSourceIdOrderByCreatedAtDesc(accountId, sourceId)
+                .ifPresent(movementRepository::delete);
+    }
+
+    @Transactional
+    public void deleteMovement(Long id) {
+        Long accountId = accountContext.requireAccountId();
+        InventoryMovement movement = movementRepository.findById(id)
+                .filter(m -> m.getAccountId().equals(accountId))
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Movement not found: " + id));
+
+        Product product = productRepository.findByIdAndAccountId(movement.getProductId(), accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + movement.getProductId()));
+
+        product.setStock(product.getStock() - movement.getQuantity());
+        if (product.getStock() < 0) {
+            throw new IllegalArgumentException("No se puede eliminar: el stock quedaría negativo");
+        }
+        syncProductStatus(product);
+
+        productRepository.save(product);
+        movementRepository.deleteById(id);
     }
 }

@@ -168,6 +168,7 @@ export interface InventoryMovement {
   quantity: number;
   unitCost: number | null;
   note: string | null;
+  sourceId: number | null;
   createdAt: string;
 }
 
@@ -395,6 +396,7 @@ export class StoreService {
   showProductForm = false;
   editingProductId: number | null = null;
   editingCategoryId: number | null = null;
+  editingPurchaseId: number | null = null;
   purchaseForm = {
     productId: null as number | null,
     supplierName: '',
@@ -2517,20 +2519,25 @@ export class StoreService {
       return;
     }
 
+    const payload = {
+      productId: this.purchaseForm.productId,
+      supplierName: this.purchaseForm.supplierName || null,
+      quantity: this.purchaseForm.quantity,
+      unitCost: this.purchaseForm.unitCost,
+      note: this.purchaseForm.note || null,
+    };
+    const request = this.editingPurchaseId
+      ? this.http.put<PurchaseRecord>(this.apiUrl(`/purchases/${this.editingPurchaseId}`), payload)
+      : this.http.post<PurchaseRecord>(this.apiUrl('/purchases'), payload);
+
     this.refresh
       .track(
-        this.t('refresh.registeringPurchase'),
-        this.http.post<PurchaseRecord>(this.apiUrl('/purchases'), {
-          productId: this.purchaseForm.productId,
-          supplierName: this.purchaseForm.supplierName || null,
-          quantity: this.purchaseForm.quantity,
-          unitCost: this.purchaseForm.unitCost,
-          note: this.purchaseForm.note || null,
-        }),
+        this.editingPurchaseId ? this.t('refresh.updatingPurchase') : this.t('refresh.registeringPurchase'),
+        request,
       )
       .subscribe({
         next: () => {
-          this.statusMessage = this.t('ok.purchaseRegistered');
+          this.statusMessage = this.editingPurchaseId ? this.t('ok.purchaseUpdated') : this.t('ok.purchaseRegistered');
           this.purchaseForm = {
             productId: null,
             supplierName: '',
@@ -2538,11 +2545,56 @@ export class StoreService {
             unitCost: 0,
             note: '',
           };
+          this.editingPurchaseId = null;
           this.loadProducts();
           this.refreshInventoryData();
         },
         error: () => {
-          this.statusMessage = this.t('err.purchaseFailed');
+          this.statusMessage = this.editingPurchaseId ? this.t('err.purchaseUpdateFailed') : this.t('err.purchaseFailed');
+        },
+      });
+  }
+
+  editPurchase(purchase: PurchaseRecord): void {
+    this.editingPurchaseId = purchase.id;
+    this.purchaseForm = {
+      productId: purchase.productId,
+      supplierName: purchase.supplierName || '',
+      quantity: purchase.quantity,
+      unitCost: purchase.unitCost,
+      note: purchase.note || '',
+    };
+  }
+
+  cancelPurchaseEdit(): void {
+    this.editingPurchaseId = null;
+    this.purchaseForm = {
+      productId: null,
+      supplierName: '',
+      quantity: 1,
+      unitCost: 0,
+      note: '',
+    };
+  }
+
+  deletePurchase(purchase: PurchaseRecord): void {
+    if (!window.confirm(this.t('confirm.deletePurchase', { name: purchase.productName }))) return;
+    this.refresh
+      .track(
+        this.t('refresh.deletingPurchase'),
+        this.http.delete(this.apiUrl(`/purchases/${purchase.id}`)),
+      )
+      .subscribe({
+        next: () => {
+          this.statusMessage = this.t('ok.purchaseDeleted');
+          if (this.editingPurchaseId === purchase.id) {
+            this.cancelPurchaseEdit();
+          }
+          this.loadProducts();
+          this.refreshInventoryData();
+        },
+        error: () => {
+          this.statusMessage = this.t('err.purchaseDeleteFailed');
         },
       });
   }
@@ -3991,6 +4043,25 @@ export class StoreService {
         },
         error: () => {
           this.statusMessage = this.t('err.couldNotUpdateInventory');
+        },
+      });
+  }
+
+  deleteMovement(movement: InventoryMovement): void {
+    if (!window.confirm(this.t('confirm.deleteMovement', { name: movement.productName }))) return;
+    this.refresh
+      .track(
+        this.t('refresh.deletingMovement'),
+        this.http.delete(this.apiUrl(`/inventory/movements/${movement.id}`)),
+      )
+      .subscribe({
+        next: () => {
+          this.statusMessage = this.t('ok.movementDeleted');
+          this.loadProducts();
+          this.loadInventoryMovements();
+        },
+        error: () => {
+          this.statusMessage = this.t('err.movementDeleteFailed');
         },
       });
   }

@@ -11,6 +11,7 @@ public record InventoryMovementResponse(
         int quantity,
         BigDecimal unitCost,
         String note,
+        Long sourceId,
         Instant createdAt
 ) {
     public static InventoryMovementResponse from(InventoryMovement movement) {
@@ -22,6 +23,7 @@ public record InventoryMovementResponse(
                 movement.getQuantity(),
                 movement.getUnitCost(),
                 movement.getNote(),
+                movement.getSourceId(),
                 movement.getCreatedAt()
         );
     }

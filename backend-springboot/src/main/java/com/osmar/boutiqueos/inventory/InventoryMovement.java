@@ -41,6 +41,8 @@ public class InventoryMovement {
 
     private String note;
 
+    private Long sourceId;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -102,6 +104,14 @@ public class InventoryMovement {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public Long getSourceId() {
+        return sourceId;
+    }
+
+    public void setSourceId(Long sourceId) {
+        this.sourceId = sourceId;
     }
 
     public Instant getCreatedAt() {

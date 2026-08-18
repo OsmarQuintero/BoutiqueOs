@@ -183,7 +183,7 @@
   <div class="inventory-purchases-layout" id="inventory-purchases-section">
     <div class="card">
       <div class="card-header">
-        <h3>{{ store.t('inventory.registerPurchase') }}</h3>
+        <h3>{{ store.editingPurchaseId ? store.t('inventory.editPurchase') : store.t('inventory.registerPurchase') }}</h3>
       </div>
       <div class="card-content">
         <div class="form-compact">
@@ -222,9 +222,16 @@
               [placeholder]="store.t('inventory.notePlaceholder')"
           /></label>
         </div>
-        <button class="btn btn-primary btn-block" (click)="store.registerPurchase()">
-          {{ store.t('inventory.savePurchase') }}
-        </button>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-block" (click)="store.registerPurchase()">
+            {{ store.editingPurchaseId ? store.t('common.save') : store.t('inventory.savePurchase') }}
+          </button>
+          @if (store.editingPurchaseId) {
+            <button class="btn btn-ghost" (click)="store.cancelPurchaseEdit()">
+              {{ store.t('common.cancel') }}
+            </button>
+          }
+        </div>
       </div>
     </div>
     <div class="card">
@@ -246,6 +253,12 @@
             <div class="recent-right">
               <strong>{{ store.formatMoney(purchase.totalCost) }}</strong>
               <span>{{ store.formatDateTime(purchase.createdAt) }}</span>
+              <button class="btn btn-ghost btn-xs" (click)="store.editPurchase(purchase)">
+                {{ store.t('common.edit') }}
+              </button>
+              <button class="btn btn-ghost btn-xs" (click)="store.deletePurchase(purchase)">
+                {{ store.t('common.delete') }}
+              </button>
             </div>
           </div>
         } @empty {
