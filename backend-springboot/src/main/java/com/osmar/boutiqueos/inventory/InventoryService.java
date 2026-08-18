@@ -94,7 +94,7 @@ public class InventoryService {
         Long accountId = accountContext.requireAccountId();
         InventoryMovement movement = movementRepository.findById(id)
                 .filter(m -> m.getAccountId().equals(accountId))
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Movement not found: " + id));
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Movimiento no encontrado"));
 
         Product product = productRepository.findByIdAndAccountId(movement.getProductId(), accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + movement.getProductId()));

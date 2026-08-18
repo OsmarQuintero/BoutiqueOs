@@ -77,7 +77,7 @@ public class PurchaseService {
         Long accountId = accountContext.requireAccountId();
         Purchase purchase = purchaseRepository.findById(id)
                 .filter(p -> p.getAccountId().equals(accountId))
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Purchase not found: " + id));
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Compra no encontrada"));
 
         Product product = productRepository.findByIdAndAccountId(purchase.getProductId(), accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + purchase.getProductId()));
@@ -109,7 +109,7 @@ public class PurchaseService {
         Long accountId = accountContext.requireAccountId();
         Purchase purchase = purchaseRepository.findById(id)
                 .filter(p -> p.getAccountId().equals(accountId))
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Purchase not found: " + id));
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Compra no encontrada"));
 
         Product product = productRepository.findByIdAndAccountId(purchase.getProductId(), accountId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + purchase.getProductId()));
