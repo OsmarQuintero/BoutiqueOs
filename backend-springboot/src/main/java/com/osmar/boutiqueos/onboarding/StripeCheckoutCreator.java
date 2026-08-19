@@ -65,6 +65,7 @@ public class StripeCheckoutCreator {
             form.add("line_items[0][price]=" + encode(stripePriceId));
             form.add("line_items[0][quantity]=1");
             form.add("allow_promotion_codes=true");
+            form.add("metadata[plan]=BASIC");
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.stripe.com/v1/checkout/sessions"))

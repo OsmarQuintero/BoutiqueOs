@@ -1,6 +1,10 @@
 package com.osmar.boutiqueos.onboarding;
 
 import com.osmar.boutiqueos.settings.AppSettingsService;
+import com.osmar.boutiqueos.subscription.AccountSubscription;
+import com.osmar.boutiqueos.subscription.AccountSubscriptionRepository;
+import com.osmar.boutiqueos.subscription.PlanType;
+import com.osmar.boutiqueos.subscription.SubscriptionStatus;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,16 +23,19 @@ public class OnboardingService {
     private final OnboardingSessionRepository onboardingSessionRepository;
     private final StripeCheckoutVerifier stripeCheckoutVerifier;
     private final AppSettingsService appSettingsService;
+    private final AccountSubscriptionRepository subscriptionRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public OnboardingService(
             OnboardingSessionRepository onboardingSessionRepository,
             StripeCheckoutVerifier stripeCheckoutVerifier,
-            AppSettingsService appSettingsService
+            AppSettingsService appSettingsService,
+            AccountSubscriptionRepository subscriptionRepository
     ) {
         this.onboardingSessionRepository = onboardingSessionRepository;
         this.stripeCheckoutVerifier = stripeCheckoutVerifier;
         this.appSettingsService = appSettingsService;
+        this.subscriptionRepository = subscriptionRepository;
     }
 
     @Transactional
@@ -84,6 +91,8 @@ public class OnboardingService {
                 request.password()
         );
 
+        createSubscriptionForAccount(account.getId(), session);
+
         session.setConsumedAt(Instant.now());
         session.setAccountId(account.getId());
         onboardingSessionRepository.save(session);
@@ -91,11 +100,42 @@ public class OnboardingService {
         return new OnboardingCompleteResponse(true, username);
     }
 
+    private void createSubscriptionForAccount(Long accountId, OnboardingSession session) {
+        AccountSubscription sub = new AccountSubscription();
+        sub.setAccountId(accountId);
+
+        if (session.getPlan() != null && !session.getPlan().isBlank()) {
+            try {
+                PlanType plan = PlanType.valueOf(session.getPlan());
+                sub.setPlan(plan);
+                sub.setStatus(SubscriptionStatus.ACTIVE);
+            } catch (IllegalArgumentException e) {
+                sub.setPlan(PlanType.FREE);
+                sub.setStatus(SubscriptionStatus.ACTIVE);
+            }
+        } else {
+            sub.setPlan(PlanType.FREE);
+            sub.setStatus(SubscriptionStatus.ACTIVE);
+        }
+
+        if (session.getStripeCustomerId() != null && !session.getStripeCustomerId().isBlank()) {
+            sub.setStripeCustomerId(session.getStripeCustomerId());
+        }
+        if (session.getStripeSubscriptionId() != null && !session.getStripeSubscriptionId().isBlank()) {
+            sub.setStripeSubscriptionId(session.getStripeSubscriptionId());
+        }
+
+        subscriptionRepository.save(sub);
+    }
+
     private OnboardingSession createSession(StripeCheckoutVerifier.StripeCheckoutDetails stripeDetails) {
         OnboardingSession session = new OnboardingSession();
         session.setToken(generateToken());
         session.setStripeSessionId(stripeDetails.sessionId());
         session.setCustomerEmail(stripeDetails.customerEmail());
+        session.setPlan(stripeDetails.plan());
+        session.setStripeCustomerId(stripeDetails.stripeCustomerId());
+        session.setStripeSubscriptionId(stripeDetails.stripeSubscriptionId());
         session.setCreatedAt(Instant.now());
         session.setExpiresAt(Instant.now().plus(TOKEN_TTL));
         return onboardingSessionRepository.save(session);

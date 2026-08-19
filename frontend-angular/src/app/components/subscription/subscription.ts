@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { StoreService } from '../../services/store.service';
 
 @Component({
@@ -7,8 +7,12 @@ import { StoreService } from '../../services/store.service';
   templateUrl: './subscription.html',
   styleUrl: './subscription.scss',
 })
-export class SubscriptionComponent {
+export class SubscriptionComponent implements OnInit {
   constructor(protected store: StoreService) {}
+
+  ngOnInit(): void {
+    this.store.loadPlans();
+  }
 
   get usagePercent(): number {
     const usage = this.store.subscription?.usage;

@@ -8,9 +8,11 @@ public class AuthSessionService {
     public static final String SESSION_HEADER = "X-Boutique-Session";
 
     private final JwtTokenService jwtTokenService;
+    private final TokenBlocklist tokenBlocklist;
 
-    public AuthSessionService(JwtTokenService jwtTokenService) {
+    public AuthSessionService(JwtTokenService jwtTokenService, TokenBlocklist tokenBlocklist) {
         this.jwtTokenService = jwtTokenService;
+        this.tokenBlocklist = tokenBlocklist;
     }
 
     public String createSession(Long accountId) {
@@ -22,11 +24,18 @@ public class AuthSessionService {
     }
 
     public SessionInfo getSession(String token) {
+        if (tokenBlocklist.isRevoked(token)) {
+            return null;
+        }
         return jwtTokenService.parseToken(token);
     }
 
     public void invalidate(String token) {
-        // JWT stateless: no hay revocacion en servidor.
-        // El cliente descarta el token; la expiracion se valida por firma y fecha.
+        if (token != null && !token.isBlank()) {
+            SessionInfo info = jwtTokenService.parseToken(token);
+            if (info != null) {
+                tokenBlocklist.revoke(token, info.expiresAt());
+            }
+        }
     }
 }

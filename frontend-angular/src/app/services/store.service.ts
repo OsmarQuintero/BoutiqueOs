@@ -334,6 +334,7 @@ export class StoreService {
   private readonly subscriptionState = signal<SubscriptionInfo | null>(null);
   private readonly subscriptionLoadingState = signal(false);
   private readonly subscriptionCheckingState = signal(false);
+  private readonly plansState = signal<Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>>([]);
   loginEndpoint = this.apiUrl('/settings/login');
   logoutEndpoint = this.apiUrl('/settings/logout');
   passwordResetRequestEndpoint = this.apiUrl('/settings/password-reset/request');
@@ -342,6 +343,7 @@ export class StoreService {
   onboardingStartEndpoint = this.apiUrl('/onboarding/start');
   onboardingCompleteEndpoint = this.apiUrl('/onboarding/complete');
   subscriptionEndpoint = this.apiUrl('/subscription');
+  subscriptionPlansEndpoint = this.apiUrl('/subscription/plans');
   subscriptionCheckoutEndpoint = this.apiUrl('/subscription/checkout');
   subscriptionCancelEndpoint = this.apiUrl('/subscription/cancel');
   private sessionToken = '';
@@ -827,6 +829,14 @@ export class StoreService {
 
   set subscriptionChecking(value: boolean) {
     this.subscriptionCheckingState.set(value);
+  }
+
+  get plans(): Array<{plan: string; name: string; price: string; priceId: string; features: string[]}> {
+    return this.plansState();
+  }
+
+  set plans(value: Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>) {
+    this.plansState.set(value);
   }
 
   get currentPlan(): string {
@@ -4605,10 +4615,22 @@ export class StoreService {
     });
   }
 
-  checkoutSubscription(plan: string, priceId: string): void {
-    this.subscriptionLoading = true;
+  loadPlans(): void {
     this.http
-      .post<{ checkoutUrl: string }>(this.subscriptionCheckoutEndpoint, { plan, priceId })
+      .get<Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>>(this.subscriptionPlansEndpoint)
+      .subscribe({
+        next: (plans) => {
+          this.plans = plans;
+        },
+        error: () => {},
+      });
+  }
+
+  checkoutSubscription(plan: string, priceId?: string): void {
+    this.subscriptionLoading = true;
+    const effectivePriceId = priceId || this.plans.find(p => p.plan === plan)?.priceId || '';
+    this.http
+      .post<{ checkoutUrl: string }>(this.subscriptionCheckoutEndpoint, { plan, priceId: effectivePriceId })
       .pipe(finalize(() => (this.subscriptionLoading = false)))
       .subscribe({
         next: (result) => {

@@ -19,6 +19,9 @@ public class OnboardingSession {
     private String stripeSessionId;
 
     private String customerEmail;
+    private String plan;
+    private String stripeCustomerId;
+    private String stripeSubscriptionId;
 
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
@@ -37,6 +40,15 @@ public class OnboardingSession {
 
     public String getCustomerEmail() { return customerEmail; }
     public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+
+    public String getPlan() { return plan; }
+    public void setPlan(String plan) { this.plan = plan; }
+
+    public String getStripeCustomerId() { return stripeCustomerId; }
+    public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
+
+    public String getStripeSubscriptionId() { return stripeSubscriptionId; }
+    public void setStripeSubscriptionId(String stripeSubscriptionId) { this.stripeSubscriptionId = stripeSubscriptionId; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

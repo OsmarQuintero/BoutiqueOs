@@ -86,54 +86,49 @@
 
       @if (store.currentPlan === 'FREE') {
         <div class="sub-plans">
-          <div class="plan-card">
-            <div class="plan-name">{{ store.t('subscription.planBasic') }}</div>
-            <div class="plan-price">{{ store.t('subscription.priceBasic') }}</div>
-            <ul class="plan-features">
-              <li>{{ store.t('subscription.feature.products500') }}</li>
-              <li>{{ store.t('subscription.feature.customers1000') }}</li>
-              <li>{{ store.t('subscription.feature.sales5000') }}</li>
-              <li>{{ store.t('subscription.feature.reports') }}</li>
-            </ul>
-            <button
-              class="btn btn-primary"
-              [disabled]="store.subscriptionLoading"
-              (click)="store.checkoutSubscription('BASIC', '')"
-            >
-              {{ store.t('subscription.selectPlan') }}
-            </button>
-          </div>
-          <div class="plan-card plan-featured">
-            <div class="plan-badge">Popular</div>
-            <div class="plan-name">{{ store.t('subscription.planPro') }}</div>
-            <div class="plan-price">{{ store.t('subscription.pricePro') }}</div>
-            <ul class="plan-features">
-              <li>{{ store.t('subscription.feature.productsUnlimited') }}</li>
-              <li>{{ store.t('subscription.feature.customersUnlimited') }}</li>
-              <li>{{ store.t('subscription.feature.salesUnlimited') }}</li>
-              <li>{{ store.t('subscription.feature.reports') }}</li>
-              <li>{{ store.t('subscription.feature.multiUser') }}</li>
-              <li>{{ store.t('subscription.feature.api') }}</li>
-              <li>{{ store.t('subscription.feature.support') }}</li>
-            </ul>
-            <button
-              class="btn btn-primary"
-              [disabled]="store.subscriptionLoading"
-              (click)="store.checkoutSubscription('PRO', '')"
-            >
-              {{ store.t('subscription.selectPlan') }}
-            </button>
-          </div>
+          @for (plan of store.plans; track plan.plan) {
+            <div class="plan-card" [class.plan-featured]="plan.plan === 'PRO'">
+              @if (plan.plan === 'PRO') {
+                <div class="plan-badge">Popular</div>
+              }
+              <div class="plan-name">{{ plan.name }}</div>
+              <div class="plan-price">{{ plan.price }}</div>
+              <ul class="plan-features">
+                @for (feature of plan.features; track feature) {
+                  <li>{{ feature }}</li>
+                }
+              </ul>
+              <button
+                class="btn btn-primary"
+                [disabled]="store.subscriptionLoading || !plan.priceId"
+                (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
+              >
+                @if (store.subscriptionLoading) {
+                  {{ store.t('subscription.upgrading') }}
+                } @else {
+                  {{ store.t('subscription.selectPlan') }}
+                }
+              </button>
+            </div>
+          }
         </div>
       } @else if (store.currentPlan === 'BASIC') {
         <div class="sub-upgrade">
-          <button
-            class="btn btn-primary"
-            [disabled]="store.subscriptionLoading"
-            (click)="store.checkoutSubscription('PRO', '')"
-          >
-            {{ store.t('subscription.upgrade') }}
-          </button>
+          @for (plan of store.plans; track plan.plan) {
+            @if (plan.plan === 'PRO') {
+              <button
+                class="btn btn-primary"
+                [disabled]="store.subscriptionLoading || !plan.priceId"
+                (click)="store.checkoutSubscription('PRO', plan.priceId)"
+              >
+                @if (store.subscriptionLoading) {
+                  {{ store.t('subscription.upgrading') }}
+                } @else {
+                  {{ store.t('subscription.upgrade') }}
+                }
+              </button>
+            }
+          }
         </div>
         <div class="sub-actions">
           <button

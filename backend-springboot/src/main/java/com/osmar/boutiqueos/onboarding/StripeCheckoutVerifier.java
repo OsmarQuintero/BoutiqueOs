@@ -61,9 +61,16 @@ public class StripeCheckoutVerifier {
                 customerEmail = payload.path("customer_email").asText("");
             }
 
+            String plan = payload.path("metadata").path("plan").asText("");
+            String stripeCustomerId = payload.path("customer").asText("");
+            String stripeSubscriptionId = payload.path("subscription").asText("");
+
             return new StripeCheckoutDetails(
                     payload.path("id").asText(sessionId),
-                    customerEmail.isBlank() ? null : customerEmail.trim()
+                    customerEmail.isBlank() ? null : customerEmail.trim(),
+                    plan.isBlank() ? null : plan.trim(),
+                    stripeCustomerId.isBlank() ? null : stripeCustomerId.trim(),
+                    stripeSubscriptionId.isBlank() ? null : stripeSubscriptionId.trim()
             );
         } catch (ResponseStatusException exception) {
             throw exception;
@@ -72,6 +79,6 @@ public class StripeCheckoutVerifier {
         }
     }
 
-    public record StripeCheckoutDetails(String sessionId, String customerEmail) {
+    public record StripeCheckoutDetails(String sessionId, String customerEmail, String plan, String stripeCustomerId, String stripeSubscriptionId) {
     }
 }

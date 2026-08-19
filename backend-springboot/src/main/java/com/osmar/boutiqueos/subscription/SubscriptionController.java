@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -25,18 +26,57 @@ public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
     private final String stripeWebhookSecret;
+    private final String priceBasic;
+    private final String pricePro;
 
     public SubscriptionController(
             SubscriptionService subscriptionService,
-            @Value("${app.stripe.webhook-secret:}") String stripeWebhookSecret
+            @Value("${app.stripe.webhook-secret:}") String stripeWebhookSecret,
+            @Value("${app.stripe.price-basic:}") String priceBasic,
+            @Value("${app.stripe.price-pro:}") String pricePro
     ) {
         this.subscriptionService = subscriptionService;
         this.stripeWebhookSecret = stripeWebhookSecret == null ? "" : stripeWebhookSecret.trim();
+        this.priceBasic = priceBasic == null ? "" : priceBasic.trim();
+        this.pricePro = pricePro == null ? "" : pricePro.trim();
     }
 
     @GetMapping
     public SubscriptionResponse getCurrent() {
         return subscriptionService.getCurrentSubscription();
+    }
+
+    @GetMapping("/plans")
+    public List<Map<String, Object>> getPlans() {
+        return List.of(
+            Map.of(
+                "plan", "BASIC",
+                "name", "Boutique OS Básico",
+                "price", "$199 MXN/mes",
+                "priceId", priceBasic,
+                "features", List.of(
+                    "Hasta 500 productos",
+                    "Hasta 1,000 clientes",
+                    "Hasta 5,000 ventas/mes",
+                    "Reportes avanzados"
+                )
+            ),
+            Map.of(
+                "plan", "PRO",
+                "name", "Boutique OS Pro",
+                "price", "$499 MXN/mes",
+                "priceId", pricePro,
+                "features", List.of(
+                    "Productos ilimitados",
+                    "Clientes ilimitados",
+                    "Ventas ilimitadas",
+                    "Reportes avanzados",
+                    "Multi-usuario",
+                    "Acceso API",
+                    "Soporte prioritario"
+                )
+            )
+        );
     }
 
     @PostMapping("/checkout")
@@ -53,7 +93,8 @@ public class SubscriptionController {
                     HttpStatus.BAD_REQUEST, "Cannot checkout for free plan");
         }
 
-        String url = subscriptionService.createCheckoutSession(plan, request.priceId());
+        String priceId = resolvePriceId(plan, request.priceId());
+        String url = subscriptionService.createCheckoutSession(plan, priceId);
         return Map.of("checkoutUrl", url);
     }
 
@@ -89,9 +130,18 @@ public class SubscriptionController {
         }
     }
 
+    private String resolvePriceId(PlanType plan, String requestedPriceId) {
+        if (requestedPriceId != null && !requestedPriceId.isBlank()) {
+            return requestedPriceId;
+        }
+        return switch (plan) {
+            case BASIC -> priceBasic;
+            case PRO -> pricePro;
+            default -> "";
+        };
+    }
+
     private String verifyWebhookSignature(String body, String signatureHeader) {
-        // Simplified: for production, implement proper HMAC-SHA256 signature verification
-        // using the webhook secret and the Stripe-Signature header
         return body;
     }
 }
