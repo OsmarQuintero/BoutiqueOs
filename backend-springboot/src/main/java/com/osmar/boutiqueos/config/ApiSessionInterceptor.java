@@ -19,7 +19,8 @@ public class ApiSessionInterceptor implements HandlerInterceptor {
             "/api/settings/password-reset/validate",
             "/api/settings/password-reset/confirm",
             "/api/onboarding/start",
-            "/api/onboarding/complete"
+            "/api/onboarding/complete",
+            "/api/subscription/webhook"
     };
 
     private final AuthSessionService authSessionService;

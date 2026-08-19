@@ -1,6 +1,7 @@
 package com.osmar.boutiqueos.product;
 
 import com.osmar.boutiqueos.config.AccountContext;
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,10 +21,12 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final AccountContext accountContext;
+    private final SubscriptionService subscriptionService;
 
-    public ProductService(ProductRepository productRepository, AccountContext accountContext) {
+    public ProductService(ProductRepository productRepository, AccountContext accountContext, SubscriptionService subscriptionService) {
         this.productRepository = productRepository;
         this.accountContext = accountContext;
+        this.subscriptionService = subscriptionService;
     }
 
     public List<Product> list(String query) {
@@ -41,6 +44,7 @@ public class ProductService {
 
     @Transactional
     public Product create(ProductRequest request) {
+        subscriptionService.checkLimits("product");
         Product product = new Product();
         product.setAccountId(accountContext.requireAccountId());
         apply(product, request);

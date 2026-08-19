@@ -148,6 +148,25 @@ export type CatalogSection = 'products';
 export type CategoriesSection = 'categories';
 export type CustomersSection = 'form' | 'list' | 'history';
 export type PromosSection = 'form' | 'list';
+
+export interface SubscriptionUsage {
+  productCount: number;
+  maxProducts: number;
+  customerCount: number;
+  maxCustomers: number;
+  salesThisMonth: number;
+  maxSalesPerMonth: number;
+}
+
+export interface SubscriptionInfo {
+  plan: string;
+  planName: string;
+  status: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  stripeCustomerId: string | null;
+  usage: SubscriptionUsage;
+}
 export type SettingsSection = 'profile';
 export type ViewSectionId =
   | PosSection
@@ -312,6 +331,9 @@ export class StoreService {
   private readonly onboardingTokenState = signal('');
   private readonly onboardingSessionIdState = signal('');
   private readonly onboardingEmailState = signal('');
+  private readonly subscriptionState = signal<SubscriptionInfo | null>(null);
+  private readonly subscriptionLoadingState = signal(false);
+  private readonly subscriptionCheckingState = signal(false);
   loginEndpoint = this.apiUrl('/settings/login');
   logoutEndpoint = this.apiUrl('/settings/logout');
   passwordResetRequestEndpoint = this.apiUrl('/settings/password-reset/request');
@@ -319,6 +341,9 @@ export class StoreService {
   passwordResetConfirmEndpoint = this.apiUrl('/settings/password-reset/confirm');
   onboardingStartEndpoint = this.apiUrl('/onboarding/start');
   onboardingCompleteEndpoint = this.apiUrl('/onboarding/complete');
+  subscriptionEndpoint = this.apiUrl('/subscription');
+  subscriptionCheckoutEndpoint = this.apiUrl('/subscription/checkout');
+  subscriptionCancelEndpoint = this.apiUrl('/subscription/cancel');
   private sessionToken = '';
   isSavingTicketSettings = false;
   isSavingCredentials = false;
@@ -780,6 +805,46 @@ export class StoreService {
     this.onboardingEmailState.set(value);
   }
 
+  get subscription(): SubscriptionInfo | null {
+    return this.subscriptionState();
+  }
+
+  set subscription(value: SubscriptionInfo | null) {
+    this.subscriptionState.set(value);
+  }
+
+  get subscriptionLoading(): boolean {
+    return this.subscriptionLoadingState();
+  }
+
+  set subscriptionLoading(value: boolean) {
+    this.subscriptionLoadingState.set(value);
+  }
+
+  get subscriptionChecking(): boolean {
+    return this.subscriptionCheckingState();
+  }
+
+  set subscriptionChecking(value: boolean) {
+    this.subscriptionCheckingState.set(value);
+  }
+
+  get currentPlan(): string {
+    return this.subscription?.plan || 'FREE';
+  }
+
+  get currentPlanName(): string {
+    return this.subscription?.planName || 'Boutique OS Free';
+  }
+
+  get isPro(): boolean {
+    return this.currentPlan === 'PRO';
+  }
+
+  get isBasic(): boolean {
+    return this.currentPlan === 'BASIC' || this.currentPlan === 'PRO';
+  }
+
   initializePublicFlow(): void {
     if (typeof window === 'undefined') {
       return;
@@ -789,6 +854,20 @@ export class StoreService {
     const sessionId = params.get('session_id') || params.get('checkout_session_id');
     if (sessionId) {
       this.startOnboarding(sessionId.trim());
+      return;
+    }
+
+    const subscriptionResult = params.get('subscription');
+    if (subscriptionResult === 'success') {
+      this.clearSubscriptionQuery();
+      if (this.loggedIn) {
+        this.loadSubscription();
+        this.showAlert(this.t('subscription.upgraded') || 'Suscripcion activada', 'success');
+      }
+      return;
+    }
+    if (subscriptionResult === 'cancelled') {
+      this.clearSubscriptionQuery();
       return;
     }
 
@@ -1742,6 +1821,7 @@ export class StoreService {
           this.loadSalesToday();
           this.loadCustomers();
           this.loadPendingSales();
+          this.loadSubscription();
           this.refreshReportData();
           this.flushOfflineSales();
         },
@@ -4275,6 +4355,16 @@ export class StoreService {
     window.history.replaceState({}, '', url.toString());
   }
 
+  private clearSubscriptionQuery(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('subscription');
+    url.searchParams.delete('plan');
+    window.history.replaceState({}, '', url.toString());
+  }
+
   private clearPasswordResetQuery(): void {
     if (typeof window === 'undefined') {
       return;
@@ -4502,6 +4592,63 @@ export class StoreService {
     };
   }
 
+  loadSubscription(): void {
+    this.subscriptionChecking = true;
+    this.http.get<SubscriptionInfo>(this.subscriptionEndpoint).subscribe({
+      next: (info) => {
+        this.subscription = info;
+        this.subscriptionChecking = false;
+      },
+      error: () => {
+        this.subscriptionChecking = false;
+      },
+    });
+  }
+
+  checkoutSubscription(plan: string, priceId: string): void {
+    this.subscriptionLoading = true;
+    this.http
+      .post<{ checkoutUrl: string }>(this.subscriptionCheckoutEndpoint, { plan, priceId })
+      .pipe(finalize(() => (this.subscriptionLoading = false)))
+      .subscribe({
+        next: (result) => {
+          if (result.checkoutUrl) {
+            window.location.href = result.checkoutUrl;
+          }
+        },
+        error: (error: unknown) => {
+          const msg =
+            error instanceof HttpErrorResponse
+              ? error.error?.message || error.message
+              : 'Error al crear la sesión de pago';
+          this.showAlert(msg, 'error');
+        },
+      });
+  }
+
+  cancelSubscription(): void {
+    if (!window.confirm(this.t('subscription.cancelConfirm'))) {
+      return;
+    }
+    this.subscriptionLoading = true;
+    this.http
+      .post<SubscriptionInfo>(this.subscriptionCancelEndpoint, {})
+      .pipe(finalize(() => (this.subscriptionLoading = false)))
+      .subscribe({
+        next: (info) => {
+          this.subscription = info;
+          this.showAlert(this.t('subscription.cancelled'), 'success');
+        },
+        error: (error: unknown) => {
+          const msg =
+            error instanceof HttpErrorResponse
+              ? error.error?.message || error.message
+              : 'Error al cancelar la suscripción';
+          this.showAlert(msg, 'error');
+        },
+      });
+  }
+
   private clearSessionState(clearCredentials: boolean): void {
     this.loggedIn = false;
     this.sessionToken = '';
@@ -4517,6 +4664,7 @@ export class StoreService {
     this.checkoutDiscount = 0;
     this.cashReceived = 0;
     this.lastTicket = null;
+    this.subscription = null;
   }
 
   private clearRecoveryState(): void {

@@ -1,0 +1,162 @@
+<div class="subscription-card">
+  <div class="card-header">
+    <h3>{{ store.t('subscription.title') }}</h3>
+  </div>
+  <div class="card-content">
+    @if (store.subscriptionChecking) {
+      <div class="sub-loading">{{ store.t('refresh.updating') }}</div>
+    } @else if (store.subscription) {
+      <div class="sub-current">
+        <div class="sub-plan-badge" [class]="'plan-' + store.currentPlan.toLowerCase()">
+          {{ store.currentPlanName }}
+        </div>
+        <div class="sub-status">
+          <span class="sub-status-label">{{ store.t('subscription.status') }}:</span>
+          <span class="sub-status-value status-{{ store.subscription.status.toLowerCase() }}">
+            {{ store.t('subscription.status.' + store.subscription.status) }}
+          </span>
+        </div>
+        @if (store.subscription.currentPeriodEnd) {
+          <div class="sub-period">
+            @if (store.subscription.status === 'ACTIVE' || store.subscription.status === 'TRIALING') {
+              <span>{{ store.t('subscription.renews') }}: {{ formatDate(store.subscription.currentPeriodEnd) }}</span>
+            } @else {
+              <span>{{ store.t('subscription.expires') }}: {{ formatDate(store.subscription.currentPeriodEnd) }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="sub-usage">
+        <div class="usage-item">
+          <div class="usage-label">
+            <span>{{ store.t('subscription.productsUsed') }}</span>
+            <span class="usage-value">
+              {{ store.subscription.usage.productCount }}
+              @if (store.subscription.usage.maxProducts >= 0) {
+                / {{ store.subscription.usage.maxProducts }}
+              } @else {
+                ({{ store.t('subscription.unlimited') }})
+              }
+            </span>
+          </div>
+          @if (store.subscription.usage.maxProducts >= 0) {
+            <div class="usage-bar">
+              <div class="usage-fill" [style.width.%]="usagePercent" [class.warning]="usagePercent > 80"></div>
+            </div>
+          }
+        </div>
+        <div class="usage-item">
+          <div class="usage-label">
+            <span>{{ store.t('subscription.customersUsed') }}</span>
+            <span class="usage-value">
+              {{ store.subscription.usage.customerCount }}
+              @if (store.subscription.usage.maxCustomers >= 0) {
+                / {{ store.subscription.usage.maxCustomers }}
+              } @else {
+                ({{ store.t('subscription.unlimited') }})
+              }
+            </span>
+          </div>
+          @if (store.subscription.usage.maxCustomers >= 0) {
+            <div class="usage-bar">
+              <div class="usage-fill" [style.width.%]="customerUsagePercent" [class.warning]="customerUsagePercent > 80"></div>
+            </div>
+          }
+        </div>
+        <div class="usage-item">
+          <div class="usage-label">
+            <span>{{ store.t('subscription.salesThisMonth') }}</span>
+            <span class="usage-value">
+              {{ store.subscription.usage.salesThisMonth }}
+              @if (store.subscription.usage.maxSalesPerMonth >= 0) {
+                / {{ store.subscription.usage.maxSalesPerMonth }}
+              } @else {
+                ({{ store.t('subscription.unlimited') }})
+              }
+            </span>
+          </div>
+          @if (store.subscription.usage.maxSalesPerMonth >= 0) {
+            <div class="usage-bar">
+              <div class="usage-fill" [style.width.%]="salesUsagePercent" [class.warning]="salesUsagePercent > 80"></div>
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (store.currentPlan === 'FREE') {
+        <div class="sub-plans">
+          <div class="plan-card">
+            <div class="plan-name">{{ store.t('subscription.planBasic') }}</div>
+            <div class="plan-price">{{ store.t('subscription.priceBasic') }}</div>
+            <ul class="plan-features">
+              <li>{{ store.t('subscription.feature.products500') }}</li>
+              <li>{{ store.t('subscription.feature.customers1000') }}</li>
+              <li>{{ store.t('subscription.feature.sales5000') }}</li>
+              <li>{{ store.t('subscription.feature.reports') }}</li>
+            </ul>
+            <button
+              class="btn btn-primary"
+              [disabled]="store.subscriptionLoading"
+              (click)="store.checkoutSubscription('BASIC', '')"
+            >
+              {{ store.t('subscription.selectPlan') }}
+            </button>
+          </div>
+          <div class="plan-card plan-featured">
+            <div class="plan-badge">Popular</div>
+            <div class="plan-name">{{ store.t('subscription.planPro') }}</div>
+            <div class="plan-price">{{ store.t('subscription.pricePro') }}</div>
+            <ul class="plan-features">
+              <li>{{ store.t('subscription.feature.productsUnlimited') }}</li>
+              <li>{{ store.t('subscription.feature.customersUnlimited') }}</li>
+              <li>{{ store.t('subscription.feature.salesUnlimited') }}</li>
+              <li>{{ store.t('subscription.feature.reports') }}</li>
+              <li>{{ store.t('subscription.feature.multiUser') }}</li>
+              <li>{{ store.t('subscription.feature.api') }}</li>
+              <li>{{ store.t('subscription.feature.support') }}</li>
+            </ul>
+            <button
+              class="btn btn-primary"
+              [disabled]="store.subscriptionLoading"
+              (click)="store.checkoutSubscription('PRO', '')"
+            >
+              {{ store.t('subscription.selectPlan') }}
+            </button>
+          </div>
+        </div>
+      } @else if (store.currentPlan === 'BASIC') {
+        <div class="sub-upgrade">
+          <button
+            class="btn btn-primary"
+            [disabled]="store.subscriptionLoading"
+            (click)="store.checkoutSubscription('PRO', '')"
+          >
+            {{ store.t('subscription.upgrade') }}
+          </button>
+        </div>
+        <div class="sub-actions">
+          <button
+            class="btn btn-outline btn-danger"
+            [disabled]="store.subscriptionLoading"
+            (click)="store.cancelSubscription()"
+          >
+            {{ store.t('subscription.cancel') }}
+          </button>
+        </div>
+      } @else {
+        <div class="sub-actions">
+          <button
+            class="btn btn-outline btn-danger"
+            [disabled]="store.subscriptionLoading"
+            (click)="store.cancelSubscription()"
+          >
+            {{ store.t('subscription.cancel') }}
+          </button>
+        </div>
+      }
+    } @else {
+      <div class="sub-empty">{{ store.t('subscription.title') }}</div>
+    }
+  </div>
+</div>

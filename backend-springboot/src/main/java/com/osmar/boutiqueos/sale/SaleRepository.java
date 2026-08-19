@@ -16,4 +16,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
 
     java.util.Optional<Sale> findByIdAndAccountId(Long id, Long accountId);
+
+    long countByAccountId(Long accountId);
+    long countByAccountIdAndCreatedAtAfter(Long accountId, Instant after);
 }

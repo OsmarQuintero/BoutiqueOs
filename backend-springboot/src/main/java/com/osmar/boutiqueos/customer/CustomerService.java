@@ -1,6 +1,7 @@
 package com.osmar.boutiqueos.customer;
 
 import com.osmar.boutiqueos.config.AccountContext;
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,10 +14,12 @@ public class CustomerService {
 
     private final CustomerRepository repository;
     private final AccountContext accountContext;
+    private final SubscriptionService subscriptionService;
 
-    public CustomerService(CustomerRepository repository, AccountContext accountContext) {
+    public CustomerService(CustomerRepository repository, AccountContext accountContext, SubscriptionService subscriptionService) {
         this.repository = repository;
         this.accountContext = accountContext;
+        this.subscriptionService = subscriptionService;
     }
 
     public List<CustomerResponse> list(String query) {
@@ -32,6 +35,7 @@ public class CustomerService {
     }
 
     public CustomerResponse create(CustomerRequest request) {
+        subscriptionService.checkLimits("customer");
         Customer c = new Customer();
         c.setAccountId(accountContext.requireAccountId());
         c.setName(request.name());

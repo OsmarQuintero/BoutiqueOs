@@ -8,5 +8,6 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     List<Customer> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
     List<Customer> findByAccountIdAndNameContainingIgnoreCaseOrderByCreatedAtDesc(Long accountId, String query);
     java.util.Optional<Customer> findByIdAndAccountId(Long id, Long accountId);
+    long countByAccountId(Long accountId);
     void deleteByIdAndAccountId(Long id, Long accountId);
 }
