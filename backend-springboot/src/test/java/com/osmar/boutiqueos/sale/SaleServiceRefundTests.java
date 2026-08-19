@@ -4,6 +4,10 @@ import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.product.Product;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.product.ProductStatus;
+import com.osmar.boutiqueos.subscription.AccountSubscription;
+import com.osmar.boutiqueos.subscription.AccountSubscriptionRepository;
+import com.osmar.boutiqueos.subscription.PlanType;
+import com.osmar.boutiqueos.subscription.SubscriptionStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,17 +30,26 @@ class SaleServiceRefundTests {
     private ProductRepository productRepository;
 
     @Autowired
+    private AccountSubscriptionRepository subscriptionRepository;
+
+    @Autowired
     private AccountContext accountContext;
 
     @BeforeEach
     void setUp() {
         accountContext.setAccountId(101L);
+        AccountSubscription sub = new AccountSubscription();
+        sub.setAccountId(101L);
+        sub.setPlan(PlanType.PRO);
+        sub.setStatus(SubscriptionStatus.ACTIVE);
+        subscriptionRepository.save(sub);
     }
 
     @AfterEach
     void cleanup() {
         accountContext.clear();
         productRepository.deleteAll();
+        subscriptionRepository.deleteAll();
     }
 
     @Test

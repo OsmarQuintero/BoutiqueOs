@@ -70,8 +70,7 @@ public class SubscriptionService {
                 .orElseGet(() -> {
                     AccountSubscription sub = new AccountSubscription();
                     sub.setAccountId(accountId);
-                    sub.setPlan(PlanType.FREE);
-                    sub.setStatus(SubscriptionStatus.ACTIVE);
+                    sub.setStatus(SubscriptionStatus.INCOMPLETE);
                     return subscriptionRepository.save(sub);
                 });
     }
@@ -92,6 +91,14 @@ public class SubscriptionService {
                 .atStartOfDay(ZoneOffset.UTC).toInstant();
         long salesThisMonth = saleRepository.countByAccountIdAndCreatedAtAfter(accountId, monthStart);
 
+        if (plan == null) {
+            return new SubscriptionUsage(
+                    (int) productCount, 0,
+                    (int) customerCount, 0,
+                    (int) salesThisMonth, 0
+            );
+        }
+
         return new SubscriptionUsage(
                 (int) productCount,
                 plan.getMaxProducts(),
@@ -107,6 +114,12 @@ public class SubscriptionService {
         Long accountId = accountContext.requireAccountId();
         AccountSubscription sub = getOrCreateForAccount(accountId);
         PlanType plan = sub.getPlan();
+
+        if (plan == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "No tienes una suscripción activa. Elige un plan para continuar.");
+        }
+
         SubscriptionUsage usage = getUsage(accountId, plan);
 
         switch (resourceType) {
@@ -122,6 +135,13 @@ public class SubscriptionService {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                             "Has alcanzado el límite de clientes de tu plan " + plan.getDisplayName()
                             + ". Actualiza tu plan para agregar más clientes.");
+                }
+            }
+            case "sale" -> {
+                if (!plan.isUnlimited(plan.getMaxSalesPerMonth()) && usage.salesThisMonth() >= plan.getMaxSalesPerMonth()) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Has alcanzado el límite de ventas mensuales de tu plan " + plan.getDisplayName()
+                            + ". Actualiza tu plan para continuar vendiendo.");
                 }
             }
         }
@@ -262,10 +282,10 @@ public class SubscriptionService {
 
         subscriptionRepository.findByStripeSubscriptionId(subscriptionId).ifPresent(sub -> {
             sub.setStatus(SubscriptionStatus.CANCELLED);
-            sub.setPlan(PlanType.FREE);
+            sub.setPlan(null);
             sub.setUpdatedAt(Instant.now());
             subscriptionRepository.save(sub);
-            log.info("Cancelled subscription {}: reverted to FREE", subscriptionId);
+            log.info("Cancelled subscription {}: reverted to no plan", subscriptionId);
         });
     }
 
@@ -315,7 +335,7 @@ public class SubscriptionService {
         }
 
         sub.setStatus(SubscriptionStatus.CANCELLED);
-        sub.setPlan(PlanType.FREE);
+        sub.setPlan(null);
         sub.setUpdatedAt(Instant.now());
         subscriptionRepository.save(sub);
 

@@ -6,6 +6,7 @@ import com.osmar.boutiqueos.inventory.InventoryMovementType;
 import com.osmar.boutiqueos.inventory.InventoryService;
 import com.osmar.boutiqueos.product.Product;
 import com.osmar.boutiqueos.product.ProductRepository;
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -27,14 +28,16 @@ public class SaleService {
     private final CustomerRepository customerRepository;
     private final InventoryService inventoryService;
     private final AccountContext accountContext;
+    private final SubscriptionService subscriptionService;
 
-    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext) {
+    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext, SubscriptionService subscriptionService) {
         this.saleRepository = saleRepository;
         this.saleRefundRepository = saleRefundRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.inventoryService = inventoryService;
         this.accountContext = accountContext;
+        this.subscriptionService = subscriptionService;
     }
 
     public List<Sale> listToday() {
@@ -74,6 +77,7 @@ public class SaleService {
 
     @Transactional
     public Sale create(SaleRequest request) {
+        subscriptionService.checkLimits("sale");
         Long accountId = accountContext.requireAccountId();
         Sale sale = new Sale();
         sale.setAccountId(accountId);

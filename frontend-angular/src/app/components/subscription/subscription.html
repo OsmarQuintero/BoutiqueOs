@@ -84,7 +84,45 @@
         </div>
       </div>
 
-      @if (store.currentPlan === 'FREE') {
+      @if (store.currentPlan === 'PRO') {
+        <div class="sub-actions">
+          <button
+            class="btn btn-outline btn-danger"
+            [disabled]="store.subscriptionLoading"
+            (click)="store.cancelSubscription()"
+          >
+            {{ store.t('subscription.cancel') }}
+          </button>
+        </div>
+      } @else if (store.currentPlan === 'BASIC') {
+        <div class="sub-plans">
+          @for (plan of store.plans; track plan.plan) {
+            @if (plan.plan === 'PRO') {
+              <div class="plan-card plan-featured">
+                <div class="plan-badge">Popular</div>
+                <div class="plan-name">{{ plan.name }}</div>
+                <div class="plan-price">{{ plan.price }}</div>
+                <ul class="plan-features">
+                  @for (feature of plan.features; track feature) {
+                    <li>{{ feature }}</li>
+                  }
+                </ul>
+                <button
+                  class="btn btn-primary"
+                  [disabled]="store.subscriptionLoading || !plan.priceId"
+                  (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
+                >
+                  @if (store.subscriptionLoading) {
+                    {{ store.t('subscription.upgrading') }}
+                  } @else {
+                    {{ store.t('subscription.upgrade') }}
+                  }
+                </button>
+              </div>
+            }
+          }
+        </div>
+      } @else {
         <div class="sub-plans">
           @for (plan of store.plans; track plan.plan) {
             <div class="plan-card" [class.plan-featured]="plan.plan === 'PRO'">
@@ -111,43 +149,6 @@
               </button>
             </div>
           }
-        </div>
-      } @else if (store.currentPlan === 'BASIC') {
-        <div class="sub-upgrade">
-          @for (plan of store.plans; track plan.plan) {
-            @if (plan.plan === 'PRO') {
-              <button
-                class="btn btn-primary"
-                [disabled]="store.subscriptionLoading || !plan.priceId"
-                (click)="store.checkoutSubscription('PRO', plan.priceId)"
-              >
-                @if (store.subscriptionLoading) {
-                  {{ store.t('subscription.upgrading') }}
-                } @else {
-                  {{ store.t('subscription.upgrade') }}
-                }
-              </button>
-            }
-          }
-        </div>
-        <div class="sub-actions">
-          <button
-            class="btn btn-outline btn-danger"
-            [disabled]="store.subscriptionLoading"
-            (click)="store.cancelSubscription()"
-          >
-            {{ store.t('subscription.cancel') }}
-          </button>
-        </div>
-      } @else {
-        <div class="sub-actions">
-          <button
-            class="btn btn-outline btn-danger"
-            [disabled]="store.subscriptionLoading"
-            (click)="store.cancelSubscription()"
-          >
-            {{ store.t('subscription.cancel') }}
-          </button>
         </div>
       }
     } @else {

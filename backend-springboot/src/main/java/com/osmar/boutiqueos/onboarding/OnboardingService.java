@@ -110,12 +110,10 @@ public class OnboardingService {
                 sub.setPlan(plan);
                 sub.setStatus(SubscriptionStatus.ACTIVE);
             } catch (IllegalArgumentException e) {
-                sub.setPlan(PlanType.FREE);
-                sub.setStatus(SubscriptionStatus.ACTIVE);
+                sub.setStatus(SubscriptionStatus.INCOMPLETE);
             }
         } else {
-            sub.setPlan(PlanType.FREE);
-            sub.setStatus(SubscriptionStatus.ACTIVE);
+            sub.setStatus(SubscriptionStatus.INCOMPLETE);
         }
 
         if (session.getStripeCustomerId() != null && !session.getStripeCustomerId().isBlank()) {

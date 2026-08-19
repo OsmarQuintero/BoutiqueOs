@@ -88,10 +88,6 @@ public class SubscriptionController {
             throw new org.springframework.web.server.ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid plan: " + request.plan());
         }
-        if (plan == PlanType.FREE) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Cannot checkout for free plan");
-        }
 
         String priceId = resolvePriceId(plan, request.priceId());
         String url = subscriptionService.createCheckoutSession(plan, priceId);

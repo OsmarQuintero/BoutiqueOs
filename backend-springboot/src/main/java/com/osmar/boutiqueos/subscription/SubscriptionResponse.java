@@ -12,9 +12,10 @@ public record SubscriptionResponse(
         SubscriptionUsage usage
 ) {
     public static SubscriptionResponse from(AccountSubscription sub, SubscriptionUsage usage) {
+        PlanType planType = sub.getPlan();
         return new SubscriptionResponse(
-                sub.getPlan().name(),
-                sub.getPlan().getDisplayName(),
+                planType != null ? planType.name() : "NONE",
+                planType != null ? planType.getDisplayName() : "Sin suscripción",
                 sub.getStatus().name(),
                 sub.getCurrentPeriodStart(),
                 sub.getCurrentPeriodEnd(),

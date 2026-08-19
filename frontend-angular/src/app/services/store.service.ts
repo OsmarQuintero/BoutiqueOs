@@ -840,11 +840,11 @@ export class StoreService {
   }
 
   get currentPlan(): string {
-    return this.subscription?.plan || 'FREE';
+    return this.subscription?.plan || 'NONE';
   }
 
   get currentPlanName(): string {
-    return this.subscription?.planName || 'Boutique OS Free';
+    return this.subscription?.planName || 'Sin suscripción';
   }
 
   get isPro(): boolean {

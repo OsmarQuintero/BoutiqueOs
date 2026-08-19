@@ -22,8 +22,7 @@ public class AccountSubscription {
     private Long accountId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PlanType plan = PlanType.FREE;
+    private PlanType plan;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
