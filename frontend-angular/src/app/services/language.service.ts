@@ -1332,6 +1332,7 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'subscription.feature.support': { es: 'Soporte prioritario', en: 'Priority support' },
   'subscription.current': { es: 'Plan actual', en: 'Current plan' },
   'subscription.selectPlan': { es: 'Elegir este plan', en: 'Choose this plan' },
+  'subscription.contactSales': { es: 'Cotizar plan', en: 'Contact sales' },
   'subscription.active': { es: 'Activo', en: 'Active' },
   'subscription.limitReached': {
     es: 'Has alcanzado el limite de tu plan. Actualiza para continuar.',

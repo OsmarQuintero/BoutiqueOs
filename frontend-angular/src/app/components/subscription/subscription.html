@@ -107,17 +107,9 @@
                     <li>{{ feature }}</li>
                   }
                 </ul>
-                <button
-                  class="btn btn-primary"
-                  [disabled]="store.subscriptionLoading || !plan.priceId"
-                  (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
-                >
-                  @if (store.subscriptionLoading) {
-                    {{ store.t('subscription.upgrading') }}
-                  } @else {
-                    {{ store.t('subscription.upgrade') }}
-                  }
-                </button>
+                <a class="btn btn-primary" [href]="whatsappUrl" target="_blank" rel="noopener">
+                  {{ store.t('subscription.contactSales') }}
+                </a>
               </div>
             }
           }
@@ -136,17 +128,23 @@
                   <li>{{ feature }}</li>
                 }
               </ul>
-              <button
-                class="btn btn-primary"
-                [disabled]="store.subscriptionLoading || !plan.priceId"
-                (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
-              >
-                @if (store.subscriptionLoading) {
-                  {{ store.t('subscription.upgrading') }}
-                } @else {
-                  {{ store.t('subscription.selectPlan') }}
-                }
-              </button>
+              @if (plan.plan === 'PRO') {
+                <a class="btn btn-primary" [href]="whatsappUrl" target="_blank" rel="noopener">
+                  {{ store.t('subscription.contactSales') }}
+                </a>
+              } @else {
+                <button
+                  class="btn btn-primary"
+                  [disabled]="store.subscriptionLoading || !plan.priceId"
+                  (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
+                >
+                  @if (store.subscriptionLoading) {
+                    {{ store.t('subscription.upgrading') }}
+                  } @else {
+                    {{ store.t('subscription.selectPlan') }}
+                  }
+                </button>
+              }
             </div>
           }
         </div>

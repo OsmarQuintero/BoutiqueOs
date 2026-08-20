@@ -1,7 +1,7 @@
 package com.osmar.boutiqueos.subscription;
 
 public enum PlanType {
-    BASIC("Boutique OS Básico", 500, 1000, 5000, 50),
+    BASIC("Boutique OS Básico", 1000, 2000, 10000, 50),
     PRO("Boutique OS Pro", -1, -1, -1, -1);
 
     private final String displayName;

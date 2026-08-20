@@ -52,20 +52,20 @@ public class SubscriptionController {
             Map.of(
                 "plan", "BASIC",
                 "name", "Boutique OS Básico",
-                "price", "$199 MXN/mes",
+                "price", "$500 MXN/mes",
                 "priceId", priceBasic,
                 "features", List.of(
-                    "Hasta 500 productos",
-                    "Hasta 1,000 clientes",
-                    "Hasta 5,000 ventas/mes",
+                    "Hasta 1,000 productos",
+                    "Hasta 2,000 clientes",
+                    "Hasta 10,000 ventas/mes",
                     "Reportes avanzados"
                 )
             ),
             Map.of(
                 "plan", "PRO",
                 "name", "Boutique OS Pro",
-                "price", "$499 MXN/mes",
-                "priceId", pricePro,
+                "price", "A cotizar",
+                "priceId", "",
                 "features", List.of(
                     "Productos ilimitados",
                     "Clientes ilimitados",
