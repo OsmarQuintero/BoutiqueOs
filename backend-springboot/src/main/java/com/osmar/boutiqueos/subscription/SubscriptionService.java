@@ -6,6 +6,8 @@ import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.customer.CustomerRepository;
 import com.osmar.boutiqueos.sale.SaleRepository;
+import com.osmar.boutiqueos.settings.AppSettings;
+import com.osmar.boutiqueos.settings.AppSettingsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +41,7 @@ public class SubscriptionService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final SaleRepository saleRepository;
+    private final AppSettingsRepository appSettingsRepository;
     private final String stripeSecretKey;
     private final String frontendUrl;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -52,6 +55,7 @@ public class SubscriptionService {
             ProductRepository productRepository,
             CustomerRepository customerRepository,
             SaleRepository saleRepository,
+            AppSettingsRepository appSettingsRepository,
             @Value("${app.stripe.secret-key:}") String stripeSecretKey,
             @Value("${app.frontend.url:http://localhost:4200}") String frontendUrl
     ) {
@@ -60,6 +64,7 @@ public class SubscriptionService {
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.saleRepository = saleRepository;
+        this.appSettingsRepository = appSettingsRepository;
         this.stripeSecretKey = stripeSecretKey == null ? "" : stripeSecretKey.trim();
         this.frontendUrl = frontendUrl == null ? "http://localhost:4200" : frontendUrl.trim().replaceAll("/+$", "");
     }
@@ -101,6 +106,7 @@ public class SubscriptionService {
     @Transactional
     public void checkLimits(String resourceType) {
         Long accountId = accountContext.requireAccountId();
+        if (isDemoAccount(accountId)) return;
         AccountSubscription sub = getOrCreateForAccount(accountId);
         PlanType plan = sub.getPlan();
 
@@ -112,6 +118,7 @@ public class SubscriptionService {
 
     public void requireFeature(String feature) {
         Long accountId = accountContext.requireAccountId();
+        if (isDemoAccount(accountId)) return;
         AccountSubscription sub = getOrCreateForAccount(accountId);
         PlanType plan = sub.getPlan();
 
@@ -129,9 +136,7 @@ public class SubscriptionService {
 
     public List<Map<String, Object>> getAvailableFeatures() {
         Long accountId = accountContext.requireAccountId();
-        AccountSubscription sub = getOrCreateForAccount(accountId);
-        PlanType plan = sub.getPlan();
-        if (plan == null) return List.of();
+        boolean demo = isDemoAccount(accountId);
 
         String[] allFeatures = {
             "ticket_customization", "reports", "cash_count", "customer_history",
@@ -140,9 +145,21 @@ public class SubscriptionService {
 
         List<Map<String, Object>> result = new ArrayList<>();
         for (String f : allFeatures) {
-            result.add(Map.of("feature", f, "enabled", plan.hasFeature(f)));
+            result.add(Map.of("feature", f, "enabled", demo || isProFeature(f, accountId)));
         }
         return result;
+    }
+
+    private boolean isDemoAccount(Long accountId) {
+        return appSettingsRepository.findById(accountId)
+                .map(s -> "admin".equals(s.getRole()))
+                .orElse(false);
+    }
+
+    private boolean isProFeature(String feature, Long accountId) {
+        AccountSubscription sub = getOrCreateForAccount(accountId);
+        PlanType plan = sub.getPlan();
+        return plan != null && plan.hasFeature(feature);
     }
 
     private PlanType getUpgradePlan(PlanType current) {

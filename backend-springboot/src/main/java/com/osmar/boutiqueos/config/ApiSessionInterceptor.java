@@ -20,7 +20,8 @@ public class ApiSessionInterceptor implements HandlerInterceptor {
             "/api/settings/password-reset/confirm",
             "/api/onboarding/start",
             "/api/onboarding/complete",
-            "/api/subscription/webhook"
+            "/api/subscription/webhook",
+            "/api/admin/demo-account"
     };
 
     private final AuthSessionService authSessionService;

@@ -86,6 +86,9 @@ public class AppSettings {
 
     private Instant registrationCompletedAt;
 
+    @Column(nullable = false)
+    private String role = "owner";
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -166,4 +169,7 @@ public class AppSettings {
 
     public Instant getRegistrationCompletedAt() { return registrationCompletedAt; }
     public void setRegistrationCompletedAt(Instant registrationCompletedAt) { this.registrationCompletedAt = registrationCompletedAt; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 }

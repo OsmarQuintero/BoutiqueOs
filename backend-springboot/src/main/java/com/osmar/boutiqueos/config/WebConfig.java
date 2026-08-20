@@ -45,7 +45,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/settings/password-reset/confirm",
                         "/api/onboarding/start",
                         "/api/onboarding/complete",
-                        "/api/subscription/webhook"
+                        "/api/subscription/webhook",
+                        "/api/admin/demo-account"
                 );
     }
 }

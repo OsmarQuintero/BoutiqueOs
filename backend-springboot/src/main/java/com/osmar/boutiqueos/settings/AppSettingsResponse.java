@@ -27,7 +27,8 @@ public record AppSettingsResponse(
         boolean autoOpenTicket,
         String username,
         Instant updatedAt,
-        Instant registrationCompletedAt
+        Instant registrationCompletedAt,
+        String role
 ) {
     public static AppSettingsResponse from(AppSettings settings) {
         return new AppSettingsResponse(
@@ -55,7 +56,8 @@ public record AppSettingsResponse(
                 settings.isAutoOpenTicket(),
                 settings.getUsername(),
                 settings.getUpdatedAt(),
-                settings.getRegistrationCompletedAt()
+                settings.getRegistrationCompletedAt(),
+                settings.getRole()
         );
     }
 }
