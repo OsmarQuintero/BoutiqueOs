@@ -8,8 +8,6 @@ import { StoreService } from '../../services/store.service';
   styleUrl: './subscription.scss',
 })
 export class SubscriptionComponent implements OnInit {
-  protected readonly whatsappUrl = `https://wa.me/528121918527?text=${encodeURIComponent('Hola, me interesa el plan PRO de Boutique OS. Me gustaría conocer más detalles y cotizar.')}`;
-
   constructor(protected store: StoreService) {}
 
   ngOnInit(): void {

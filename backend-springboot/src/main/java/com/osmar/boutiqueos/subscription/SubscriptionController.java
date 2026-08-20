@@ -68,7 +68,7 @@ public class SubscriptionController {
             Map.of(
                 "plan", "PRO",
                 "name", "Boutique OS Pro",
-                "price", "A cotizar",
+                "price", "$1,000 MXN/mes",
                 "priceId", "",
                 "features", List.of(
                     "Todo lo del plan Básico",
