@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.settings;
 
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -28,17 +29,20 @@ public class AppSettingsController {
     private final AuthSessionService authSessionService;
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
+    private final SubscriptionService subscriptionService;
 
     public AppSettingsController(
             AppSettingsService appSettingsService,
             AuthSessionService authSessionService,
             LoginAttemptService loginAttemptService,
-            PasswordResetService passwordResetService
+            PasswordResetService passwordResetService,
+            SubscriptionService subscriptionService
     ) {
         this.appSettingsService = appSettingsService;
         this.authSessionService = authSessionService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
+        this.subscriptionService = subscriptionService;
     }
 
     @GetMapping
@@ -62,6 +66,7 @@ public class AppSettingsController {
             @Valid @RequestBody TicketSettingsRequest request
     ) {
         requireSession(token);
+        subscriptionService.requireFeature("ticket_customization");
         return AppSettingsResponse.from(appSettingsService.updateTicket(request));
     }
 

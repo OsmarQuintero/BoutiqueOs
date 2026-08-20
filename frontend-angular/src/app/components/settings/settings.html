@@ -1,5 +1,6 @@
 <div class="settings-grid">
   <div class="settings-main">
+    @if (store.hasFeature('ticket_customization')) {
     <div class="card">
       <div class="card-header">
         <h3>{{ store.t('settings.ticket') }}</h3>
@@ -169,9 +170,11 @@
         </div>
       </div>
     </div>
+    }
   </div>
 
   <div class="settings-side">
+    @if (store.hasFeature('ticket_customization')) {
     <div class="card settings-preview-card">
       <div class="card-header">
         <h3>{{ store.t('settings.preview') }}</h3>
@@ -289,6 +292,7 @@
         </div>
       </div>
     </div>
+    }
 
     <div class="card">
       <div class="card-header">
@@ -333,6 +337,7 @@
       </div>
     </div>
 
+    @if (store.hasFeature('backup')) {
     <div class="card">
       <div class="card-header">
         <h3>{{ store.t('settings.backup') }}</h3>
@@ -351,6 +356,7 @@
         </div>
       </div>
     </div>
+    }
 
     <app-subscription />
   </div>

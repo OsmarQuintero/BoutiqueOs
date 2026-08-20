@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.sale;
 
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,9 +20,11 @@ import java.util.List;
 public class SaleController {
 
     private final SaleService saleService;
+    private final SubscriptionService subscriptionService;
 
-    public SaleController(SaleService saleService) {
+    public SaleController(SaleService saleService, SubscriptionService subscriptionService) {
         this.saleService = saleService;
+        this.subscriptionService = subscriptionService;
     }
 
     @GetMapping("/today")
@@ -36,6 +39,7 @@ public class SaleController {
 
     @GetMapping("/refunds/today")
     public List<SaleRefundResponse> refundsToday(@RequestParam(required = false) LocalDate date) {
+        subscriptionService.requireFeature("refunds");
         return saleService.listRefundsByDate(date).stream().map(SaleRefundResponse::from).toList();
     }
 
@@ -46,6 +50,7 @@ public class SaleController {
 
     @GetMapping("/customer/{customerId}")
     public List<SaleResponse> byCustomer(@PathVariable Long customerId) {
+        subscriptionService.requireFeature("customer_history");
         return saleService.listByCustomer(customerId).stream().map(SaleResponse::from).toList();
     }
 
@@ -61,6 +66,7 @@ public class SaleController {
 
     @PostMapping("/{id}/refund")
     public SaleResponse refund(@PathVariable Long id, @Valid @RequestBody(required = false) SaleRefundRequest request) {
+        subscriptionService.requireFeature("refunds");
         return SaleResponse.from(saleService.refund(id, request));
     }
 

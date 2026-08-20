@@ -46,6 +46,11 @@ public class SubscriptionController {
         return subscriptionService.getCurrentSubscription();
     }
 
+    @GetMapping("/features")
+    public List<Map<String, Object>> getFeatures() {
+        return subscriptionService.getAvailableFeatures();
+    }
+
     @GetMapping("/plans")
     public List<Map<String, Object>> getPlans() {
         return List.of(
@@ -55,10 +60,9 @@ public class SubscriptionController {
                 "price", "$500 MXN/mes",
                 "priceId", priceBasic,
                 "features", List.of(
-                    "Hasta 1,000 productos",
-                    "Hasta 2,000 clientes",
-                    "Hasta 10,000 ventas/mes",
-                    "Reportes avanzados"
+                    "Productos, clientes y ventas ilimitados",
+                    "Categorías e inventario básico",
+                    "Punto de venta completo"
                 )
             ),
             Map.of(
@@ -67,12 +71,15 @@ public class SubscriptionController {
                 "price", "A cotizar",
                 "priceId", "",
                 "features", List.of(
-                    "Productos ilimitados",
-                    "Clientes ilimitados",
-                    "Ventas ilimitadas",
-                    "Reportes avanzados",
+                    "Todo lo del plan Básico",
+                    "Ticket personalizado con tu marca y logo",
+                    "Reportes avanzados y corte de caja",
+                    "Historial y CRM de clientes",
+                    "Promociones y descuentos",
+                    "Compras a proveedores",
+                    "Devoluciones con trazabilidad",
                     "Multi-usuario",
-                    "Acceso API",
+                    "Respaldo de datos (Excel, CSV, PDF)",
                     "Soporte prioritario"
                 )
             )

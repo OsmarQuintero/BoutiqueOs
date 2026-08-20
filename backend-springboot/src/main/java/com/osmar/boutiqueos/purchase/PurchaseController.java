@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.purchase;
 
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,30 +22,36 @@ import java.util.List;
 public class PurchaseController {
 
     private final PurchaseService purchaseService;
+    private final SubscriptionService subscriptionService;
 
-    public PurchaseController(PurchaseService purchaseService) {
+    public PurchaseController(PurchaseService purchaseService, SubscriptionService subscriptionService) {
         this.purchaseService = purchaseService;
+        this.subscriptionService = subscriptionService;
     }
 
     @GetMapping
     public List<PurchaseResponse> list(@RequestParam(required = false) LocalDate date) {
+        subscriptionService.requireFeature("purchases");
         return date == null ? purchaseService.listRecent() : purchaseService.listByDate(date);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PurchaseResponse create(@Valid @RequestBody PurchaseRequest request) {
+        subscriptionService.requireFeature("purchases");
         return purchaseService.create(request);
     }
 
     @PutMapping("/{id}")
     public PurchaseResponse update(@PathVariable Long id, @Valid @RequestBody PurchaseRequest request) {
+        subscriptionService.requireFeature("purchases");
         return purchaseService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
+        subscriptionService.requireFeature("purchases");
         purchaseService.delete(id);
     }
 }

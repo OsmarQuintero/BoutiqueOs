@@ -34,7 +34,7 @@ import { StoreService, ViewId } from './services/store.service';
 })
 export class App implements OnInit {
   get navItems(): ModuleStripItem[] {
-    return [
+    const all: ModuleStripItem[] = [
       {
         id: 'pos',
         label: this.store.t('nav.pos'),
@@ -65,24 +65,33 @@ export class App implements OnInit {
         iconPath:
           'M8.5 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m7 1a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 15.5 12m-7 1c-2.76 0-5 1.57-5 3.5V18h10v-1.5c0-1.93-2.24-3.5-5-3.5m7 1c-.91 0-1.77.18-2.5.5 1.19.73 2 1.81 2 3V18H20v-.8c0-1.78-2.02-3.2-4.5-3.2',
       },
-      {
+    ];
+
+    if (this.store.hasFeature('promotions')) {
+      all.push({
         id: 'promos',
         label: this.store.t('nav.promos'),
         iconPath:
           'M4 8.5A2.5 2.5 0 0 1 6.5 6H10l2-2 2 2h3.5A2.5 2.5 0 0 1 20 8.5v3.09a3.5 3.5 0 0 0 0 6.82v.09A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5zM12 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2m-3.5 6.5h7V13h-7z',
-      },
-      {
+      });
+    }
+
+    if (this.store.hasFeature('reports') || this.store.hasFeature('cash_count')) {
+      all.push({
         id: 'reports',
         label: this.store.t('nav.reports'),
         iconPath: 'M5 19.5V10h2v9.5zm6 0V4.5h2v15zm6 0V13h2v6.5z',
-      },
-      {
-        id: 'settings',
-        label: this.store.t('nav.settings'),
-        iconPath:
-          'M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m7.2 3.5c0-.45-.05-.89-.14-1.31l1.62-1.26-1.6-2.77-1.91.77a7.7 7.7 0 0 0-2.27-1.31L14.6 4h-3.2l-.3 2.12a7.7 7.7 0 0 0-2.27 1.31l-1.91-.77-1.6 2.77 1.62 1.26A6.5 6.5 0 0 0 6.8 12c0 .45.05.89.14 1.31l-1.62 1.26 1.6 2.77 1.91-.77a7.7 7.7 0 0 0 2.27 1.31l.3 2.12h3.2l.3-2.12a7.7 7.7 0 0 0 2.27-1.31l1.91.77 1.6-2.77-1.62-1.26c.09-.42.14-.86.14-1.31',
-      },
-    ];
+      });
+    }
+
+    all.push({
+      id: 'settings',
+      label: this.store.t('nav.settings'),
+      iconPath:
+        'M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m7.2 3.5c0-.45-.05-.89-.14-1.31l1.62-1.26-1.6-2.77-1.91.77a7.7 7.7 0 0 0-2.27-1.31L14.6 4h-3.2l-.3 2.12a7.7 7.7 0 0 0-2.27 1.31l-1.91-.77-1.6 2.77 1.62 1.26A6.5 6.5 0 0 0 6.8 12c0 .45.05.89.14 1.31l-1.62 1.26 1.6 2.77 1.91-.77a7.7 7.7 0 0 0 2.27 1.31l.3 2.12h3.2l.3-2.12a7.7 7.7 0 0 0 2.27-1.31l1.91.77 1.6-2.77-1.62-1.26c.09-.42.14-.86.14-1.31',
+    });
+
+    return all;
   }
   constructor(protected store: StoreService) {}
 

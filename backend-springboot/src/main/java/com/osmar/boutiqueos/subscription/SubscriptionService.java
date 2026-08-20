@@ -91,21 +91,10 @@ public class SubscriptionService {
                 .atStartOfDay(ZoneOffset.UTC).toInstant();
         long salesThisMonth = saleRepository.countByAccountIdAndCreatedAtAfter(accountId, monthStart);
 
-        if (plan == null) {
-            return new SubscriptionUsage(
-                    (int) productCount, 0,
-                    (int) customerCount, 0,
-                    (int) salesThisMonth, 0
-            );
-        }
-
         return new SubscriptionUsage(
-                (int) productCount,
-                plan.getMaxProducts(),
-                (int) customerCount,
-                plan.getMaxCustomers(),
-                (int) salesThisMonth,
-                plan.getMaxSalesPerMonth()
+                (int) productCount, -1,
+                (int) customerCount, -1,
+                (int) salesThisMonth, -1
         );
     }
 
@@ -119,32 +108,48 @@ public class SubscriptionService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "No tienes una suscripción activa. Elige un plan para continuar.");
         }
+    }
 
-        SubscriptionUsage usage = getUsage(accountId, plan);
+    public void requireFeature(String feature) {
+        Long accountId = accountContext.requireAccountId();
+        AccountSubscription sub = getOrCreateForAccount(accountId);
+        PlanType plan = sub.getPlan();
 
-        switch (resourceType) {
-            case "product" -> {
-                if (!plan.isUnlimited(plan.getMaxProducts()) && usage.productCount() >= plan.getMaxProducts()) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                            "Has alcanzado el límite de productos de tu plan " + plan.getDisplayName()
-                            + ". Actualiza tu plan para agregar más productos.");
-                }
-            }
-            case "customer" -> {
-                if (!plan.isUnlimited(plan.getMaxCustomers()) && usage.customerCount() >= plan.getMaxCustomers()) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                            "Has alcanzado el límite de clientes de tu plan " + plan.getDisplayName()
-                            + ". Actualiza tu plan para agregar más clientes.");
-                }
-            }
-            case "sale" -> {
-                if (!plan.isUnlimited(plan.getMaxSalesPerMonth()) && usage.salesThisMonth() >= plan.getMaxSalesPerMonth()) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                            "Has alcanzado el límite de ventas mensuales de tu plan " + plan.getDisplayName()
-                            + ". Actualiza tu plan para continuar vendiendo.");
-                }
-            }
+        if (plan == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "No tienes una suscripción activa. Elige un plan para continuar.");
         }
+
+        if (!plan.hasFeature(feature)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Esta función requiere el plan " + getUpgradePlan(plan).getDisplayName()
+                    + ". Actualiza tu plan para acceder.");
+        }
+    }
+
+    public List<Map<String, Object>> getAvailableFeatures() {
+        Long accountId = accountContext.requireAccountId();
+        AccountSubscription sub = getOrCreateForAccount(accountId);
+        PlanType plan = sub.getPlan();
+        if (plan == null) return List.of();
+
+        String[] allFeatures = {
+            "ticket_customization", "reports", "cash_count", "customer_history",
+            "backup", "promotions", "multi_user", "purchases", "refunds"
+        };
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (String f : allFeatures) {
+            result.add(Map.of("feature", f, "enabled", plan.hasFeature(f)));
+        }
+        return result;
+    }
+
+    private PlanType getUpgradePlan(PlanType current) {
+        return switch (current) {
+            case BASIC -> PlanType.PRO;
+            case PRO -> PlanType.PRO;
+        };
     }
 
     public String createCheckoutSession(PlanType targetPlan, String priceId) {

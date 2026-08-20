@@ -14,6 +14,7 @@ export class SubscriptionComponent implements OnInit {
 
   ngOnInit(): void {
     this.store.loadPlans();
+    this.store.loadFeatures();
   }
 
   get usagePercent(): number {

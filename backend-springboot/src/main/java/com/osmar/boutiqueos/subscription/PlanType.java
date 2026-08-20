@@ -1,38 +1,28 @@
 package com.osmar.boutiqueos.subscription;
 
+import java.util.Set;
+
 public enum PlanType {
-    BASIC("Boutique OS Básico", 1000, 2000, 10000, 50),
-    PRO("Boutique OS Pro", -1, -1, -1, -1);
+    BASIC("Boutique OS Básico", Set.of(
+        "products", "customers", "sales", "inventory", "categories"
+    )),
+    PRO("Boutique OS Pro", Set.of(
+        "products", "customers", "sales", "inventory", "categories",
+        "ticket_customization", "reports", "cash_count", "customer_history",
+        "backup", "promotions", "multi_user", "purchases", "refunds"
+    ));
 
     private final String displayName;
-    private final int maxProducts;
-    private final int maxCustomers;
-    private final int maxSalesPerMonth;
-    private final int maxMonthlyRevenue;
+    private final Set<String> features;
 
-    PlanType(String displayName, int maxProducts, int maxCustomers, int maxSalesPerMonth, int maxMonthlyRevenue) {
+    PlanType(String displayName, Set<String> features) {
         this.displayName = displayName;
-        this.maxProducts = maxProducts;
-        this.maxCustomers = maxCustomers;
-        this.maxSalesPerMonth = maxSalesPerMonth;
-        this.maxMonthlyRevenue = maxMonthlyRevenue;
+        this.features = features;
     }
 
     public String getDisplayName() { return displayName; }
-    public int getMaxProducts() { return maxProducts; }
-    public int getMaxCustomers() { return maxCustomers; }
-    public int getMaxSalesPerMonth() { return maxSalesPerMonth; }
-    public int getMaxMonthlyRevenue() { return maxMonthlyRevenue; }
-
-    public boolean isUnlimited(int value) {
-        return value < 0;
-    }
 
     public boolean hasFeature(String feature) {
-        return switch (feature) {
-            case "products", "customers", "sales", "inventory", "reports", "advanced_reports" -> true;
-            case "multi_user", "api_access" -> this == PRO;
-            default -> false;
-        };
+        return features.contains(feature);
     }
 }

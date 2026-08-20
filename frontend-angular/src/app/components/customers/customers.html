@@ -198,9 +198,11 @@
               }
             </div>
             <div class="customer-actions">
+              @if (store.hasFeature('customer_history')) {
               <button class="btn btn-outline btn-sm" (click)="store.showCustomerSales(c)">
                 {{ store.t('customers.viewRelationship') }}
               </button>
+              }
               <button class="btn btn-outline btn-xs" (click)="store.editCustomer(c)">
                 {{ store.t('common.edit') }}
               </button>

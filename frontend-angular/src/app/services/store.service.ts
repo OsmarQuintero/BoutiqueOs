@@ -335,6 +335,7 @@ export class StoreService {
   private readonly subscriptionLoadingState = signal(false);
   private readonly subscriptionCheckingState = signal(false);
   private readonly plansState = signal<Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>>([]);
+  private readonly featuresState = signal<Set<string>>(new Set());
   loginEndpoint = this.apiUrl('/settings/login');
   logoutEndpoint = this.apiUrl('/settings/logout');
   passwordResetRequestEndpoint = this.apiUrl('/settings/password-reset/request');
@@ -344,6 +345,7 @@ export class StoreService {
   onboardingCompleteEndpoint = this.apiUrl('/onboarding/complete');
   subscriptionEndpoint = this.apiUrl('/subscription');
   subscriptionPlansEndpoint = this.apiUrl('/subscription/plans');
+  subscriptionFeaturesEndpoint = this.apiUrl('/subscription/features');
   subscriptionCheckoutEndpoint = this.apiUrl('/subscription/checkout');
   subscriptionCancelEndpoint = this.apiUrl('/subscription/cancel');
   private sessionToken = '';
@@ -573,10 +575,13 @@ export class StoreService {
   }
 
   get inventoryPanels(): Array<{ id: InventoryPanel; label: string }> {
-    return [
+    const panels: Array<{ id: InventoryPanel; label: string }> = [
       { id: 'summary', label: this.t('reports.summary') },
-      { id: 'purchases', label: this.t('inventory.purchases') },
     ];
+    if (this.hasFeature('purchases')) {
+      panels.push({ id: 'purchases', label: this.t('inventory.purchases') });
+    }
+    return panels;
   }
 
   readonly categoryPresets: CategoryPreset[] = [
@@ -839,6 +844,14 @@ export class StoreService {
     this.plansState.set(value);
   }
 
+  get features(): Set<string> {
+    return this.featuresState();
+  }
+
+  hasFeature(feature: string): boolean {
+    return this.featuresState().has(feature);
+  }
+
   get currentPlan(): string {
     return this.subscription?.plan || 'NONE';
   }
@@ -872,6 +885,7 @@ export class StoreService {
       this.clearSubscriptionQuery();
       if (this.loggedIn) {
         this.loadSubscription();
+        this.loadFeatures();
         this.showAlert(this.t('subscription.upgraded') || 'Suscripcion activada', 'success');
       }
       return;
@@ -1832,6 +1846,7 @@ export class StoreService {
           this.loadCustomers();
           this.loadPendingSales();
           this.loadSubscription();
+          this.loadFeatures();
           this.refreshReportData();
           this.flushOfflineSales();
         },
@@ -4621,6 +4636,21 @@ export class StoreService {
       .subscribe({
         next: (plans) => {
           this.plans = plans;
+        },
+        error: () => {},
+      });
+  }
+
+  loadFeatures(): void {
+    this.http
+      .get<Array<{feature: string; enabled: boolean}>>(this.subscriptionFeaturesEndpoint)
+      .subscribe({
+        next: (features) => {
+          const enabled = new Set<string>();
+          for (const f of features) {
+            if (f.enabled) enabled.add(f.feature);
+          }
+          this.featuresState.set(enabled);
         },
         error: () => {},
       });
