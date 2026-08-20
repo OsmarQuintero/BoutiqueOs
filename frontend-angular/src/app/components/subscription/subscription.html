@@ -114,6 +114,15 @@
             }
           }
         </div>
+        <div class="sub-actions">
+          <button
+            class="btn btn-outline btn-danger"
+            [disabled]="store.subscriptionLoading"
+            (click)="store.cancelSubscription()"
+          >
+            {{ store.t('subscription.cancel') }}
+          </button>
+        </div>
       } @else {
         <div class="sub-plans">
           @for (plan of store.plans; track plan.plan) {
