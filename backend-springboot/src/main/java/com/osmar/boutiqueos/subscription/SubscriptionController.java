@@ -69,7 +69,7 @@ public class SubscriptionController {
                 "plan", "PRO",
                 "name", "Boutique OS Pro",
                 "price", "$1,000 MXN/mes",
-                "priceId", "",
+                "priceId", pricePro,
                 "features", List.of(
                     "Todo lo del plan Básico",
                     "Ticket personalizado con tu marca y logo",

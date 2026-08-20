@@ -26,7 +26,8 @@ public class StripeCheckoutCreator {
     private static final Logger log = LoggerFactory.getLogger(StripeCheckoutCreator.class);
 
     private final String stripeSecretKey;
-    private final String stripePriceId;
+    private final String priceBasic;
+    private final String pricePro;
     private final String checkoutMode;
     private final String frontendUrl;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -36,22 +37,40 @@ public class StripeCheckoutCreator {
 
     public StripeCheckoutCreator(
             @Value("${app.stripe.secret-key:}") String stripeSecretKey,
-            @Value("${app.stripe.price-id:}") String stripePriceId,
+            @Value("${app.stripe.price-id:}") String priceId,
+            @Value("${app.stripe.price-basic:}") String priceBasic,
+            @Value("${app.stripe.price-pro:}") String pricePro,
             @Value("${app.stripe.checkout.mode:subscription}") String checkoutMode,
             @Value("${app.frontend.url:http://localhost:4200}") String frontendUrl
     ) {
         this.stripeSecretKey = stripeSecretKey == null ? "" : stripeSecretKey.trim();
-        this.stripePriceId = stripePriceId == null ? "" : stripePriceId.trim();
+        this.priceBasic = (priceBasic != null && !priceBasic.isBlank()) ? priceBasic.trim() : (priceId == null ? "" : priceId.trim());
+        this.pricePro = pricePro == null ? "" : pricePro.trim();
         this.checkoutMode = checkoutMode == null ? "subscription" : checkoutMode.trim();
         this.frontendUrl = frontendUrl == null ? "http://localhost:4200" : frontendUrl.trim().replaceAll("/+$", "");
     }
 
-    public String createCheckoutUrl() {
+    public String createCheckoutUrl(String plan) {
         if (stripeSecretKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe is not configured");
         }
-        if (stripePriceId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe price is not configured");
+
+        String upperPlan = plan == null ? "BASIC" : plan.trim().toUpperCase();
+        String resolvedPriceId;
+        switch (upperPlan) {
+            case "PRO" -> {
+                resolvedPriceId = pricePro;
+                if (resolvedPriceId.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe price for PRO is not configured");
+                }
+            }
+            default -> {
+                upperPlan = "BASIC";
+                resolvedPriceId = priceBasic;
+                if (resolvedPriceId.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe price for BASIC is not configured");
+                }
+            }
         }
 
         try {
@@ -62,10 +81,10 @@ public class StripeCheckoutCreator {
             form.add("mode=" + encode(checkoutMode));
             form.add("success_url=" + encode(successUrl));
             form.add("cancel_url=" + encode(cancelUrl));
-            form.add("line_items[0][price]=" + encode(stripePriceId));
+            form.add("line_items[0][price]=" + encode(resolvedPriceId));
             form.add("line_items[0][quantity]=1");
             form.add("allow_promotion_codes=true");
-            form.add("metadata[plan]=BASIC");
+            form.add("metadata[plan]=" + encode(upperPlan));
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.stripe.com/v1/checkout/sessions"))

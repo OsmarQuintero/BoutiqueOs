@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -18,8 +19,8 @@ public class StripeCheckoutController {
     }
 
     @GetMapping("/start")
-    public ResponseEntity<Void> start() {
-        String checkoutUrl = stripeCheckoutCreator.createCheckoutUrl();
+    public ResponseEntity<Void> start(@RequestParam(defaultValue = "BASIC") String plan) {
+        String checkoutUrl = stripeCheckoutCreator.createCheckoutUrl(plan);
         return ResponseEntity.status(HttpStatus.SEE_OTHER)
                 .header(HttpHeaders.LOCATION, checkoutUrl)
                 .build();
