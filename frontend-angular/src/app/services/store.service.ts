@@ -3253,11 +3253,11 @@ export class StoreService {
     const center = (text: string, size = 10, style: 'normal' | 'bold' = 'normal') => {
       if (!text.trim()) return;
       ensureSpace(size * 0.7 + 4);
-      doc.setFont('helvetica', style);
+      doc.setFont('courier', style);
       doc.setFontSize(size);
       const lines = doc.splitTextToSize(text, contentWidth) as string[];
       doc.text(lines, pageWidth / 2, y, { align: 'center' });
-      y += lines.length * (size * 0.42 + 1.3) + 1;
+      y += lines.length * (size * 0.38 + 1.3) + 1;
     };
 
     const doubleLine = () => {
@@ -3294,7 +3294,7 @@ export class StoreService {
 
     const row = (label: string, value: string, bold = false) => {
       ensureSpace(6);
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFont('courier', bold ? 'bold' : 'normal');
       doc.setFontSize(8.5);
       doc.text(label, margin, y);
       const lines = doc.splitTextToSize(value, contentWidth * 0.5) as string[];
@@ -3304,7 +3304,7 @@ export class StoreService {
 
     const indentRow = (label: string, value: string) => {
       ensureSpace(5);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('courier', 'normal');
       doc.setFontSize(7.5);
       const indent = margin + 4;
       doc.text(label, indent, y);
@@ -3314,7 +3314,7 @@ export class StoreService {
 
     const boldRow = (label: string, value: string) => {
       ensureSpace(6);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('courier', 'bold');
       doc.setFontSize(9);
       doc.text(label, margin, y);
       doc.text(value, pageWidth - margin, y, { align: 'right' });
@@ -3326,7 +3326,7 @@ export class StoreService {
     const centeredSmall = (text: string) => {
       if (!text.trim()) return;
       ensureSpace(5);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('courier', 'normal');
       doc.setFontSize(7);
       doc.text(text, pageWidth / 2, y, { align: 'center' });
       y += 3.5;
@@ -3397,7 +3397,7 @@ export class StoreService {
     // === ITEMS TABLE ===
     y += 1;
     ensureSpace(6);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('courier', 'bold');
     doc.setFontSize(7.5);
     doc.text(this.t('ticket.itemQty'), margin, y);
     doc.text(this.t('ticket.itemDesc'), margin + 12, y);
@@ -3407,7 +3407,7 @@ export class StoreService {
 
     for (const item of sale.items) {
       ensureSpace(12);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('courier', 'bold');
       doc.setFontSize(8.5);
       const nameLines = wrap(item.productName);
       doc.text(String(item.quantity), margin, y);
@@ -3416,7 +3416,7 @@ export class StoreService {
         y += 4.5;
       }
 
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('courier', 'normal');
       doc.setFontSize(7.5);
       const detail = `${item.quantity} x ${this.formatMoney(item.unitPrice)}`;
       doc.text(detail, margin + 12, y);
