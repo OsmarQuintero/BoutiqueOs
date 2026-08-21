@@ -10,25 +10,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import java.security.SecureRandom;
-import java.security.spec.KeySpec;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
+    private final AppSettingsService appSettingsService;
     private final AppSettingsRepository appSettingsRepository;
     private final AccountSubscriptionRepository subscriptionRepository;
 
     public AdminController(
+            AppSettingsService appSettingsService,
             AppSettingsRepository appSettingsRepository,
             AccountSubscriptionRepository subscriptionRepository
     ) {
+        this.appSettingsService = appSettingsService;
         this.appSettingsRepository = appSettingsRepository;
         this.subscriptionRepository = subscriptionRepository;
     }
@@ -40,13 +38,11 @@ public class AdminController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Demo account already exists");
         }
 
-        AppSettings settings = new AppSettings();
-        settings.setStoreName("Boutique Demo");
-        settings.setUsername(username);
-        settings.setPassword(hashPassword("demo1234"));
+        AppSettings settings = appSettingsService.completeRegistration(
+                "Boutique Demo", "", "", "", "", "", username, "demo1234"
+        );
         settings.setRole("admin");
         settings.setUpdatedAt(Instant.now());
-        settings.setRegistrationCompletedAt(Instant.now());
         settings = appSettingsRepository.save(settings);
 
         AccountSubscription sub = new AccountSubscription();
@@ -63,21 +59,5 @@ public class AdminController {
                 "role", "admin",
                 "plan", "PRO"
         );
-    }
-
-    private String hashPassword(String password) {
-        try {
-            byte[] salt = new byte[16];
-            new SecureRandom().nextBytes(salt);
-            int iterations = 100000;
-            int keyLength = 256;
-            KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, keyLength);
-            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            byte[] hash = factory.generateSecret(spec).getEncoded();
-            return "v1:" + Base64.getEncoder().encodeToString(salt)
-                    + ":" + iterations + ":" + Base64.getEncoder().encodeToString(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("Could not hash password", e);
-        }
     }
 }
