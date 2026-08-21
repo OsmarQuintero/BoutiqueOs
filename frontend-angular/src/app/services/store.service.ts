@@ -225,6 +225,7 @@ export interface AppSettings {
   showCustomerOnTicket: boolean;
   showSavingsOnTicket: boolean;
   showChangeOnTicket: boolean;
+  showIvaOnTicket: boolean;
   autoOpenTicket: boolean;
   username: string;
   updatedAt: string;
@@ -487,6 +488,7 @@ export class StoreService {
     showCustomerOnTicket: true,
     showSavingsOnTicket: true,
     showChangeOnTicket: true,
+    showIvaOnTicket: true,
     autoOpenTicket: true,
     username: 'admin',
     updatedAt: '',
@@ -513,6 +515,7 @@ export class StoreService {
     showCustomerOnTicket: true,
     showSavingsOnTicket: true,
     showChangeOnTicket: true,
+    showIvaOnTicket: true,
     autoOpenTicket: true,
   };
   credentialsForm = {
@@ -2938,6 +2941,7 @@ export class StoreService {
               showCustomerOnTicket: this.settingsForm.showCustomerOnTicket,
               showSavingsOnTicket: this.settingsForm.showSavingsOnTicket,
               showChangeOnTicket: this.settingsForm.showChangeOnTicket,
+              showIvaOnTicket: this.settingsForm.showIvaOnTicket,
               autoOpenTicket: this.settingsForm.autoOpenTicket,
             },
             this.authOptions(),
@@ -3236,6 +3240,8 @@ export class StoreService {
     const contentWidth = pageWidth - margin * 2;
     const ticketRef = this.ticketReference(sale);
     const savings = Math.max(sale.subtotal - sale.total, 0);
+    const isThermal = this.settings.ticketPaperSize !== 'HALF_LETTER';
+    const lineWidth = isThermal ? 0.3 : 0.4;
     let y = 10;
 
     const ensureSpace = (needed = 8) => {
@@ -3254,10 +3260,35 @@ export class StoreService {
       y += lines.length * (size * 0.42 + 1.3) + 1;
     };
 
-    const line = () => {
-      ensureSpace(4);
-      doc.setDrawColor(190);
+    const doubleLine = () => {
+      ensureSpace(7);
+      doc.setDrawColor(60);
+      doc.setLineWidth(lineWidth);
       doc.line(margin, y, pageWidth - margin, y);
+      doc.line(margin, y + 2.5, pageWidth - margin, y + 2.5);
+      y += 6;
+    };
+
+    const singleLine = () => {
+      ensureSpace(5);
+      doc.setDrawColor(140);
+      doc.setLineWidth(lineWidth * 0.7);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 4;
+    };
+
+    const dashedLine = () => {
+      ensureSpace(5);
+      doc.setDrawColor(160);
+      doc.setLineWidth(lineWidth * 0.5);
+      const dashLen = 2;
+      const gapLen = 1.5;
+      let x = margin;
+      while (x < pageWidth - margin) {
+        const end = Math.min(x + dashLen, pageWidth - margin);
+        doc.line(x, y, end, y);
+        x += dashLen + gapLen;
+      }
       y += 4;
     };
 
@@ -3271,11 +3302,40 @@ export class StoreService {
       y += Math.max(lines.length, 1) * 4.5;
     };
 
+    const indentRow = (label: string, value: string) => {
+      ensureSpace(5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      const indent = margin + 4;
+      doc.text(label, indent, y);
+      doc.text(value, pageWidth - margin, y, { align: 'right' });
+      y += 4;
+    };
+
+    const boldRow = (label: string, value: string) => {
+      ensureSpace(6);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text(label, margin, y);
+      doc.text(value, pageWidth - margin, y, { align: 'right' });
+      y += 5;
+    };
+
     const wrap = (text: string) => doc.splitTextToSize(text || '', contentWidth) as string[];
 
+    const centeredSmall = (text: string) => {
+      if (!text.trim()) return;
+      ensureSpace(5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(text, pageWidth / 2, y, { align: 'center' });
+      y += 3.5;
+    };
+
+    // === HEADER ===
     if (this.settings.showLogoOnTicket && this.settings.logoUrl.startsWith('data:image/')) {
       try {
-        const logoWidth = this.settings.ticketPaperSize === 'HALF_LETTER' ? 32 : 24;
+        const logoWidth = isThermal ? 24 : 32;
         doc.addImage(
           this.settings.logoUrl,
           'PNG',
@@ -3292,7 +3352,7 @@ export class StoreService {
       }
     }
 
-    center(this.settings.storeName || 'Boutique OS', 12, 'bold');
+    center(this.settings.storeName || 'Boutique OS', 13, 'bold');
     if (this.settings.showAddressOnTicket && this.settings.address)
       center(this.settings.address, 7);
     if (this.settings.showAddressOnTicket && !this.settings.address && this.settings.street) {
@@ -3311,10 +3371,16 @@ export class StoreService {
         7,
       );
     }
-    if (this.settings.showPhoneOnTicket && this.settings.phone) center(this.settings.phone, 7);
-    if (this.settings.contactEmail) center(this.settings.contactEmail, 7);
-    if (this.settings.instagramHandle) center(this.settings.instagramHandle, 7);
-    center(this.t('ticket.title'), 9, 'bold');
+    if (this.settings.showPhoneOnTicket && this.settings.phone) centeredSmall(this.settings.phone);
+    if (this.settings.contactEmail) centeredSmall(this.settings.contactEmail);
+    if (this.settings.instagramHandle) centeredSmall(this.settings.instagramHandle);
+
+    // === TITLE ===
+    doubleLine();
+    center(this.t('ticket.title'), 10, 'bold');
+    doubleLine();
+
+    // === SALE INFO ===
     y += 1;
     row(this.t('ticket.folio'), ticketRef, true);
     row(this.t('ticket.date'), this.formatDateTime(sale.createdAt));
@@ -3326,30 +3392,46 @@ export class StoreService {
     }
     row(this.t('ticket.payment'), this.paymentLabel(sale.paymentMethod));
     row(this.t('ticket.status'), this.saleStatusLabel(sale.status));
-    line();
+    singleLine();
+
+    // === ITEMS TABLE ===
+    y += 1;
+    ensureSpace(6);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text(this.t('ticket.itemQty'), margin, y);
+    doc.text(this.t('ticket.itemDesc'), margin + 12, y);
+    doc.text(this.t('ticket.itemTotal'), pageWidth - margin, y, { align: 'right' });
+    y += 4;
+    dashedLine();
 
     for (const item of sale.items) {
-      ensureSpace(10);
+      ensureSpace(12);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       const nameLines = wrap(item.productName);
+      doc.text(String(item.quantity), margin, y);
       for (const nameLine of nameLines) {
-        doc.text(nameLine, margin, y);
+        doc.text(nameLine, margin + 12, y);
         y += 4.5;
       }
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      const detail =
-        item.refundedQuantity > 0
-          ? `${item.quantity} x ${this.formatMoney(item.unitPrice)} (${this.t('ticket.refundedQty', { n: item.refundedQuantity })})`
-          : `${item.quantity} x ${this.formatMoney(item.unitPrice)}`;
-      doc.text(detail, margin, y);
+      doc.setFontSize(7.5);
+      const detail = `${item.quantity} x ${this.formatMoney(item.unitPrice)}`;
+      doc.text(detail, margin + 12, y);
+      if (item.refundedQuantity > 0) {
+        doc.setFontSize(6.5);
+        doc.text(`(${this.t('ticket.refundedQty', { n: item.refundedQuantity })})`, margin + 12, y + 3.5);
+        y += 4;
+      }
       doc.text(this.formatMoney(item.lineTotal), pageWidth - margin, y, { align: 'right' });
       y += 5;
     }
 
-    line();
+    dashedLine();
+
+    // === TOTALS ===
     row(this.t('ticket.subtotal'), this.formatMoney(sale.subtotal));
     if (this.settings.showSavingsOnTicket && savings > 0) {
       row(this.t('ticket.savings'), `-${this.formatMoney(savings)}`);
@@ -3357,7 +3439,21 @@ export class StoreService {
     if (sale.refundedTotal > 0) {
       row(this.t('ticket.refundedTotal'), `-${this.formatMoney(sale.refundedTotal)}`);
     }
-    row(this.t('ticket.total'), this.formatMoney(sale.total), true);
+
+    if (this.settings.showIvaOnTicket) {
+      singleLine();
+      const total = sale.total;
+      const ivaAmount = total - total / 1.16;
+      const subtotalWithoutIva = total - ivaAmount;
+      indentRow(this.t('ticket.subtotalWithoutIva'), this.formatMoney(subtotalWithoutIva));
+      indentRow(this.t('ticket.iva'), this.formatMoney(ivaAmount));
+    }
+
+    doubleLine();
+    boldRow(this.t('ticket.total'), this.formatMoney(sale.total));
+    doubleLine();
+
+    // === PAYMENT ===
     if (sale.paymentMethod === 'CASH') {
       row(this.t('ticket.received'), this.formatMoney(sale.cashReceived || 0));
       if (this.settings.showChangeOnTicket) {
@@ -3365,11 +3461,12 @@ export class StoreService {
       }
     }
     row(this.t('ticket.pieces'), String(sale.items.reduce((sum, item) => sum + item.quantity, 0)));
-    y += 3;
-    line();
+    singleLine();
+
+    // === QR CODE ===
     const qrDataUrl = await this.generateTicketQrDataUrl();
     if (qrDataUrl && this.ticketQrLabel) {
-      const qrSize = this.settings.ticketPaperSize === 'HALF_LETTER' ? 28 : 22;
+      const qrSize = isThermal ? 22 : 28;
       ensureSpace(qrSize + 16);
       try {
         doc.addImage(
@@ -3387,11 +3484,39 @@ export class StoreService {
       } catch {
         y += 2;
       }
-      line();
+      singleLine();
     }
+
+    // === THANK YOU + FOOTER ===
     center(this.settings.thankYouMessage || this.t('ticket.thankYou'), 8, 'bold');
     if (this.settings.ticketFooterNote) {
-      center(this.settings.ticketFooterNote, 7);
+      centeredSmall(this.settings.ticketFooterNote);
+    }
+
+    // === BARCODE ===
+    const barcodeDataUrl = await this.generateTicketBarcodeDataUrl(ticketRef);
+    if (barcodeDataUrl) {
+      const barcodeWidth = isThermal ? 50 : 65;
+      const barcodeHeight = isThermal ? 12 : 16;
+      ensureSpace(barcodeHeight + 10);
+      doubleLine();
+      try {
+        doc.addImage(
+          barcodeDataUrl,
+          'PNG',
+          (pageWidth - barcodeWidth) / 2,
+          y,
+          barcodeWidth,
+          barcodeHeight,
+          undefined,
+          'FAST',
+        );
+        y += barcodeHeight + 3;
+      } catch {
+        y += 2;
+      }
+      center(ticketRef, 7, 'bold');
+      singleLine();
     }
 
     const blobUrl = doc.output('bloburl');
@@ -3597,6 +3722,25 @@ export class StoreService {
           light: '#FFFFFF',
         },
       });
+    } catch {
+      return '';
+    }
+  }
+
+  private async generateTicketBarcodeDataUrl(data: string): Promise<string> {
+    try {
+      const JsBarcode = (await import('jsbarcode')).default;
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, data, {
+        format: 'CODE128',
+        width: 1.5,
+        height: 40,
+        displayValue: false,
+        margin: 0,
+        lineColor: '#111827',
+        background: '#FFFFFF',
+      });
+      return canvas.toDataURL('image/png');
     } catch {
       return '';
     }
@@ -3929,6 +4073,7 @@ export class StoreService {
       showCustomerOnTicket: settings.showCustomerOnTicket ?? true,
       showSavingsOnTicket: settings.showSavingsOnTicket ?? true,
       showChangeOnTicket: settings.showChangeOnTicket ?? true,
+      showIvaOnTicket: settings.showIvaOnTicket ?? true,
       autoOpenTicket: settings.autoOpenTicket ?? true,
     };
     this.credentialsForm = {

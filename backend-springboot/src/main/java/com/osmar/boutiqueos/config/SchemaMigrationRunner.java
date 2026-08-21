@@ -37,6 +37,7 @@ public class SchemaMigrationRunner implements CommandLineRunner {
         addColumnIfMissing("app_settings", "show_savings_on_ticket", "BOOLEAN DEFAULT TRUE NOT NULL");
         addColumnIfMissing("app_settings", "show_change_on_ticket", "BOOLEAN DEFAULT TRUE NOT NULL");
         addColumnIfMissing("app_settings", "auto_open_ticket", "BOOLEAN DEFAULT TRUE NOT NULL");
+        addColumnIfMissing("app_settings", "show_iva_on_ticket", "BOOLEAN DEFAULT TRUE NOT NULL");
         addColumnIfMissing("products", "account_id", "BIGINT DEFAULT 1 NOT NULL");
         addColumnIfMissing("product_categories", "account_id", "BIGINT DEFAULT 1 NOT NULL");
         addColumnIfMissing("customers", "account_id", "BIGINT DEFAULT 1 NOT NULL");

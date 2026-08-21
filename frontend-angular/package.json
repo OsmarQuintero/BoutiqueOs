@@ -17,6 +17,8 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "@types/jsbarcode": "^3.11.4",
+    "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",
     "qrcode": "^1.5.4",
     "rxjs": "~7.8.0",

@@ -87,6 +87,9 @@ public class AppSettings {
     private Instant registrationCompletedAt;
 
     @Column(nullable = false)
+    private boolean showIvaOnTicket = true;
+
+    @Column(nullable = false)
     private String role = "owner";
 
     public Long getId() { return id; }
@@ -157,6 +160,9 @@ public class AppSettings {
 
     public boolean isAutoOpenTicket() { return autoOpenTicket; }
     public void setAutoOpenTicket(boolean autoOpenTicket) { this.autoOpenTicket = autoOpenTicket; }
+
+    public boolean isShowIvaOnTicket() { return showIvaOnTicket; }
+    public void setShowIvaOnTicket(boolean showIvaOnTicket) { this.showIvaOnTicket = showIvaOnTicket; }
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }

@@ -163,6 +163,10 @@
               <span>{{ store.t('settings.changeToggle') }}</span>
             </label>
             <label class="toggle-option toggle-option-wide">
+              <input type="checkbox" [(ngModel)]="store.settingsForm.showIvaOnTicket" />
+              <span>{{ store.t('settings.ivaToggle') }}</span>
+            </label>
+            <label class="toggle-option toggle-option-wide">
               <input type="checkbox" [(ngModel)]="store.settingsForm.autoOpenTicket" />
               <span>{{ store.t('settings.autoOpenTicket') }}</span>
             </label>
@@ -219,7 +223,11 @@
             @if (store.settingsForm.instagramHandle) {
               <div class="ticket-preview-line">{{ store.settingsForm.instagramHandle }}</div>
             }
+
+            <div class="ticket-preview-double-divider"></div>
             <div class="ticket-preview-title">{{ store.t('settings.receiptTitle') }}</div>
+            <div class="ticket-preview-double-divider"></div>
+
             <div class="ticket-preview-row">
               <span>{{ store.t('settings.folio') }}</span>
               <strong>{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</strong>
@@ -239,17 +247,26 @@
               <strong>{{ store.t('settings.cash') }}</strong>
             </div>
             <div class="ticket-preview-divider"></div>
-            <div class="ticket-preview-item">
-              <div>Tenis blancos</div>
-              <div>1 x {{ store.formatMoney(899) }}</div>
+
+            <div class="ticket-preview-item-header">
+              <span>{{ store.t('ticket.itemQty') }}</span>
+              <span>{{ store.t('ticket.itemDesc') }}</span>
+              <span>{{ store.t('ticket.itemTotal') }}</span>
             </div>
-            <div class="ticket-preview-item-total">{{ store.formatMoney(899) }}</div>
+            <div class="ticket-preview-dashed-divider"></div>
+
             <div class="ticket-preview-item">
-              <div>Playera basica</div>
-              <div>1 x {{ store.formatMoney(349) }}</div>
+              <div class="ticket-preview-item-qty">1</div>
+              <div class="ticket-preview-item-desc">Tenis blancos<div class="ticket-preview-item-detail">1 x {{ store.formatMoney(899) }}</div></div>
+              <div class="ticket-preview-item-price">{{ store.formatMoney(899) }}</div>
             </div>
-            <div class="ticket-preview-item-total">{{ store.formatMoney(349) }}</div>
-            <div class="ticket-preview-divider"></div>
+            <div class="ticket-preview-item">
+              <div class="ticket-preview-item-qty">1</div>
+              <div class="ticket-preview-item-desc">Playera basica<div class="ticket-preview-item-detail">1 x {{ store.formatMoney(349) }}</div></div>
+              <div class="ticket-preview-item-price">{{ store.formatMoney(349) }}</div>
+            </div>
+            <div class="ticket-preview-dashed-divider"></div>
+
             <div class="ticket-preview-row">
               <span>{{ store.t('settings.subtotal') }}</span>
               <strong>{{ store.formatMoney(1248) }}</strong>
@@ -260,10 +277,26 @@
                 <strong>-{{ store.formatMoney(99) }}</strong>
               </div>
             }
+
+            @if (store.settingsForm.showIvaOnTicket) {
+              <div class="ticket-preview-divider"></div>
+              <div class="ticket-preview-row ticket-preview-row-indent">
+                <span>{{ store.t('ticket.subtotalWithoutIva') }}</span>
+                <span>{{ store.formatMoney(989.66) }}</span>
+              </div>
+              <div class="ticket-preview-row ticket-preview-row-indent">
+                <span>{{ store.t('ticket.iva') }}</span>
+                <span>{{ store.formatMoney(159.34) }}</span>
+              </div>
+            }
+
+            <div class="ticket-preview-double-divider"></div>
             <div class="ticket-preview-row ticket-preview-row-total">
               <span>{{ store.t('settings.total') }}</span>
               <strong>{{ store.formatMoney(1149) }}</strong>
             </div>
+            <div class="ticket-preview-double-divider"></div>
+
             @if (store.settingsForm.showChangeOnTicket) {
               <div class="ticket-preview-row">
                 <span>{{ store.t('settings.changeToggle') }}</span>
@@ -275,6 +308,7 @@
               <strong>2</strong>
             </div>
             <div class="ticket-preview-divider"></div>
+
             @if (store.ticketQrDataUrl && store.ticketQrLabel) {
               <div class="ticket-preview-qr">
                 <img [src]="store.ticketQrDataUrl" [alt]="store.t('settings.qrAlt')" />
@@ -288,6 +322,13 @@
             @if (store.settingsForm.ticketFooterNote) {
               <div class="ticket-preview-note">{{ store.settingsForm.ticketFooterNote }}</div>
             }
+
+            <div class="ticket-preview-double-divider"></div>
+            <div class="ticket-preview-barcode-placeholder">
+              <div class="ticket-preview-barcode-lines"></div>
+              <div class="ticket-preview-barcode-text">{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</div>
+            </div>
+            <div class="ticket-preview-divider"></div>
           </div>
         </div>
       </div>

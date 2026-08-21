@@ -23,6 +23,7 @@ public record TicketSettingsRequest(
         Boolean showCustomerOnTicket,
         Boolean showSavingsOnTicket,
         Boolean showChangeOnTicket,
+        Boolean showIvaOnTicket,
         Boolean autoOpenTicket
 ) {
 }

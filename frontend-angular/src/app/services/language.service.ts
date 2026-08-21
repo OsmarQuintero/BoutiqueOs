@@ -620,6 +620,7 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'settings.customerToggle': { es: 'Cliente', en: 'Customer' },
   'settings.savingsToggle': { es: 'Ahorro / descuento', en: 'Savings / discount' },
   'settings.changeToggle': { es: 'Cambio', en: 'Change' },
+  'settings.ivaToggle': { es: 'Desglose de IVA', en: 'Tax breakdown' },
   'settings.autoOpenTicket': {
     es: 'Abrir ticket automaticamente al cobrar',
     en: 'Open receipt automatically when charging',
@@ -673,6 +674,11 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'ticket.received': { es: 'Recibido', en: 'Received' },
   'ticket.change': { es: 'Cambio', en: 'Change' },
   'ticket.pieces': { es: 'Piezas', en: 'Pieces' },
+  'ticket.subtotalWithoutIva': { es: 'Subtotal s/IVA', en: 'Subtotal w/o tax' },
+  'ticket.iva': { es: 'IVA (16%)', en: 'VAT (16%)' },
+  'ticket.itemQty': { es: 'CANT', en: 'QTY' },
+  'ticket.itemDesc': { es: 'DESCRIPCIÓN', en: 'DESCRIPTION' },
+  'ticket.itemTotal': { es: 'IMPORTE', en: 'AMOUNT' },
   'ticket.thankYou': { es: 'Gracias por tu compra', en: 'Thank you for your purchase' },
 
   // ----- daily report PDF -----

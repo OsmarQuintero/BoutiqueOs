@@ -155,7 +155,7 @@
 .ticket-preview {
   width: min(100%, 320px);
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding: 14px 14px 16px;
   border: 1px dashed #c9d2df;
   border-radius: 18px;
@@ -211,10 +211,11 @@
 }
 
 .ticket-preview-title {
-  margin-top: 4px;
-  font-size: 0.8rem;
+  margin-top: 2px;
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .ticket-preview-line {
@@ -222,9 +223,19 @@
   line-height: 1.35;
 }
 
+.ticket-preview-double-divider {
+  border-top: 2px solid #334155;
+  margin: 5px 0;
+}
+
 .ticket-preview-divider {
-  border-top: 1px dashed #cbd5e1;
+  border-top: 1px solid #94a3b8;
   margin: 4px 0;
+}
+
+.ticket-preview-dashed-divider {
+  border-top: 1px dashed #cbd5e1;
+  margin: 3px 0;
 }
 
 .ticket-preview-row,
@@ -240,17 +251,8 @@
 }
 
 .ticket-preview-row strong,
-.ticket-preview-item-total {
+.ticket-preview-item-price {
   font-weight: 800;
-}
-
-.ticket-preview-item {
-  align-items: end;
-}
-
-.ticket-preview-item-total {
-  text-align: right;
-  margin-top: -2px;
 }
 
 .ticket-preview-row-total {
@@ -259,6 +261,66 @@
 
 .ticket-preview-row-discount strong {
   color: #b91c1c;
+}
+
+.ticket-preview-row-indent {
+  padding-left: 12px;
+  font-size: 0.72rem;
+}
+
+.ticket-preview-row-indent span:last-child {
+  color: #64748b;
+}
+
+.ticket-preview-item-header {
+  display: flex;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+
+  span:first-child {
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  span:nth-child(2) {
+    flex: 1;
+  }
+
+  span:last-child {
+    text-align: right;
+  }
+}
+
+.ticket-preview-item {
+  align-items: start;
+  font-size: 0.74rem;
+  gap: 6px;
+}
+
+.ticket-preview-item-qty {
+  width: 24px;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.ticket-preview-item-desc {
+  flex: 1;
+  font-weight: 700;
+}
+
+.ticket-preview-item-detail {
+  font-weight: 400;
+  color: #64748b;
+  font-size: 0.68rem;
+  margin-top: 1px;
+}
+
+.ticket-preview-item-price {
+  text-align: right;
 }
 
 .ticket-preview-qr {
@@ -291,6 +353,43 @@
 .ticket-preview-note {
   color: #64748b;
   line-height: 1.4;
+  font-size: 0.7rem;
+}
+
+.ticket-preview-barcode-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.ticket-preview-barcode-lines {
+  width: 120px;
+  height: 28px;
+  background: repeating-linear-gradient(
+    90deg,
+    #1e293b 0px,
+    #1e293b 1.5px,
+    transparent 1.5px,
+    transparent 3px,
+    #1e293b 3px,
+    #1e293b 4px,
+    transparent 4px,
+    transparent 5.5px,
+    #1e293b 5.5px,
+    #1e293b 6px,
+    transparent 6px,
+    transparent 8px
+  );
+  border-radius: 2px;
+}
+
+.ticket-preview-barcode-text {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #334155;
 }
 
 .settings-status {

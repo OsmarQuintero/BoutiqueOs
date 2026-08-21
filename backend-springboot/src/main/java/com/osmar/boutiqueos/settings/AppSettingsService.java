@@ -111,6 +111,7 @@ public class AppSettingsService {
         settings.setShowCustomerOnTicket(booleanOrDefault(request.showCustomerOnTicket(), true));
         settings.setShowSavingsOnTicket(booleanOrDefault(request.showSavingsOnTicket(), true));
         settings.setShowChangeOnTicket(booleanOrDefault(request.showChangeOnTicket(), true));
+        settings.setShowIvaOnTicket(booleanOrDefault(request.showIvaOnTicket(), true));
         settings.setAutoOpenTicket(booleanOrDefault(request.autoOpenTicket(), true));
         settings.setUpdatedAt(Instant.now());
         return appSettingsRepository.save(settings);

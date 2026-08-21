@@ -73,6 +73,7 @@ class AppSettingsServiceTests {
                 false,
                 true,
                 false,
+                true,
                 false
         ));
 
@@ -84,6 +85,7 @@ class AppSettingsServiceTests {
         assertEquals("THERMAL_58", updated.getTicketPaperSize());
         assertFalse(updated.isShowCustomerOnTicket());
         assertFalse(updated.isShowChangeOnTicket());
+        assertTrue(updated.isShowIvaOnTicket());
         assertFalse(updated.isAutoOpenTicket());
     }
 
