@@ -11,6 +11,7 @@ import com.osmar.boutiqueos.sale.SaleRefundRepository;
 import com.osmar.boutiqueos.sale.SaleRefundResponse;
 import com.osmar.boutiqueos.sale.SaleRepository;
 import com.osmar.boutiqueos.sale.SaleResponse;
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +39,7 @@ public class BackupController {
     private final InventoryMovementRepository inventoryMovementRepository;
     private final DailyCashCountRepository dailyCashCountRepository;
     private final AccountContext accountContext;
+    private final SubscriptionService subscriptionService;
 
     public BackupController(
             AppSettingsService appSettingsService,
@@ -50,7 +52,8 @@ public class BackupController {
             PurchaseRepository purchaseRepository,
             InventoryMovementRepository inventoryMovementRepository,
             DailyCashCountRepository dailyCashCountRepository,
-            AccountContext accountContext
+            AccountContext accountContext,
+            SubscriptionService subscriptionService
     ) {
         this.appSettingsService = appSettingsService;
         this.authSessionService = authSessionService;
@@ -63,6 +66,7 @@ public class BackupController {
         this.inventoryMovementRepository = inventoryMovementRepository;
         this.dailyCashCountRepository = dailyCashCountRepository;
         this.accountContext = accountContext;
+        this.subscriptionService = subscriptionService;
     }
 
     @GetMapping
@@ -71,6 +75,7 @@ public class BackupController {
         if (!authSessionService.isValid(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
         }
+        subscriptionService.requireFeature("backup");
 
         Long accountId = accountContext.requireAccountId();
         Map<String, Object> backup = new LinkedHashMap<>();

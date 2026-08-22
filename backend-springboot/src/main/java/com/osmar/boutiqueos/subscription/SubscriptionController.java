@@ -14,7 +14,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -145,6 +150,50 @@ public class SubscriptionController {
     }
 
     private String verifyWebhookSignature(String body, String signatureHeader) {
-        return body;
+        try {
+            String[] pairs = signatureHeader.split(",");
+            String timestamp = null;
+            String signature = null;
+            for (String pair : pairs) {
+                String[] kv = pair.split("=", 2);
+                if (kv.length == 2) {
+                    if ("t".equals(kv[0].trim())) {
+                        timestamp = kv[1].trim();
+                    } else if ("v1".equals(kv[0].trim())) {
+                        signature = kv[1].trim();
+                    }
+                }
+            }
+            if (timestamp == null || signature == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook signature format");
+            }
+
+            long eventTime = Long.parseLong(timestamp);
+            if (Math.abs(Instant.now().getEpochSecond() - eventTime) > 300) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Webhook timestamp too old");
+            }
+
+            String signedPayload = timestamp + "." + body;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(stripeWebhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            String computedHex = bytesToHex(mac.doFinal(signedPayload.getBytes(StandardCharsets.UTF_8)));
+
+            if (!computedHex.equals(signature)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Webhook signature mismatch");
+            }
+            return body;
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Webhook signature verification failed");
+        }
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }
