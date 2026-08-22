@@ -130,11 +130,18 @@ export interface SaleRefundRecord {
 }
 
 export interface DailyCashCount {
+  id: number;
   businessDate: string;
+  openingFloat: number;
   actualCash: number;
+  expectedCash: number;
+  difference: number;
   notes: string | null;
   closed: boolean;
   closedAt: string | null;
+  closedBy: string | null;
+  reopenedBy: string | null;
+  reopenedReason: string | null;
   updatedAt: string;
 }
 
@@ -416,6 +423,7 @@ export class StoreService {
   ticketSearchTerm = '';
   refundDrafts: Record<number, Record<number, number>> = {};
   actualCashInput = 0;
+  openingFloatInput = 0;
   cashCountNotes = '';
   cashCountUpdatedAt: string | null = null;
   reportDayClosed = false;
@@ -1176,7 +1184,7 @@ export class StoreService {
     const cashRefundsToday = this.refundedToday
       .filter((refund) => refund.paymentMethod === 'CASH')
       .reduce((total, refund) => total + refund.total, 0);
-    return cashSalesToday - cashRefundsToday;
+    return this.openingFloatInput + cashSalesToday - cashRefundsToday;
   }
 
   get cashDifference(): number {
@@ -3056,6 +3064,7 @@ export class StoreService {
         this.http.put<DailyCashCount>(
           this.apiUrl(`/reports/cash-count/today?date=${this.reportDate}`),
           {
+            openingFloat: this.openingFloatInput,
             actualCash: this.actualCashInput,
             notes: this.cashCountNotes || null,
           },
@@ -3077,6 +3086,9 @@ export class StoreService {
   closeReportDay(): void {
     if (this.reportDayClosed) {
       this.statusMessage = this.t('warn.alreadyClosed');
+      return;
+    }
+    if (!confirm(this.t('confirm.closeDay'))) {
       return;
     }
     this.isClosingReportDay = true;
@@ -3106,13 +3118,17 @@ export class StoreService {
       this.statusMessage = this.t('warn.alreadyOpen');
       return;
     }
+    const reason = prompt(this.t('confirm.reopenReason'));
+    if (!reason || !reason.trim()) {
+      return;
+    }
     this.isReopeningReportDay = true;
     this.refresh
       .track(
         this.t('refresh.reopeningDay'),
         this.http.post<DailyCashCount>(
           this.apiUrl(`/reports/cash-count/today/reopen?date=${this.reportDate}`),
-          {},
+          { reason: reason.trim() },
         ),
       )
       .subscribe({
@@ -4186,6 +4202,7 @@ export class StoreService {
           this.applyDailyCashCount(cashCount);
         },
         error: () => {
+          this.openingFloatInput = 0;
           this.actualCashInput = 0;
           this.cashCountNotes = '';
           this.cashCountUpdatedAt = null;
@@ -4693,6 +4710,7 @@ export class StoreService {
   }
 
   private applyDailyCashCount(cashCount: DailyCashCount): void {
+    this.openingFloatInput = cashCount.openingFloat || 0;
     this.actualCashInput = cashCount.actualCash;
     this.cashCountNotes = cashCount.notes || '';
     this.cashCountUpdatedAt = cashCount.updatedAt;

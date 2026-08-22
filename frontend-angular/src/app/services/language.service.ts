@@ -271,6 +271,14 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
     es: 'Eliminar movimiento de {name}?',
     en: 'Delete movement of {name}?',
   },
+  'confirm.closeDay': {
+    es: '¿Cerrar el día? Esta acción es irreversible.',
+    en: 'Close the day? This action cannot be undone.',
+  },
+  'confirm.reopenReason': {
+    es: 'Motivo para reabrir el día:',
+    en: 'Reason to reopen the day:',
+  },
 
   // ----- categories -----
   'categories.edit': { es: 'Editar categoria', en: 'Edit category' },
@@ -450,6 +458,7 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'summary.noSales': { es: 'Sin ventas', en: 'No sales' },
   'summary.alerts': { es: 'Alertas', en: 'Alerts' },
   'summary.cashCut': { es: 'Corte de efectivo', en: 'Cash count' },
+  'summary.openingFloat': { es: 'Fondo de caja', en: 'Opening float' },
   'summary.expected': { es: 'Esperado', en: 'Expected' },
   'summary.actualCash': { es: 'Efectivo real en caja', en: 'Actual cash in box' },
   'summary.cashNotes': { es: 'Notas del corte', en: 'Cut notes' },

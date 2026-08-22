@@ -201,6 +201,17 @@
     <h3>{{ store.t('summary.cashCut') }}</h3>
   </div>
   <div class="card-content cash-cut-grid">
+    <label class="field">
+      <span>{{ store.t('summary.openingFloat') }}</span>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        [(ngModel)]="store.openingFloatInput"
+        placeholder="0.00"
+        [disabled]="store.reportDayClosed"
+      />
+    </label>
     <div class="kpi soft-kpi">
       <div class="kpi-label">{{ store.t('summary.expected') }}</div>
       <div class="kpi-value">{{ store.formatMoney(store.cashExpected) }}</div>
