@@ -27,7 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOriginPatterns(this.allowedOrigins.length == 0 ? new String[] { "*" } : this.allowedOrigins)
+                .allowedOriginPatterns(this.allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*", "X-Boutique-Session");
     }

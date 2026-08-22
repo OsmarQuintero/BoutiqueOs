@@ -115,8 +115,8 @@ public class SubscriptionController {
     public ResponseEntity<Void> webhook(HttpServletRequest request, @RequestBody String body) {
         String signatureHeader = request.getHeader("Stripe-Signature");
         if (stripeWebhookSecret.isBlank()) {
-            log.warn("Stripe webhook received but webhook secret is not configured");
-            return ResponseEntity.ok().build();
+            log.warn("Stripe webhook received but webhook secret is not configured - rejecting");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
         try {

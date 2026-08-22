@@ -279,6 +279,9 @@ public class AppSettingsService {
         }
 
         if (lower.startsWith("http://") || lower.startsWith("https://")) {
+            if (isPrivateOrReservedUrl(clean)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Internal/private URLs are not allowed");
+            }
             return clean;
         }
 
@@ -287,6 +290,33 @@ public class AppSettingsService {
         }
 
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported image format");
+    }
+
+    private boolean isPrivateOrReservedUrl(String url) {
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            String host = uri.getHost();
+            if (host == null) return true;
+
+            String lower = host.toLowerCase(Locale.ROOT);
+
+            if (lower.equals("localhost") || lower.endsWith(".local") || lower.endsWith(".internal")) {
+                return true;
+            }
+            if (lower.startsWith("127.") || lower.startsWith("10.") || lower.startsWith("192.168.")
+                    || lower.startsWith("172.") || lower.equals("0.0.0.0")) {
+                return true;
+            }
+            if (lower.equals("169.254.169.254") || lower.equals("[::1]") || lower.equals("::1")) {
+                return true;
+            }
+            if (lower.endsWith(".amazonaws.com") && lower.contains("metadata")) {
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     private String composeAddress(AppSettings settings) {

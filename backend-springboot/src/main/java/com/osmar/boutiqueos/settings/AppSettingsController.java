@@ -117,7 +117,15 @@ public class AppSettingsController {
     }
 
     @GetMapping("/password-reset/validate")
-    public PasswordResetValidateResponse validatePasswordReset(@RequestParam("token") String token) {
+    public PasswordResetValidateResponse validatePasswordReset(
+            @RequestParam("token") String token,
+            HttpServletRequest httpRequest
+    ) {
+        String ipKey = passwordResetIpAttemptKey(httpRequest) + "|validate";
+        if (loginAttemptService.isBlocked(ipKey, 10, PASSWORD_RESET_WINDOW, PASSWORD_RESET_BLOCK_DURATION)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Try again later.");
+        }
+        loginAttemptService.recordFailure(ipKey, 10, PASSWORD_RESET_WINDOW, PASSWORD_RESET_BLOCK_DURATION);
         return passwordResetService.validateToken(token);
     }
 

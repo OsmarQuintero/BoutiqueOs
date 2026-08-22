@@ -6,18 +6,24 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class TokenBlocklist {
 
     private static final Logger log = LoggerFactory.getLogger(TokenBlocklist.class);
 
-    private final ConcurrentHashMap<String, Instant> revokedTokens = new ConcurrentHashMap<>();
+    private final RevokedTokenRepository revokedTokenRepository;
+
+    public TokenBlocklist(RevokedTokenRepository revokedTokenRepository) {
+        this.revokedTokenRepository = revokedTokenRepository;
+    }
 
     public void revoke(String token, Instant expiresAt) {
         if (token != null && !token.isBlank()) {
-            revokedTokens.put(token, expiresAt);
+            RevokedToken entity = new RevokedToken();
+            entity.setToken(token);
+            entity.setExpiresAt(expiresAt);
+            revokedTokenRepository.save(entity);
             log.debug("Token revocado, expira en: {}", expiresAt);
         }
     }
@@ -26,29 +32,12 @@ public class TokenBlocklist {
         if (token == null || token.isBlank()) {
             return false;
         }
-        Instant expiresAt = revokedTokens.get(token);
-        if (expiresAt == null) {
-            return false;
-        }
-        if (Instant.now().isAfter(expiresAt)) {
-            revokedTokens.remove(token);
-            return false;
-        }
-        return true;
+        return revokedTokenRepository.findById(token).isPresent();
     }
 
     @Scheduled(fixedRate = 3600_000)
     public void cleanup() {
-        Instant now = Instant.now();
-        int removed = 0;
-        var iterator = revokedTokens.entrySet().iterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            if (now.isAfter(entry.getValue())) {
-                iterator.remove();
-                removed++;
-            }
-        }
+        int removed = revokedTokenRepository.deleteExpired(Instant.now());
         if (removed > 0) {
             log.debug("Blocklist cleanup: removed {} expired tokens", removed);
         }

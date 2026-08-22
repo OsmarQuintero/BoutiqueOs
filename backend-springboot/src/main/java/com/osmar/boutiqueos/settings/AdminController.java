@@ -4,8 +4,10 @@ import com.osmar.boutiqueos.subscription.AccountSubscription;
 import com.osmar.boutiqueos.subscription.AccountSubscriptionRepository;
 import com.osmar.boutiqueos.subscription.PlanType;
 import com.osmar.boutiqueos.subscription.SubscriptionStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -17,19 +19,36 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 public class AdminController {
 
+    private static final String ADMIN_SECRET_HEADER = "X-Admin-Secret";
+
     private final AppSettingsRepository appSettingsRepository;
     private final AccountSubscriptionRepository subscriptionRepository;
+    private final String adminSecret;
 
     public AdminController(
             AppSettingsRepository appSettingsRepository,
-            AccountSubscriptionRepository subscriptionRepository
+            AccountSubscriptionRepository subscriptionRepository,
+            @Value("${app.admin.secret:}") String adminSecret
     ) {
         this.appSettingsRepository = appSettingsRepository;
         this.subscriptionRepository = subscriptionRepository;
+        this.adminSecret = adminSecret == null ? "" : adminSecret.trim();
     }
 
     @PostMapping("/demo-account")
-    public Map<String, String> createDemoAccount() {
+    public Map<String, String> createDemoAccount(
+            @RequestHeader(value = ADMIN_SECRET_HEADER, required = false) String providedSecret
+    ) {
+        if (adminSecret.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin secret is not configured");
+        }
+        if (providedSecret == null || !java.security.MessageDigest.isEqual(
+                providedSecret.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                adminSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        )) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid admin secret");
+        }
+
         String username = "demo";
         String password = "demo1234";
 
