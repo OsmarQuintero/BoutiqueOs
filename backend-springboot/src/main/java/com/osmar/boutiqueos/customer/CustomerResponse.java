@@ -7,9 +7,10 @@ public record CustomerResponse(
         String name,
         String phone,
         String notes,
-        Instant createdAt
+        Instant createdAt,
+        int loyaltyPoints
 ) {
     public static CustomerResponse from(Customer c) {
-        return new CustomerResponse(c.getId(), c.getName(), c.getPhone(), c.getNotes(), c.getCreatedAt());
+        return new CustomerResponse(c.getId(), c.getName(), c.getPhone(), c.getNotes(), c.getCreatedAt(), c.getLoyaltyPoints());
     }
 }

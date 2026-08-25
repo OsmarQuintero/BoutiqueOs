@@ -61,6 +61,30 @@ export interface Customer {
   phone: string;
   notes: string;
   createdAt: string;
+  loyaltyPoints: number;
+}
+
+export interface LoyaltyTransaction {
+  id: number;
+  customerId: number;
+  type: 'EARNED' | 'REDEEMED' | 'EXPIRED' | 'ADJUSTED';
+  points: number;
+  saleId: number | null;
+  rewardId: number | null;
+  description: string;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface LoyaltyReward {
+  id: number;
+  name: string;
+  description: string;
+  pointsRequired: number;
+  rewardType: 'PRODUCT' | 'DISCOUNT';
+  discountAmount: number | null;
+  productId: number | null;
+  active: boolean;
 }
 
 export interface Promotion {
@@ -415,6 +439,9 @@ export class StoreService {
   customerSearchTerm = '';
   selectedCustomerHistory: Customer | null = null;
   customerSales: SaleRecord[] = [];
+  customerLoyaltyHistory: LoyaltyTransaction[] = [];
+  loyaltyRewards: LoyaltyReward[] = [];
+  isRedeemingLoyalty = false;
   checkoutDiscount = 0;
   selectedPromoId: string | null = null;
   editingPromoId: string | null = null;
@@ -2902,11 +2929,69 @@ export class StoreService {
           this.customerSales = [];
         },
       });
+    this.loadLoyaltyHistory(customer.id);
+    this.loadLoyaltyRewards();
+  }
+
+  loadLoyaltyHistory(customerId: number): void {
+    this.http
+      .get<LoyaltyTransaction[]>(this.apiUrl(`/loyalty/transactions/${customerId}`))
+      .subscribe({
+        next: (history) => {
+          this.customerLoyaltyHistory = history;
+        },
+        error: () => {
+          this.customerLoyaltyHistory = [];
+        },
+      });
+  }
+
+  loadLoyaltyRewards(): void {
+    this.http.get<LoyaltyReward[]>(this.apiUrl('/loyalty/rewards')).subscribe({
+      next: (rewards) => {
+        this.loyaltyRewards = rewards;
+      },
+      error: () => {
+        this.loyaltyRewards = [];
+      },
+    });
+  }
+
+  redeemLoyaltyPoints(customerId: number, rewardId: number, quantity: number): void {
+    if (this.isRedeemingLoyalty) return;
+    this.isRedeemingLoyalty = true;
+    this.refresh
+      .track(
+        this.t('refresh.redeemingPoints'),
+        this.http.post<LoyaltyTransaction>(
+          this.apiUrl(`/loyalty/redeem/${customerId}`),
+          { rewardId, quantity },
+        ),
+      )
+      .subscribe({
+        next: () => {
+          this.isRedeemingLoyalty = false;
+          this.statusMessage = this.t('ok.pointsRedeemed');
+          if (this.selectedCustomerHistory) {
+            this.selectedCustomerHistory = {
+              ...this.selectedCustomerHistory,
+              loyaltyPoints: this.selectedCustomerHistory.loyaltyPoints - quantity,
+            };
+            this.loadLoyaltyHistory(customerId);
+          }
+        },
+        error: (err) => {
+          this.isRedeemingLoyalty = false;
+          this.statusMessage = err.error?.message || this.t('err.redeemFailed');
+        },
+      });
   }
 
   clearCustomerHistory(): void {
     this.selectedCustomerHistory = null;
     this.customerSales = [];
+    this.customerLoyaltyHistory = [];
+    this.loyaltyRewards = [];
     this.activeSections = { ...this.activeSections, customers: 'list' };
   }
 

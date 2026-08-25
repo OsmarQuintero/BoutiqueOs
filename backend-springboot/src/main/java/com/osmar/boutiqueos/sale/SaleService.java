@@ -2,12 +2,15 @@ package com.osmar.boutiqueos.sale;
 
 import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.customer.CustomerRepository;
+import com.osmar.boutiqueos.customer.loyalty.LoyaltyService;
 import com.osmar.boutiqueos.inventory.InventoryMovementType;
 import com.osmar.boutiqueos.inventory.InventoryService;
 import com.osmar.boutiqueos.product.Product;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.subscription.SubscriptionService;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,6 +25,8 @@ import java.util.Map;
 @Service
 public class SaleService {
 
+    private static final Logger log = LoggerFactory.getLogger(SaleService.class);
+
     private final SaleRepository saleRepository;
     private final SaleRefundRepository saleRefundRepository;
     private final ProductRepository productRepository;
@@ -29,8 +34,9 @@ public class SaleService {
     private final InventoryService inventoryService;
     private final AccountContext accountContext;
     private final SubscriptionService subscriptionService;
+    private final LoyaltyService loyaltyService;
 
-    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext, SubscriptionService subscriptionService) {
+    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext, SubscriptionService subscriptionService, LoyaltyService loyaltyService) {
         this.saleRepository = saleRepository;
         this.saleRefundRepository = saleRefundRepository;
         this.productRepository = productRepository;
@@ -38,6 +44,7 @@ public class SaleService {
         this.inventoryService = inventoryService;
         this.accountContext = accountContext;
         this.subscriptionService = subscriptionService;
+        this.loyaltyService = loyaltyService;
     }
 
     public List<Sale> listToday() {
@@ -132,7 +139,13 @@ public class SaleService {
         sale.setChangeDue(sale.getPaymentMethod() == PaymentMethod.CASH ? cashReceived.subtract(total).max(BigDecimal.ZERO) : BigDecimal.ZERO);
         sale.setEstimatedProfit(estimatedProfit.subtract(sale.getDiscount()).max(BigDecimal.ZERO));
 
-        return saleRepository.save(sale);
+        sale = saleRepository.save(sale);
+
+        if (sale.getCustomerId() != null && sale.getStatus() == SaleStatus.CONFIRMED) {
+            earnLoyaltyPoints(sale);
+        }
+
+        return sale;
     }
 
     public List<Sale> listPending() {
@@ -150,7 +163,13 @@ public class SaleService {
             throw new IllegalArgumentException("Refunded sale cannot be confirmed");
         }
         sale.setStatus(SaleStatus.CONFIRMED);
-        return saleRepository.save(sale);
+        sale = saleRepository.save(sale);
+
+        if (sale.getCustomerId() != null) {
+            earnLoyaltyPoints(sale);
+        }
+
+        return sale;
     }
 
     @Transactional
@@ -311,5 +330,16 @@ public class SaleService {
 
     private boolean isFullyRefunded(Sale sale) {
         return sale.getItems().stream().allMatch(item -> item.getRefundedQuantity() >= item.getQuantity());
+    }
+
+    private void earnLoyaltyPoints(Sale sale) {
+        try {
+            int earned = loyaltyService.earnPoints(sale.getCustomerId(), sale.getTotal(), sale.getId());
+            if (earned > 0) {
+                log.info("Venta #{}: cliente {} acumuló {} puntos", sale.getId(), sale.getCustomerName(), earned);
+            }
+        } catch (Exception e) {
+            log.warn("No se pudieron acumular puntos para venta #{}: {}", sale.getId(), e.getMessage());
+        }
     }
 }

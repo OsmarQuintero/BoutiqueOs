@@ -1,6 +1,7 @@
 package com.osmar.boutiqueos.customer;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
@@ -10,4 +11,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     java.util.Optional<Customer> findByIdAndAccountId(Long id, Long accountId);
     long countByAccountId(Long accountId);
     void deleteByIdAndAccountId(Long id, Long accountId);
+
+    @Query("SELECT DISTINCT c.accountId FROM Customer c")
+    List<Long> findDistinctAccountIds();
 }

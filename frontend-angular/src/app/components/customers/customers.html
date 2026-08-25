@@ -111,6 +111,34 @@
             }
           </div>
         </div>
+        <div class="loyalty-block">
+          <div class="favorites-header">
+            <h4>{{ store.t('customers.loyaltyTitle') }}</h4>
+            <span class="pill pill-amber">{{ store.selectedCustomerHistory.loyaltyPoints }} {{ store.t('customers.points') }}</span>
+          </div>
+          @if (store.hasFeature('customer_history')) {
+          <div class="loyalty-redeem-row">
+            @for (reward of store.loyaltyRewards; track reward.id) {
+              <button class="btn btn-outline btn-xs" [disabled]="store.isRedeemingLoyalty || store.selectedCustomerHistory.loyaltyPoints < reward.pointsRequired" (click)="store.redeemLoyaltyPoints(store.selectedCustomerHistory.id, reward.id, 1)">
+                {{ reward.name }} ({{ reward.pointsRequired }} {{ store.t('customers.pts') }})
+              </button>
+            } @empty {
+              <span class="empty-inline">{{ store.t('customers.noRewards') }}</span>
+            }
+          </div>
+          <div class="favorites-list">
+            @for (tx of store.customerLoyaltyHistory; track tx.id) {
+              <div class="favorite-pill">
+                <strong>{{ store.t('customers.points' + tx.type) }}</strong>
+                <span>{{ tx.points }} {{ store.t('customers.pts') }}</span>
+                <small>{{ store.formatDateTime(tx.createdAt) }}</small>
+              </div>
+            } @empty {
+              <div class="empty-inline">{{ store.t('customers.noLoyaltyHistory') }}</div>
+            }
+          </div>
+          }
+        </div>
       </div>
       <div class="card-content no-pad">
         <table class="table">
@@ -187,6 +215,9 @@
             <p class="customer-notes">{{ c.notes || store.t('customers.noRelationshipNotes') }}</p>
             <div class="customer-meta">
               <span>{{ store.t('customers.since') }} {{ store.formatDateTime(c.createdAt) }}</span>
+              @if (c.loyaltyPoints > 0) {
+                <span class="pill pill-amber">{{ c.loyaltyPoints }} {{ store.t('customers.points') }}</span>
+              }
               @if (c.phone) {
                 <a
                   [href]="store.customerWhatsappHref(c.phone)"
