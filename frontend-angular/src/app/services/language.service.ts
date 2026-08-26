@@ -126,6 +126,14 @@ export const TRANSLATIONS: Record<string, TranslationEntry> = {
   'topbar.admin': { es: 'Admin', en: 'Admin' },
   'topbar.logout': { es: 'Salir', en: 'Log out' },
 
+  // ----- notifications -----
+  'notifications.title': { es: 'Notificaciones', en: 'Notifications' },
+  'notifications.empty': { es: 'Sin notificaciones nuevas', en: 'No new notifications' },
+  'notifications.dailySummary': { es: 'Resumen del dia', en: 'Daily summary' },
+  'notifications.sales': { es: 'ventas', en: 'sales' },
+  'notifications.pendingSales': { es: 'Ventas pendientes', en: 'Pending sales' },
+  'notifications.pendingConfirmation': { es: 'esperando confirmacion', en: 'awaiting confirmation' },
+
   // ----- login -----
   'login.user': { es: 'Usuario', en: 'User' },
   'login.password': { es: 'Contraseña', en: 'Password' },

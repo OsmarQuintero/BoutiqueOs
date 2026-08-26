@@ -102,6 +102,14 @@ export interface Promotion {
   createdAt: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  icon: string;
+  title: string;
+  detail: string;
+  type: 'promo' | 'sale' | 'alert';
+}
+
 export interface SaleRecordItem {
   id: number;
   productId: number;
@@ -442,6 +450,7 @@ export class StoreService {
   customerLoyaltyHistory: LoyaltyTransaction[] = [];
   loyaltyRewards: LoyaltyReward[] = [];
   isRedeemingLoyalty = false;
+  notificationsOpen = false;
   checkoutDiscount = 0;
   selectedPromoId: string | null = null;
   editingPromoId: string | null = null;
@@ -1236,6 +1245,58 @@ export class StoreService {
 
   get cancelledSalesCount(): number {
     return this.salesToday.filter((sale) => sale.status === 'CANCELLED').length;
+  }
+
+  get notifications(): NotificationItem[] {
+    const items: NotificationItem[] = [];
+    const now = new Date();
+    this.promotions
+      .filter((p) => p.active && new Date(p.startsAt) <= now && (!p.endsAt || new Date(p.endsAt) >= now))
+      .forEach((p) => {
+        const daysLeft = p.endsAt
+          ? Math.ceil((new Date(p.endsAt).getTime() - now.getTime()) / 86400000)
+          : null;
+        const detail =
+          p.type === 'PERCENT'
+            ? `${p.value}% off${p.minSubtotal ? ` en compras > ${this.formatMoney(p.minSubtotal)}` : ''}`
+            : `${this.formatMoney(p.value)} off${p.minSubtotal ? ` en compras > ${this.formatMoney(p.minSubtotal)}` : ''}`;
+        const suffix = daysLeft !== null ? ` — ${daysLeft}d restantes` : '';
+        items.push({
+          id: `promo-${p.id}`,
+          icon: '🏷️',
+          title: p.name,
+          detail: detail + suffix,
+          type: 'promo',
+        });
+      });
+    const confirmed = this.confirmedSalesToday;
+    if (confirmed.length > 0) {
+      items.push({
+        id: 'daily-summary',
+        icon: '📊',
+        title: this.t('notifications.dailySummary'),
+        detail: `${confirmed.length} ${this.t('notifications.sales')} · ${this.formatMoney(this.todayTotal)}`,
+        type: 'sale',
+      });
+    }
+    if (this.pendingSalesCount > 0) {
+      items.push({
+        id: 'pending-sales',
+        icon: '⏳',
+        title: this.t('notifications.pendingSales'),
+        detail: `${this.pendingSalesCount} ${this.t('notifications.pendingConfirmation')}`,
+        type: 'alert',
+      });
+    }
+    return items;
+  }
+
+  get notificationCount(): number {
+    return this.notifications.length;
+  }
+
+  toggleNotifications(): void {
+    this.notificationsOpen = !this.notificationsOpen;
   }
 
   get averageTicketToday(): number {

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CategoriesComponent } from './components/categories/categories';
 import { CatalogComponent } from './components/catalog/catalog';
@@ -93,7 +93,14 @@ export class App implements OnInit {
 
     return all;
   }
-  constructor(protected store: StoreService) {}
+  constructor(protected store: StoreService, private elRef: ElementRef) {}
+
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: MouseEvent): void {
+    if (this.store.notificationsOpen && !this.elRef.nativeElement.querySelector('.notif-wrapper')?.contains(e.target)) {
+      this.store.notificationsOpen = false;
+    }
+  }
 
   ngOnInit(): void {
     this.store.initializePublicFlow();
