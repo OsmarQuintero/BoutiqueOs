@@ -2,7 +2,6 @@ package com.osmar.boutiqueos.subscription;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,19 +18,10 @@ public class PlanResolver {
 
     private static final Logger log = LoggerFactory.getLogger(PlanResolver.class);
 
-    private final String priceBasic;
-    private final String pricePro;
+    private final StripePrices stripePrices;
 
-    public PlanResolver(
-            @Value("${app.stripe.price-id:}") String legacyPriceId,
-            @Value("${app.stripe.price-basic:}") String priceBasic,
-            @Value("${app.stripe.price-pro:}") String pricePro
-    ) {
-        String resolvedBasic = (priceBasic != null && !priceBasic.isBlank())
-                ? priceBasic
-                : (legacyPriceId == null ? "" : legacyPriceId);
-        this.priceBasic = resolvedBasic.trim();
-        this.pricePro = pricePro == null ? "" : pricePro.trim();
+    public PlanResolver(StripePrices stripePrices) {
+        this.stripePrices = stripePrices;
     }
 
     /**
@@ -45,10 +35,10 @@ public class PlanResolver {
             return fromMetadata;
         }
 
-        PlanType fromPrice = fromPriceId(priceId);
-        if (fromPrice != null) {
+        var fromPrice = stripePrices.resolve(priceId);
+        if (fromPrice.isPresent()) {
             log.info("Plan deducido del precio {} porque el checkout no traia metadata.plan", priceId);
-            return fromPrice;
+            return fromPrice.get().plan();
         }
 
         log.warn(
@@ -56,6 +46,15 @@ public class PlanResolver {
                 planFromMetadata, priceId
         );
         return PlanType.BASIC;
+    }
+
+    /** Periodo del precio cobrado; si no se reconoce, mensual. */
+    public BillingInterval resolveInterval(String intervalFromMetadata, String priceId) {
+        var fromPrice = stripePrices.resolve(priceId);
+        if (fromPrice.isPresent()) {
+            return fromPrice.get().interval();
+        }
+        return BillingInterval.parse(intervalFromMetadata);
     }
 
     private PlanType fromName(String name) {
@@ -67,19 +66,5 @@ public class PlanResolver {
         } catch (IllegalArgumentException exception) {
             return null;
         }
-    }
-
-    private PlanType fromPriceId(String priceId) {
-        if (priceId == null || priceId.isBlank()) {
-            return null;
-        }
-        String trimmed = priceId.trim();
-        if (!pricePro.isBlank() && pricePro.equals(trimmed)) {
-            return PlanType.PRO;
-        }
-        if (!priceBasic.isBlank() && priceBasic.equals(trimmed)) {
-            return PlanType.BASIC;
-        }
-        return null;
     }
 }

@@ -9,12 +9,13 @@ import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { authInterceptor } from './services/auth.interceptor';
 import { loadingInterceptor } from './services/loading.interceptor';
+import { billingInterceptor } from './services/billing.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection(),
-    provideHttpClient(withInterceptors([loadingInterceptor, authInterceptor])),
+    provideHttpClient(withInterceptors([loadingInterceptor, authInterceptor, billingInterceptor])),
     provideRouter(routes)
   ]
 };

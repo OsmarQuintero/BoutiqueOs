@@ -206,11 +206,17 @@ class LayawayTests {
     }
 
     @Test
-    void sinClientaOSinPlanProNoSeAparta() {
+    void sinClientaOSinPlanNoSeAparta() {
         assertThrows(IllegalArgumentException.class, () -> layawayService.create(new LayawayRequests.Create(999_999L,
                 List.of(new LayawayRequests.Item(vestido.getId(), 1)),
                 new LayawayRequests.Payment(PaymentMethod.CASH, new BigDecimal("100"), null), null, null)));
+        // Los apartados ya vienen en el plan Basico.
         plan(PlanType.BASIC);
+        assertEquals(LayawayStatus.OPEN, apartar(1, "100").getStatus());
+        // Sin plan, no.
+        AccountSubscription sub = subscriptionRepository.findByAccountId(accountId).orElseThrow();
+        sub.setPlan(null);
+        subscriptionRepository.save(sub);
         assertThrows(ResponseStatusException.class, () -> apartar(1, "100"));
     }
 

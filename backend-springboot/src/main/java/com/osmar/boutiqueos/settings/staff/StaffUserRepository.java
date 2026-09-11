@@ -10,4 +10,6 @@ public interface StaffUserRepository extends JpaRepository<StaffUser, Long> {
     Optional<StaffUser> findByIdAndAccountId(Long id, Long accountId);
     Optional<StaffUser> findByUsernameIgnoreCase(String username);
     boolean existsByUsernameIgnoreCase(String username);
+
+    long countByAccountIdAndActiveTrue(Long accountId);
 }

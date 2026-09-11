@@ -193,6 +193,22 @@ class StaffAccessTests {
     }
 
     @Test
+    void elPlanProIncluyeTresUsuariosDeCajaActivos() throws Exception {
+        String primera = crearCajera(usuario(), 10);
+        crearCajera(usuario(), 10);
+        crearCajera(usuario(), 10);
+        mockMvc.perform(post("/api/staff").header(SESSION, ownerToken).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Cuarta\",\"username\":\"" + usuario() + "\",\"password\":\"" + CASHIER_PASSWORD + "\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("hasta 3")));
+        // Si le quitas el acceso a una, se libera el lugar.
+        mockMvc.perform(put("/api/staff/" + primera).header(SESSION, ownerToken).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Lupita\",\"active\":false}"))
+                .andExpect(status().isOk());
+        crearCajera(usuario(), 10);
+    }
+
+    @Test
     void enElPlanBasicoNoHayUsuariosDeCaja() throws Exception {
         plan(accountId, PlanType.BASIC);
         mockMvc.perform(post("/api/staff").header(SESSION, ownerToken).contentType(MediaType.APPLICATION_JSON)

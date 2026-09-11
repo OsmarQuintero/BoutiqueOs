@@ -40,6 +40,16 @@ public class AccountSubscription {
 
     private Instant currentPeriodEnd;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private BillingInterval billingInterval;
+
+    // Cancelada pero vigente hasta currentPeriodEnd (Boolean: columna nueva, puede venir null).
+    private Boolean cancelAtPeriodEnd;
+
+    // Desde cuando no se ha podido cobrar: de aqui cuentan los dias de gracia.
+    private Instant pastDueSince;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -82,4 +92,10 @@ public class AccountSubscription {
     public boolean isActive() {
         return status == SubscriptionStatus.ACTIVE || status == SubscriptionStatus.TRIALING;
     }
+    public BillingInterval getBillingInterval() { return billingInterval; }
+    public void setBillingInterval(BillingInterval billingInterval) { this.billingInterval = billingInterval; }
+    public boolean isCancelAtPeriodEnd() { return Boolean.TRUE.equals(cancelAtPeriodEnd); }
+    public void setCancelAtPeriodEnd(boolean cancelAtPeriodEnd) { this.cancelAtPeriodEnd = cancelAtPeriodEnd; }
+    public Instant getPastDueSince() { return pastDueSince; }
+    public void setPastDueSince(Instant pastDueSince) { this.pastDueSince = pastDueSince; }
 }

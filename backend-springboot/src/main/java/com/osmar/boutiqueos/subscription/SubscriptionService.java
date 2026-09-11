@@ -7,7 +7,6 @@ import com.osmar.boutiqueos.onboarding.OnboardingService;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.customer.CustomerRepository;
 import com.osmar.boutiqueos.sale.SaleRepository;
-import com.osmar.boutiqueos.settings.AppSettings;
 import com.osmar.boutiqueos.settings.AppSettingsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,16 +25,29 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Suscripciones con Stripe.
+ *
+ * <p>Reglas para que el negocio cobre lo que da y no deje a nadie sin sus datos:
+ * <ul>
+ *   <li>Con pago vencido hay {@value #GRACE_DAYS} dias de gracia; despues la cuenta
+ *       queda en solo lectura (consulta y respaldo si, vender no) hasta que pague.</li>
+ *   <li>Cancelar no quita el acceso de golpe: sigue hasta el fin del periodo pagado.</li>
+ *   <li>Quien ya tiene suscripcion cambia de plan o de periodo en el portal de Stripe
+ *       (con prorrateo), nunca con un segundo checkout que le cobraria doble.</li>
+ *   <li>El precio lo decide el servidor a partir del plan y el periodo.</li>
+ * </ul>
+ */
 @Service
 public class SubscriptionService {
 
     private static final Logger log = LoggerFactory.getLogger(SubscriptionService.class);
+    static final int GRACE_DAYS = 7;
 
     private final AccountSubscriptionRepository subscriptionRepository;
     private final AccountContext accountContext;
@@ -44,6 +56,7 @@ public class SubscriptionService {
     private final SaleRepository saleRepository;
     private final AppSettingsRepository appSettingsRepository;
     private final OnboardingService onboardingService;
+    private final StripePrices stripePrices;
     private final String stripeSecretKey;
     private final String frontendUrl;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -60,7 +73,8 @@ public class SubscriptionService {
             AppSettingsRepository appSettingsRepository,
             @Value("${app.stripe.secret-key:}") String stripeSecretKey,
             @Value("${app.frontend.url:http://localhost:4200}") String frontendUrl,
-            OnboardingService onboardingService
+            OnboardingService onboardingService,
+            StripePrices stripePrices
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.accountContext = accountContext;
@@ -71,6 +85,7 @@ public class SubscriptionService {
         this.stripeSecretKey = stripeSecretKey == null ? "" : stripeSecretKey.trim();
         this.frontendUrl = frontendUrl == null ? "http://localhost:4200" : frontendUrl.trim().replaceAll("/+$", "");
         this.onboardingService = onboardingService;
+        this.stripePrices = stripePrices;
     }
 
     @Transactional
@@ -88,7 +103,12 @@ public class SubscriptionService {
     public SubscriptionResponse getCurrentSubscription() {
         Long accountId = accountContext.requireAccountId();
         AccountSubscription sub = getOrCreateForAccount(accountId);
-        return SubscriptionResponse.from(sub, getUsage(accountId, sub.getPlan()));
+        return response(accountId, sub);
+    }
+
+    private SubscriptionResponse response(Long accountId, AccountSubscription sub) {
+        boolean blocked = !isDemoAccount(accountId) && standing(sub) == Standing.BLOCKED;
+        return SubscriptionResponse.from(sub, getUsage(accountId, sub.getPlan()), graceEndsAt(sub), blocked);
     }
 
     @Transactional
@@ -154,6 +174,72 @@ public class SubscriptionService {
         return result;
     }
 
+    /**
+     * Descargar el respaldo: con un plan que lo incluya, y tambien con la
+     * suscripcion cancelada o vencida. Los datos son de la tienda (y el aviso de
+     * privacidad promete acceso a ellos); lo que se corta es vender, no sacar su informacion.
+     */
+    public void requireDataExport() {
+        Long accountId = accountContext.requireAccountId();
+        if (isDemoAccount(accountId)) return;
+        AccountSubscription sub = getOrCreateForAccount(accountId);
+        if (sub.getPlan() != null && sub.getPlan().hasFeature("backup")) return;
+        if (sub.getStatus() == SubscriptionStatus.CANCELLED || sub.getStatus() == SubscriptionStatus.UNPAID
+                || sub.getStatus() == SubscriptionStatus.PAST_DUE) return;
+        requireFeature("backup");
+    }
+
+    /** Usuarias de caja activas que permite el plan de la cuenta. */
+    public int maxStaffUsers(Long accountId) {
+        if (isDemoAccount(accountId)) return 50;
+        PlanType plan = getOrCreateForAccount(accountId).getPlan();
+        return plan == null ? 0 : plan.getMaxStaffUsers();
+    }
+
+    // ------------------------------------------------------------------ acceso
+
+    enum Standing { OK, GRACE, BLOCKED }
+
+    Standing standing(AccountSubscription sub) {
+        if (sub.getPlan() == null) {
+            return Standing.BLOCKED;
+        }
+        return switch (sub.getStatus()) {
+            // INCOMPLETE con plan: cuentas viejas cuyo checkout de cambio quedo a medias.
+            case ACTIVE, TRIALING, INCOMPLETE -> Standing.OK;
+            case PAST_DUE -> Instant.now().isBefore(graceEndsAt(sub)) ? Standing.GRACE : Standing.BLOCKED;
+            case CANCELLED, UNPAID, INCOMPLETE_EXPIRED -> Standing.BLOCKED;
+        };
+    }
+
+    private Instant graceEndsAt(AccountSubscription sub) {
+        if (sub.getStatus() != SubscriptionStatus.PAST_DUE) {
+            return null;
+        }
+        Instant since = sub.getPastDueSince() != null ? sub.getPastDueSince() : sub.getUpdatedAt();
+        return since.plus(Duration.ofDays(GRACE_DAYS));
+    }
+
+    /**
+     * Por que esta cuenta no puede modificar nada, o null si si puede. Consultar y
+     * descargar el respaldo siempre se permite: los datos son de la tienda.
+     */
+    @Transactional(readOnly = true)
+    public String writeBlockReason(Long accountId) {
+        if (isDemoAccount(accountId)) return null;
+        // Sin registro de suscripcion no se bloquea de golpe: checkLimits ya pide plan.
+        AccountSubscription sub = subscriptionRepository.findByAccountId(accountId).orElse(null);
+        if (sub == null || standing(sub) != Standing.BLOCKED) {
+            return null;
+        }
+        if (sub.getStatus() == SubscriptionStatus.PAST_DUE) {
+            return "Tu pago esta vencido desde hace mas de " + GRACE_DAYS + " dias. Actualiza tu tarjeta en "
+                    + "Configuracion > Suscripcion para volver a vender. Mientras tanto puedes consultar y respaldar tu informacion.";
+        }
+        return "Tu suscripcion no esta activa. Elige un plan en Configuracion > Suscripcion para volver a vender. "
+                + "Mientras tanto puedes consultar y respaldar tu informacion.";
+    }
+
     private boolean isDemoAccount(Long accountId) {
         return appSettingsRepository.findById(accountId)
                 .map(s -> "admin".equals(s.getRole()))
@@ -173,15 +259,32 @@ public class SubscriptionService {
         };
     }
 
-    public String createCheckoutSession(PlanType targetPlan, String priceId) {
+    /** Tiene una suscripcion viva en Stripe: los cambios van por el portal. */
+    private static boolean hasLiveStripeSubscription(AccountSubscription sub) {
+        return sub.getStripeSubscriptionId() != null && !sub.getStripeSubscriptionId().isBlank()
+                && sub.getPlan() != null
+                && sub.getStatus() != SubscriptionStatus.CANCELLED
+                && sub.getStatus() != SubscriptionStatus.INCOMPLETE_EXPIRED;
+    }
+
+    // ---------------------------------------------------------------- checkout
+
+    @Transactional
+    public String createCheckoutSession(PlanType targetPlan, BillingInterval interval) {
+        Long accountId = accountContext.requireAccountId();
+        AccountSubscription sub = getOrCreateForAccount(accountId);
+        if (hasLiveStripeSubscription(sub)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ya tienes una suscripcion. Para cambiar de plan o pasar a pago anual usa \"Administrar suscripcion\".");
+        }
         if (stripeSecretKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe is not configured");
         }
-        if (priceId == null || priceId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price ID is required");
+        String priceId = stripePrices.priceFor(targetPlan, interval);
+        if (priceId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "El precio " + targetPlan.name() + " " + interval.name() + " no esta configurado");
         }
-
-        Long accountId = accountContext.requireAccountId();
 
         try {
             String successUrl = frontendUrl + "/?subscription=success&plan=" + targetPlan.name();
@@ -196,41 +299,19 @@ public class SubscriptionService {
             form.add("allow_promotion_codes=true");
             form.add("metadata[account_id]=" + encode(String.valueOf(accountId)));
             form.add("metadata[plan]=" + encode(targetPlan.name()));
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.stripe.com/v1/checkout/sessions"))
-                    .header("Authorization", "Basic " + Base64.getEncoder()
-                            .encodeToString((stripeSecretKey + ":").getBytes(StandardCharsets.UTF_8)))
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .timeout(Duration.ofSeconds(15))
-                    .POST(HttpRequest.BodyPublishers.ofString(String.join("&", form)))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 400) {
-                String detail = describeStripeError(response);
-                log.error("Stripe subscription checkout failed: status={} detail={}", response.statusCode(), detail);
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, detail);
+            form.add("metadata[interval]=" + encode(interval.name()));
+            // La suscripcion tambien lleva la cuenta: sirve para los eventos que llegan despues.
+            form.add("subscription_data[metadata][account_id]=" + encode(String.valueOf(accountId)));
+            // Si ya fue clienta (cancelo y vuelve), se reusa su cliente de Stripe y su historial.
+            if (sub.getStripeCustomerId() != null && !sub.getStripeCustomerId().isBlank()) {
+                form.add("customer=" + encode(sub.getStripeCustomerId()));
             }
 
-            JsonNode payload = objectMapper.readTree(response.body());
+            JsonNode payload = stripePost("/v1/checkout/sessions", form);
             String url = payload.path("url").asText("");
             if (url.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe checkout URL is missing");
             }
-
-            String sessionId = payload.path("id").asText("");
-            String customerId = payload.path("customer").asText("");
-
-            AccountSubscription sub = getOrCreateForAccount(accountId);
-            if (customerId != null && !customerId.isBlank()) {
-                sub.setStripeCustomerId(customerId);
-            }
-            sub.setStripePriceId(priceId);
-            sub.setStatus(SubscriptionStatus.INCOMPLETE);
-            sub.setUpdatedAt(Instant.now());
-            subscriptionRepository.save(sub);
-
             return url;
         } catch (ResponseStatusException exception) {
             throw exception;
@@ -239,6 +320,40 @@ public class SubscriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe checkout failed");
         }
     }
+
+    /**
+     * Portal de Stripe: cambiar de plan o a anual (con prorrateo), actualizar la
+     * tarjeta, ver facturas y cancelar. Menos codigo propio y menos soporte.
+     */
+    @Transactional(readOnly = true)
+    public String createPortalSession() {
+        Long accountId = accountContext.requireAccountId();
+        AccountSubscription sub = getOrCreateForAccount(accountId);
+        if (sub.getStripeCustomerId() == null || sub.getStripeCustomerId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Todavia no tienes pagos en Stripe. Elige un plan para empezar.");
+        }
+        if (stripeSecretKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stripe is not configured");
+        }
+        try {
+            List<String> form = new ArrayList<>();
+            form.add("customer=" + encode(sub.getStripeCustomerId()));
+            form.add("return_url=" + encode(frontendUrl + "/?subscription=portal"));
+            String url = stripePost("/v1/billing_portal/sessions", form).path("url").asText("");
+            if (url.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe portal URL is missing");
+            }
+            return url;
+        } catch (ResponseStatusException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.error("Stripe billing portal failed", exception);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe portal failed");
+        }
+    }
+
+    // ---------------------------------------------------------------- webhooks
 
     @Transactional
     public void handleWebhookEvent(String eventType, JsonNode data) {
@@ -249,6 +364,7 @@ public class SubscriptionService {
             case "customer.subscription.updated" -> handleSubscriptionUpdated(data);
             case "customer.subscription.deleted" -> handleSubscriptionDeleted(data);
             case "invoice.payment_failed" -> handlePaymentFailed(data);
+            case "invoice.paid" -> handleInvoicePaid(data);
             default -> log.debug("Ignoring Stripe event: {}", eventType);
         }
     }
@@ -262,8 +378,7 @@ public class SubscriptionService {
 
         if (accountIdStr.isBlank()) {
             // Compra desde la landing: todavia no existe la cuenta, por eso el
-            // checkout no pudo mandar account_id. Antes se descartaba aqui y el
-            // pago quedaba solo en Stripe; ahora se registra y se le manda al
+            // checkout no pudo mandar account_id. Se registra y se le manda al
             // cliente el enlace para activar.
             String checkoutSessionId = session.path("id").asText("");
             if (checkoutSessionId.isBlank()) {
@@ -286,28 +401,35 @@ public class SubscriptionService {
                 sub.setPlan(PlanType.valueOf(planStr));
             } catch (IllegalArgumentException ignored) {}
         }
+        sub.setBillingInterval(BillingInterval.parse(session.path("metadata").path("interval").asText("")));
         sub.setStatus(SubscriptionStatus.ACTIVE);
+        sub.setPastDueSince(null);
+        sub.setCancelAtPeriodEnd(false);
         sub.setUpdatedAt(Instant.now());
 
+        // La suscripcion de Stripe es la fuente de verdad: plan y periodo salen del precio cobrado.
         if (!subscriptionId.isBlank()) {
-            fetchSubscriptionPeriods(subscriptionId, sub);
+            JsonNode subscription = fetchSubscription(subscriptionId);
+            if (subscription != null) {
+                applySubscription(subscription, sub);
+            }
         }
 
         subscriptionRepository.save(sub);
-        log.info("Activated subscription for account {}: plan={}", accountId, sub.getPlan());
+        log.info("Activated subscription for account {}: plan={} interval={}", accountId, sub.getPlan(), sub.getBillingInterval());
     }
 
     private void handleSubscriptionUpdated(JsonNode data) {
         String subscriptionId = data.path("id").asText("");
         if (subscriptionId.isBlank()) return;
 
-        subscriptionRepository.findByStripeSubscriptionId(subscriptionId).ifPresent(sub -> {
-            String status = data.path("status").asText("");
-            sub.setStatus(mapStripeStatus(status));
+        findSubscription(subscriptionId, data).ifPresent(sub -> {
+            SubscriptionStatus status = mapStripeStatus(data.path("status").asText(""));
+            setStatus(sub, status);
+            applySubscription(data, sub);
             sub.setUpdatedAt(Instant.now());
-            fetchSubscriptionPeriods(subscriptionId, sub);
             subscriptionRepository.save(sub);
-            log.info("Updated subscription {}: status={}", subscriptionId, status);
+            log.info("Updated subscription {}: status={} plan={} interval={}", subscriptionId, status, sub.getPlan(), sub.getBillingInterval());
         });
     }
 
@@ -315,87 +437,162 @@ public class SubscriptionService {
         String subscriptionId = data.path("id").asText("");
         if (subscriptionId.isBlank()) return;
 
-        subscriptionRepository.findByStripeSubscriptionId(subscriptionId).ifPresent(sub -> {
+        findSubscription(subscriptionId, data).ifPresent(sub -> {
             sub.setStatus(SubscriptionStatus.CANCELLED);
             sub.setPlan(null);
+            sub.setCancelAtPeriodEnd(false);
+            sub.setPastDueSince(null);
             sub.setUpdatedAt(Instant.now());
             subscriptionRepository.save(sub);
             log.info("Cancelled subscription {}: reverted to no plan", subscriptionId);
         });
     }
 
-    private void handlePaymentFailed(JsonNode data) {
-        String subscriptionId = data.path("subscription").asText("");
+    private void handlePaymentFailed(JsonNode invoice) {
+        String subscriptionId = invoiceSubscriptionId(invoice);
         if (subscriptionId.isBlank()) return;
 
         subscriptionRepository.findByStripeSubscriptionId(subscriptionId).ifPresent(sub -> {
-            sub.setStatus(SubscriptionStatus.PAST_DUE);
+            setStatus(sub, SubscriptionStatus.PAST_DUE);
             sub.setUpdatedAt(Instant.now());
             subscriptionRepository.save(sub);
             log.warn("Payment failed for subscription {}", subscriptionId);
         });
     }
 
-    private void fetchSubscriptionPeriods(String stripeSubscriptionId, AccountSubscription sub) {
-        if (stripeSecretKey.isBlank()) return;
+    /** Pago cobrado (renovacion o tarjeta actualizada): vuelve a estar al corriente. */
+    private void handleInvoicePaid(JsonNode invoice) {
+        String subscriptionId = invoiceSubscriptionId(invoice);
+        if (subscriptionId.isBlank()) return;
+
+        subscriptionRepository.findByStripeSubscriptionId(subscriptionId).ifPresent(sub -> {
+            if (sub.getStatus() == SubscriptionStatus.PAST_DUE || sub.getStatus() == SubscriptionStatus.UNPAID
+                    || sub.getStatus() == SubscriptionStatus.INCOMPLETE) {
+                setStatus(sub, SubscriptionStatus.ACTIVE);
+            }
+            sub.setUpdatedAt(Instant.now());
+            subscriptionRepository.save(sub);
+            log.info("Invoice paid for subscription {}", subscriptionId);
+        });
+    }
+
+    /** Antes el id venia en invoice.subscription; en versiones nuevas de la API, en parent.subscription_details. */
+    static String invoiceSubscriptionId(JsonNode invoice) {
+        String direct = invoice.path("subscription").asText("");
+        if (!direct.isBlank()) {
+            return direct;
+        }
+        return invoice.path("parent").path("subscription_details").path("subscription").asText("");
+    }
+
+    private java.util.Optional<AccountSubscription> findSubscription(String subscriptionId, JsonNode subscription) {
+        var byId = subscriptionRepository.findByStripeSubscriptionId(subscriptionId);
+        if (byId.isPresent()) {
+            return byId;
+        }
+        String accountId = subscription.path("metadata").path("account_id").asText("");
+        if (accountId.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return subscriptionRepository.findByAccountId(Long.parseLong(accountId)).map(sub -> {
+            sub.setStripeSubscriptionId(subscriptionId);
+            return sub;
+        });
+    }
+
+    private static void setStatus(AccountSubscription sub, SubscriptionStatus status) {
+        if (status == SubscriptionStatus.PAST_DUE) {
+            if (sub.getPastDueSince() == null) {
+                sub.setPastDueSince(Instant.now());
+            }
+        } else {
+            sub.setPastDueSince(null);
+        }
+        sub.setStatus(status);
+    }
+
+    /**
+     * Plan, periodo, fechas y cancelacion desde el objeto subscription de Stripe.
+     * Desde la API 2025 las fechas del periodo viven en cada item, no en la suscripcion.
+     */
+    void applySubscription(JsonNode subscription, AccountSubscription sub) {
+        JsonNode item = subscription.path("items").path("data").path(0);
+        String priceId = item.path("price").path("id").asText("");
+        if (!priceId.isBlank()) {
+            sub.setStripePriceId(priceId);
+            stripePrices.resolve(priceId).ifPresent(match -> {
+                sub.setPlan(match.plan());
+                sub.setBillingInterval(match.interval());
+            });
+        }
+        long start = firstPositive(subscription.path("current_period_start").asLong(0), item.path("current_period_start").asLong(0));
+        long end = firstPositive(subscription.path("current_period_end").asLong(0), item.path("current_period_end").asLong(0));
+        if (start > 0) sub.setCurrentPeriodStart(Instant.ofEpochSecond(start));
+        if (end > 0) sub.setCurrentPeriodEnd(Instant.ofEpochSecond(end));
+        if (subscription.has("cancel_at_period_end") || subscription.has("cancel_at")) {
+            boolean cancelling = subscription.path("cancel_at_period_end").asBoolean(false)
+                    || subscription.path("cancel_at").asLong(0) > 0;
+            sub.setCancelAtPeriodEnd(cancelling);
+        }
+    }
+
+    private static long firstPositive(long a, long b) {
+        return a > 0 ? a : b;
+    }
+
+    private JsonNode fetchSubscription(String stripeSubscriptionId) {
+        if (stripeSecretKey.isBlank()) return null;
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.stripe.com/v1/subscriptions/" + stripeSubscriptionId))
-                    .header("Authorization", "Basic " + Base64.getEncoder()
-                            .encodeToString((stripeSecretKey + ":").getBytes(StandardCharsets.UTF_8)))
+                    .header("Authorization", authHeader())
                     .timeout(Duration.ofSeconds(10))
                     .GET()
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 400) {
-                JsonNode payload = objectMapper.readTree(response.body());
-                long periodStart = payload.path("current_period_start").asLong(0);
-                long periodEnd = payload.path("current_period_end").asLong(0);
-                if (periodStart > 0) sub.setCurrentPeriodStart(Instant.ofEpochSecond(periodStart));
-                if (periodEnd > 0) sub.setCurrentPeriodEnd(Instant.ofEpochSecond(periodEnd));
+                return objectMapper.readTree(response.body());
             }
         } catch (Exception exception) {
-            log.warn("Failed to fetch subscription periods from Stripe: {}", exception.getMessage());
+            log.warn("Failed to fetch subscription from Stripe: {}", exception.getMessage());
         }
+        return null;
     }
 
+    // ---------------------------------------------------------------- cancelar
+
+    /**
+     * Con suscripcion en Stripe: se cancela al final del periodo pagado y el acceso
+     * sigue hasta entonces (el evento customer.subscription.deleted lo cierra).
+     */
     @Transactional
     public SubscriptionResponse cancelSubscription() {
         Long accountId = accountContext.requireAccountId();
         AccountSubscription sub = getOrCreateForAccount(accountId);
 
-        if (sub.getStripeSubscriptionId() != null && !sub.getStripeSubscriptionId().isBlank()) {
-            cancelStripeSubscription(sub.getStripeSubscriptionId());
+        if (hasLiveStripeSubscription(sub)) {
+            if (!stripeSecretKey.isBlank()) {
+                List<String> form = List.of("cancel_at_period_end=true");
+                try {
+                    stripePost("/v1/subscriptions/" + sub.getStripeSubscriptionId(), form);
+                } catch (ResponseStatusException exception) {
+                    throw exception;
+                } catch (Exception exception) {
+                    log.warn("Failed to cancel Stripe subscription: {}", exception.getMessage());
+                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                            "No se pudo cancelar en Stripe. Intenta de nuevo o usa \"Administrar suscripcion\".");
+                }
+            }
+            sub.setCancelAtPeriodEnd(true);
+        } else {
+            // Cuentas sin cobro en Stripe (alta manual): no hay periodo pagado que respetar.
+            sub.setStatus(SubscriptionStatus.CANCELLED);
+            sub.setPlan(null);
         }
-
-        sub.setStatus(SubscriptionStatus.CANCELLED);
-        sub.setPlan(null);
         sub.setUpdatedAt(Instant.now());
         subscriptionRepository.save(sub);
-
-        return SubscriptionResponse.from(sub, getUsage(accountId, sub.getPlan()));
-    }
-
-    private void cancelStripeSubscription(String stripeSubscriptionId) {
-        if (stripeSecretKey.isBlank()) return;
-        try {
-            List<String> form = new ArrayList<>();
-            form.add("cancel_at_period_end=true");
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.stripe.com/v1/subscriptions/" + stripeSubscriptionId))
-                    .header("Authorization", "Basic " + Base64.getEncoder()
-                            .encodeToString((stripeSecretKey + ":").getBytes(StandardCharsets.UTF_8)))
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .timeout(Duration.ofSeconds(10))
-                    .POST(HttpRequest.BodyPublishers.ofString(String.join("&", form)))
-                    .build();
-
-            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (Exception exception) {
-            log.warn("Failed to cancel Stripe subscription: {}", exception.getMessage());
-        }
+        return response(accountId, sub);
     }
 
     private SubscriptionStatus mapStripeStatus(String stripeStatus) {
@@ -403,11 +600,33 @@ public class SubscriptionService {
             case "active" -> SubscriptionStatus.ACTIVE;
             case "trialing" -> SubscriptionStatus.TRIALING;
             case "past_due" -> SubscriptionStatus.PAST_DUE;
-            case "canceled", "unpaid" -> SubscriptionStatus.CANCELLED;
+            case "unpaid" -> SubscriptionStatus.UNPAID;
+            case "canceled" -> SubscriptionStatus.CANCELLED;
             case "incomplete" -> SubscriptionStatus.INCOMPLETE;
             case "incomplete_expired" -> SubscriptionStatus.INCOMPLETE_EXPIRED;
             default -> SubscriptionStatus.ACTIVE;
         };
+    }
+
+    private JsonNode stripePost(String path, List<String> form) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.stripe.com" + path))
+                .header("Authorization", authHeader())
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .timeout(Duration.ofSeconds(15))
+                .POST(HttpRequest.BodyPublishers.ofString(String.join("&", form)))
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            String detail = describeStripeError(response);
+            log.error("Stripe {} failed: status={} detail={}", path, response.statusCode(), detail);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, detail);
+        }
+        return objectMapper.readTree(response.body());
+    }
+
+    private String authHeader() {
+        return "Basic " + Base64.getEncoder().encodeToString((stripeSecretKey + ":").getBytes(StandardCharsets.UTF_8));
     }
 
     private String describeStripeError(HttpResponse<String> response) {

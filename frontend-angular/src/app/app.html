@@ -61,6 +61,16 @@
       (viewChange)="openView($event)"
     />
 
+    @if (store.billingBanner || billingNotice.message()) {
+      <!-- Cobro: pago vencido (con dias de gracia) o cuenta en solo lectura. -->
+      <div class="billing-banner" [class.billing-banner-grace]="store.billingBanner?.kind === 'grace'" role="alert">
+        <span>{{ store.billingBanner?.text || billingNotice.message() }}</span>
+        @if (!store.isCashier) {
+          <button class="btn btn-outline btn-xs" (click)="goToSubscription()">{{ store.t('billing.goPay') }}</button>
+        }
+      </div>
+    }
+
     <div class="content">
       <!--
         Estas metricas son del carrito en curso (total, metodo de pago, pendientes),

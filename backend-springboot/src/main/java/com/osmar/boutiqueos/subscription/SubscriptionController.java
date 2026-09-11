@@ -19,7 +19,10 @@ import org.springframework.web.server.ResponseStatusException;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,20 +33,17 @@ public class SubscriptionController {
     private static final Logger log = LoggerFactory.getLogger(SubscriptionController.class);
 
     private final SubscriptionService subscriptionService;
+    private final StripePrices stripePrices;
     private final String stripeWebhookSecret;
-    private final String priceBasic;
-    private final String pricePro;
 
     public SubscriptionController(
             SubscriptionService subscriptionService,
-            @Value("${app.stripe.webhook-secret:}") String stripeWebhookSecret,
-            @Value("${app.stripe.price-basic:}") String priceBasic,
-            @Value("${app.stripe.price-pro:}") String pricePro
+            StripePrices stripePrices,
+            @Value("${app.stripe.webhook-secret:}") String stripeWebhookSecret
     ) {
         this.subscriptionService = subscriptionService;
+        this.stripePrices = stripePrices;
         this.stripeWebhookSecret = stripeWebhookSecret == null ? "" : stripeWebhookSecret.trim();
-        this.priceBasic = priceBasic == null ? "" : priceBasic.trim();
-        this.pricePro = pricePro == null ? "" : pricePro.trim();
     }
 
     @GetMapping
@@ -56,54 +56,64 @@ public class SubscriptionController {
         return subscriptionService.getAvailableFeatures();
     }
 
+    /**
+     * Planes para mostrar en el sistema. Los importes son solo para pintar: lo que
+     * se cobra de verdad es el precio de Stripe (anual = 10 meses, 2 gratis).
+     */
     @GetMapping("/plans")
     public List<Map<String, Object>> getPlans() {
         return List.of(
-            Map.of(
-                "plan", "BASIC",
-                "name", "Boutique OS Básico",
-                "price", "$500 MXN/mes",
-                "priceId", priceBasic,
-                "features", List.of(
-                    "Productos, clientes y ventas ilimitados",
-                    "Categorías e inventario básico",
-                    "Punto de venta completo"
-                )
-            ),
-            Map.of(
-                "plan", "PRO",
-                "name", "Boutique OS Pro",
-                "price", "$1,000 MXN/mes",
-                "priceId", pricePro,
-                "features", List.of(
-                    "Todo lo del plan Básico",
-                    "Ticket personalizado con tu marca y logo",
-                    "Reportes avanzados y corte de caja",
-                    "Historial y CRM de clientes",
-                    "Promociones y descuentos",
-                    "Compras a proveedores",
-                    "Devoluciones con trazabilidad",
-                    "Multi-usuario",
-                    "Respaldo de datos (Excel, CSV, PDF)",
-                    "Soporte prioritario"
-                )
-            )
+                plan(PlanType.BASIC, "Boutique OS Básico", "$499 MXN/mes", "$4,990 MXN/año", "$416 MXN/mes", List.of(
+                        "Productos, clientes y ventas ilimitados",
+                        "Punto de venta con escáner y pago mixto",
+                        "Tallas, colores y etiquetas con código de barras",
+                        "Apartados, devoluciones y corte de caja diario",
+                        "Importa tu inventario desde Excel",
+                        "Alertas de stock bajo y respaldo completo"
+                )),
+                plan(PlanType.PRO, "Boutique OS Pro", "$999 MXN/mes", "$9,990 MXN/año", "$833 MXN/mes", List.of(
+                        "Todo lo del plan Básico",
+                        "Hasta 3 usuarios de caja con permisos",
+                        "Reportes por periodo con utilidad",
+                        "Promociones y puntos de lealtad",
+                        "Historial de compras de tus clientas",
+                        "Compras a proveedores",
+                        "Ticket con tu logo y tus textos"
+                ))
         );
+    }
+
+    private Map<String, Object> plan(PlanType type, String name, String monthly, String annual,
+                                     String annualPerMonth, List<String> features) {
+        Map<String, Object> plan = new LinkedHashMap<>();
+        plan.put("plan", type.name());
+        plan.put("name", name);
+        plan.put("price", monthly);
+        plan.put("priceId", stripePrices.priceFor(type, BillingInterval.MONTHLY));
+        plan.put("annualPrice", annual);
+        plan.put("annualPerMonth", annualPerMonth);
+        plan.put("annualPriceId", stripePrices.priceFor(type, BillingInterval.ANNUAL));
+        plan.put("annualSavings", "2 meses gratis");
+        plan.put("features", new ArrayList<>(features));
+        return plan;
     }
 
     @PostMapping("/checkout")
     public Map<String, String> createCheckout(@Valid @RequestBody CheckoutRequest request) {
         PlanType plan;
         try {
-            plan = PlanType.valueOf(request.plan().toUpperCase());
+            plan = PlanType.valueOf(request.plan() == null ? "" : request.plan().trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Invalid plan: " + request.plan());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid plan: " + request.plan());
         }
-
-        String priceId = resolvePriceId(plan, request.priceId());
-        String url = subscriptionService.createCheckoutSession(plan, priceId);
+        String url = subscriptionService.createCheckoutSession(plan, BillingInterval.parse(request.interval()));
         return Map.of("checkoutUrl", url);
+    }
+
+    /** Portal de pagos de Stripe: cambiar de plan o periodo, tarjeta, facturas y cancelar. */
+    @PostMapping("/portal")
+    public Map<String, String> portal() {
+        return Map.of("url", subscriptionService.createPortalSession());
     }
 
     @PostMapping("/cancel")
@@ -118,13 +128,15 @@ public class SubscriptionController {
             log.warn("Stripe webhook received but webhook secret is not configured - rejecting");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+        // Sin firma no se procesa: antes, un POST sin el encabezado se aceptaba sin
+        // verificar y cualquiera podia activar planes o cambiar suscripciones.
+        if (signatureHeader == null || signatureHeader.isBlank()) {
+            log.warn("Stripe webhook without signature - rejecting");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
 
         try {
-            String payload = body;
-            if (!stripeWebhookSecret.isBlank() && signatureHeader != null) {
-                payload = verifyWebhookSignature(body, signatureHeader);
-            }
-
+            String payload = verifyWebhookSignature(body, signatureHeader);
             ObjectMapper mapper = new ObjectMapper();
             JsonNode event = mapper.readTree(payload);
             String eventType = event.path("type").asText("");
@@ -138,33 +150,23 @@ public class SubscriptionController {
         }
     }
 
-    private String resolvePriceId(PlanType plan, String requestedPriceId) {
-        if (requestedPriceId != null && !requestedPriceId.isBlank()) {
-            return requestedPriceId;
-        }
-        return switch (plan) {
-            case BASIC -> priceBasic;
-            case PRO -> pricePro;
-            default -> "";
-        };
-    }
-
     private String verifyWebhookSignature(String body, String signatureHeader) {
         try {
-            String[] pairs = signatureHeader.split(",");
             String timestamp = null;
-            String signature = null;
-            for (String pair : pairs) {
+            List<String> signatures = new ArrayList<>();
+            for (String pair : signatureHeader.split(",")) {
                 String[] kv = pair.split("=", 2);
                 if (kv.length == 2) {
                     if ("t".equals(kv[0].trim())) {
                         timestamp = kv[1].trim();
                     } else if ("v1".equals(kv[0].trim())) {
-                        signature = kv[1].trim();
+                        // Stripe manda varias firmas v1 mientras se rota el secreto.
+                        signatures.add(kv[1].trim());
                     }
                 }
             }
-            if (timestamp == null || signature == null) {
+
+            if (timestamp == null || signatures.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid webhook signature format");
             }
 
@@ -176,12 +178,14 @@ public class SubscriptionController {
             String signedPayload = timestamp + "." + body;
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(stripeWebhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            String computedHex = bytesToHex(mac.doFinal(signedPayload.getBytes(StandardCharsets.UTF_8)));
-
-            if (!computedHex.equals(signature)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Webhook signature mismatch");
+            byte[] computed = bytesToHex(mac.doFinal(signedPayload.getBytes(StandardCharsets.UTF_8)))
+                    .getBytes(StandardCharsets.UTF_8);
+            for (String signature : signatures) {
+                if (MessageDigest.isEqual(computed, signature.getBytes(StandardCharsets.UTF_8))) {
+                    return body;
+                }
             }
-            return body;
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Webhook signature mismatch");
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {

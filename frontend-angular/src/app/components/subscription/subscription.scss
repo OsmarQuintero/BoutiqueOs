@@ -220,3 +220,99 @@
     background: #fef2f2;
   }
 }
+
+// Plan, periodo y avisos de cobro.
+.sub-plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.sub-interval {
+  margin-bottom: 12px;
+  padding: 2px 10px;
+  border: 1px solid var(--border, #e7e4de);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-secondary, #6b6862);
+}
+
+.sub-alert {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #efb6b6;
+  background: #fdf1f1;
+  color: #7f2a2a;
+  font-size: 13px;
+}
+
+.sub-alert-grace {
+  border-color: #e8cf8f;
+  background: #fcf6e6;
+  color: #6b4e10;
+}
+
+.sub-manage {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-bottom: 16px;
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary, #6b6862);
+  }
+}
+
+// Mensual / Anual.
+.sub-interval-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border, #e7e4de);
+  border-radius: 20px;
+
+  button {
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 16px;
+    background: transparent;
+    color: var(--text-secondary, #6b6862);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  button.active {
+    background: var(--ink-black);
+    color: var(--gold-bright);
+    font-weight: 600;
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
+
+.sub-save {
+  margin-left: 4px;
+  font-size: 11px;
+  color: #059669;
+}
+
+.sub-interval-toggle button.active .sub-save {
+  color: var(--gold-bright);
+}
+
+.plan-price-note {
+  margin: -8px 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #6b6862);
+}
+
+// En la columna angosta de Configuracion una sola tarjeta de plan por fila.
+.sub-plans {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}

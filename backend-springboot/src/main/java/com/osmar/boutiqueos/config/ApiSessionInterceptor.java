@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.config;
 
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import com.osmar.boutiqueos.settings.AuthSessionService;
 import com.osmar.boutiqueos.settings.SessionInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,13 +33,23 @@ public class ApiSessionInterceptor implements HandlerInterceptor {
     private final AccountContext accountContext;
     private final CurrentUser currentUser;
     private final CashierPolicy cashierPolicy;
+    private final SubscriptionService subscriptionService;
+
+    // Aun sin pago se puede pagar, salir y cambiar la contrasena.
+    private static final String[] BILLING_EXEMPT_PREFIXES = {
+            "/api/subscription/",
+            "/api/settings/logout",
+            "/api/settings/credentials"
+    };
 
     public ApiSessionInterceptor(
             AuthSessionService authSessionService,
             AccountContext accountContext,
             CurrentUser currentUser,
-            CashierPolicy cashierPolicy
+            CashierPolicy cashierPolicy,
+            SubscriptionService subscriptionService
     ) {
+        this.subscriptionService = subscriptionService;
         this.authSessionService = authSessionService;
         this.accountContext = accountContext;
         this.currentUser = currentUser;
@@ -76,7 +87,32 @@ public class ApiSessionInterceptor implements HandlerInterceptor {
                     + "\"message\":\"Tu usuario de caja no tiene permiso para esto. Pideselo a la duena.\"}");
             return false;
         }
+
+        // Pago vencido (pasados los dias de gracia) o sin suscripcion: solo lectura.
+        // Consultar y descargar el respaldo sigue funcionando: los datos son de la tienda.
+        if (!isReadOnly(request.getMethod()) && !isBillingExempt(request.getRequestURI())) {
+            String blocked = subscriptionService.writeBlockReason(sessionInfo.accountId());
+            if (blocked != null) {
+                response.setStatus(HttpStatus.PAYMENT_REQUIRED.value());
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"status\":402,\"error\":\"Payment Required\",\"message\":\""
+                        + blocked.replace("\"", "'") + "\"}");
+                return false;
+            }
+        }
         return true;
+    }
+
+    private static boolean isReadOnly(String method) {
+        return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
+    }
+
+    private static boolean isBillingExempt(String uri) {
+        if (uri == null) return false;
+        for (String prefix : BILLING_EXEMPT_PREFIXES) {
+            if (uri.startsWith(prefix)) return true;
+        }
+        return false;
     }
 
     @Override

@@ -18,9 +18,13 @@ public class StripeCheckoutController {
         this.stripeCheckoutCreator = stripeCheckoutCreator;
     }
 
+    /** Desde la landing: /api/checkout/start?plan=pro&interval=annual */
     @GetMapping("/start")
-    public ResponseEntity<Void> start(@RequestParam(defaultValue = "BASIC") String plan) {
-        String checkoutUrl = stripeCheckoutCreator.createCheckoutUrl(plan);
+    public ResponseEntity<Void> start(
+            @RequestParam(defaultValue = "BASIC") String plan,
+            @RequestParam(defaultValue = "monthly") String interval
+    ) {
+        String checkoutUrl = stripeCheckoutCreator.createCheckoutUrl(plan, interval);
         return ResponseEntity.status(HttpStatus.SEE_OTHER)
                 .header(HttpHeaders.LOCATION, checkoutUrl)
                 .build();

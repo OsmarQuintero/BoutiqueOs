@@ -287,10 +287,32 @@ export interface SubscriptionInfo {
   plan: string;
   planName: string;
   status: string;
+  billingInterval?: 'MONTHLY' | 'ANNUAL';
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
+  // Cancelada pero vigente hasta currentPeriodEnd.
+  cancelAtPeriodEnd?: boolean;
+  // Pago vencido: hasta cuando se puede seguir vendiendo.
+  graceEndsAt?: string | null;
+  // Solo lectura por falta de pago o sin suscripcion.
+  accessBlocked?: boolean;
+  // Tiene cliente en Stripe: puede abrir el portal de pagos.
+  canManageBilling?: boolean;
+  maxStaffUsers?: number;
   stripeCustomerId: string | null;
   usage: SubscriptionUsage;
+}
+
+export interface PlanOption {
+  plan: string;
+  name: string;
+  price: string;
+  priceId: string;
+  annualPrice?: string;
+  annualPerMonth?: string;
+  annualPriceId?: string;
+  annualSavings?: string;
+  features: string[];
 }
 export type SettingsSection = 'profile';
 export type ViewSectionId =
@@ -498,7 +520,7 @@ export class StoreService {
   private readonly subscriptionState = signal<SubscriptionInfo | null>(null);
   private readonly subscriptionLoadingState = signal(false);
   private readonly subscriptionCheckingState = signal(false);
-  private readonly plansState = signal<Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>>([]);
+  private readonly plansState = signal<Array<PlanOption>>([]);
   private readonly featuresState = signal<Set<string>>(new Set());
   loginEndpoint = this.apiUrl('/settings/login');
   logoutEndpoint = this.apiUrl('/settings/logout');
@@ -567,6 +589,8 @@ export class StoreService {
   layawayDraft = { deposit: 0, method: 'CASH' as MixedPart, dueDate: '', notes: '' };
   layawayPaymentsToday: LayawayDayPayment[] = [];
   // Catalogo: etiquetas, importacion y variantes.
+  // Periodo que se muestra al elegir plan: anual por defecto (2 meses gratis).
+  planInterval: 'monthly' | 'annual' = 'annual';
   labelSelection: number[] = [];
   labelPanelOpen = false;
   importPanelOpen = false;
@@ -1081,11 +1105,11 @@ export class StoreService {
     this.subscriptionCheckingState.set(value);
   }
 
-  get plans(): Array<{plan: string; name: string; price: string; priceId: string; features: string[]}> {
+  get plans(): Array<PlanOption> {
     return this.plansState();
   }
 
-  set plans(value: Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>) {
+  set plans(value: Array<PlanOption>) {
     this.plansState.set(value);
   }
 
@@ -6784,7 +6808,7 @@ export class StoreService {
 
   loadPlans(): void {
     this.http
-      .get<Array<{plan: string; name: string; price: string; priceId: string; features: string[]}>>(this.subscriptionPlansEndpoint)
+      .get<Array<PlanOption>>(this.subscriptionPlansEndpoint)
       .subscribe({
         next: (plans) => {
           this.plans = plans;
@@ -6808,11 +6832,63 @@ export class StoreService {
       });
   }
 
-  checkoutSubscription(plan: string, priceId?: string): void {
+  /** Tiene una suscripcion viva en Stripe: los cambios se hacen en el portal. */
+  get hasLiveSubscription(): boolean {
+    const sub = this.subscription;
+    return (
+      !!sub &&
+      !!sub.canManageBilling &&
+      sub.plan !== 'NONE' &&
+      sub.status !== 'CANCELLED' &&
+      sub.status !== 'INCOMPLETE_EXPIRED'
+    );
+  }
+
+  /** Aviso de cobro para la barra de arriba (vencido o en solo lectura). */
+  get billingBanner(): { kind: 'blocked' | 'grace'; text: string } | null {
+    const sub = this.subscription;
+    if (!sub) return null;
+    if (sub.accessBlocked) {
+      return { kind: 'blocked', text: this.t(this.isCashier ? 'billing.blockedCashier' : 'billing.blocked') };
+    }
+    if (sub.status === 'PAST_DUE' && sub.graceEndsAt) {
+      return { kind: 'grace', text: this.t('billing.grace', { date: this.billingDate(sub.graceEndsAt) }) };
+    }
+    return null;
+  }
+
+  billingDate(value: string | null | undefined): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  /** Portal seguro de Stripe: cambiar de plan o a anual, tarjeta, facturas y cancelar. */
+  openBillingPortal(): void {
     this.subscriptionLoading = true;
-    const effectivePriceId = priceId || this.plans.find(p => p.plan === plan)?.priceId || '';
     this.http
-      .post<{ checkoutUrl: string }>(this.subscriptionCheckoutEndpoint, { plan, priceId: effectivePriceId })
+      .post<{ url: string }>(this.apiUrl('/subscription/portal'), {})
+      .pipe(finalize(() => (this.subscriptionLoading = false)))
+      .subscribe({
+        next: (result) => {
+          if (result.url) {
+            window.location.href = result.url;
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          this.showAlert(error.error?.message || this.t('subscription.portalFailed'), 'error');
+        },
+      });
+  }
+
+  checkoutSubscription(plan: string): void {
+    // Con suscripcion viva, un checkout nuevo cobraria doble: se cambia en el portal.
+    if (this.hasLiveSubscription) {
+      this.openBillingPortal();
+      return;
+    }
+    this.subscriptionLoading = true;
+    this.http
+      .post<{ checkoutUrl: string }>(this.subscriptionCheckoutEndpoint, { plan, interval: this.planInterval })
       .pipe(finalize(() => (this.subscriptionLoading = false)))
       .subscribe({
         next: (result) => {
@@ -6821,6 +6897,10 @@ export class StoreService {
           }
         },
         error: (error: unknown) => {
+          if (error instanceof HttpErrorResponse && error.status === 409) {
+            this.openBillingPortal();
+            return;
+          }
           const msg =
             error instanceof HttpErrorResponse
               ? error.error?.message || error.message
@@ -6841,7 +6921,12 @@ export class StoreService {
       .subscribe({
         next: (info) => {
           this.subscription = info;
-          this.showAlert(this.t('subscription.cancelled'), 'success');
+          this.showAlert(
+            info.cancelAtPeriodEnd
+              ? this.t('subscription.cancelScheduled', { date: this.billingDate(info.currentPeriodEnd) })
+              : this.t('subscription.cancelled'),
+            'success',
+          );
         },
         error: (error: unknown) => {
           const msg =

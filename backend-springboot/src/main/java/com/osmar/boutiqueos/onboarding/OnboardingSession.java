@@ -23,6 +23,9 @@ public class OnboardingSession {
     private String stripeCustomerId;
     private String stripeSubscriptionId;
 
+    // MONTHLY o ANNUAL, deducido del precio cobrado.
+    private String billingInterval;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -61,4 +64,6 @@ public class OnboardingSession {
 
     public Long getAccountId() { return accountId; }
     public void setAccountId(Long accountId) { this.accountId = accountId; }
+    public String getBillingInterval() { return billingInterval; }
+    public void setBillingInterval(String billingInterval) { this.billingInterval = billingInterval; }
 }

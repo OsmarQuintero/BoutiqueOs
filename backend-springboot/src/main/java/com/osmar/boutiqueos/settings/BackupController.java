@@ -44,7 +44,9 @@ public class BackupController {
     public BackupPayload export(
             @RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token
     ) {
-        requireSession(token);
+        requireValidSession(token);
+        // Aun cancelada o con pago vencido puede sacar su informacion.
+        subscriptionService.requireDataExport();
         return backupService.export(accountContext.requireAccountId());
     }
 
@@ -79,10 +81,14 @@ public class BackupController {
     }
 
     private void requireSession(String token) {
+        requireValidSession(token);
+        subscriptionService.requireFeature("backup");
+    }
+
+    private void requireValidSession(String token) {
         if (!authSessionService.isValid(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
         }
-        subscriptionService.requireFeature("backup");
     }
 
     private boolean matches(String provided, String storeName) {

@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.settings.staff;
 
+import com.osmar.boutiqueos.subscription.SubscriptionService;
 import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.settings.AppSettingsRepository;
 import com.osmar.boutiqueos.settings.AppSettingsService;
@@ -22,14 +23,17 @@ public class StaffService {
     private final AppSettingsService appSettingsService;
     private final TwoFactorService twoFactorService;
     private final AccountContext accountContext;
+    private final SubscriptionService subscriptionService;
 
     public StaffService(
             StaffUserRepository staffUserRepository,
             AppSettingsRepository appSettingsRepository,
             AppSettingsService appSettingsService,
             TwoFactorService twoFactorService,
-            AccountContext accountContext
+            AccountContext accountContext,
+            SubscriptionService subscriptionService
     ) {
+        this.subscriptionService = subscriptionService;
         this.staffUserRepository = staffUserRepository;
         this.appSettingsRepository = appSettingsRepository;
         this.appSettingsService = appSettingsService;
@@ -48,6 +52,7 @@ public class StaffService {
         if (appSettingsRepository.existsByUsernameIgnoreCase(username) || staffUserRepository.existsByUsernameIgnoreCase(username)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese usuario ya existe. Elige otro.");
         }
+        requireSeat(accountContext.requireAccountId());
         StaffUser user = new StaffUser();
         user.setAccountId(accountContext.requireAccountId());
         user.setName(request.name().trim());
@@ -65,6 +70,9 @@ public class StaffService {
             user.setMaxDiscountPercent(request.maxDiscountPercent());
         }
         if (request.active() != null && request.active() != user.isActive()) {
+            if (request.active()) {
+                requireSeat(user.getAccountId());
+            }
             user.setActive(request.active());
             if (!request.active()) {
                 // Desactivarla la saca de inmediato, no cuando venza su sesion.
@@ -104,6 +112,15 @@ public class StaffService {
 
     public String nameOf(Long staffUserId) {
         return staffUserRepository.findById(staffUserId).map(StaffUser::getName).orElse("Caja");
+    }
+
+    /** El plan Pro incluye un numero de usuarias de caja activas. */
+    private void requireSeat(Long accountId) {
+        int max = subscriptionService.maxStaffUsers(accountId);
+        if (staffUserRepository.countByAccountIdAndActiveTrue(accountId) >= max) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu plan incluye hasta " + max
+                    + " usuarios de caja activos. Quitale el acceso a uno o escribenos para ampliar.");
+        }
     }
 
     private void kickOut(StaffUser user) {

@@ -295,3 +295,19 @@ que el servidor **no arranque** si falta, en lugar de fallar en silencio.
 - `SPRING_JPA_HIBERNATE_DDL_AUTO=update` sirve para arrancar rapido, pero despues conviene migrar a una estrategia con migraciones formales.
 - Si usas dominio propio en Vercel, agregalo tambien en `APP_CORS_ALLOWED_ORIGINS`.
 - Si quieres bloquear previews de Vercel, quita `https://*.vercel.app`.
+
+## Planes mensual y anual (Stripe)
+
+Variables nuevas en Render (ademas de `STRIPE_PRICE_BASIC` y `STRIPE_PRICE_PRO`, que son las mensuales):
+
+| Variable | Que es |
+|---|---|
+| `STRIPE_PRICE_BASIC_ANNUAL` | Precio anual del Basico ($4,990 MXN, 2 meses gratis) |
+| `STRIPE_PRICE_PRO_ANNUAL` | Precio anual del Pro ($9,990 MXN, 2 meses gratis) |
+
+En Stripe hay que tener:
+
+- **Portal de clientes** configurado (Settings > Billing > Customer portal): cambiar de plan y de periodo entre los cuatro precios, actualizar tarjeta, ver facturas y cancelar al final del periodo. El boton "Administrar suscripcion" del sistema lo abre.
+- En el webhook `/api/subscription/webhook`, los eventos `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed` y **`invoice.paid`** (sin este, una cuenta que se puso al corriente seguiria marcada como vencida).
+
+Reglas de cobro que aplica el sistema: con pago vencido hay 7 dias de gracia; despues la cuenta queda en solo lectura (puede consultar y descargar su respaldo, no vender) hasta que pague. Cancelar deja todo activo hasta el fin del periodo pagado. El plan Pro incluye 3 usuarios de caja activos.

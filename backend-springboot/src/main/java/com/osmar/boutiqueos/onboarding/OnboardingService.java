@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.onboarding;
 
+import com.osmar.boutiqueos.subscription.BillingInterval;
 import com.osmar.boutiqueos.settings.AppSettingsService;
 import com.osmar.boutiqueos.subscription.AccountSubscription;
 import com.osmar.boutiqueos.subscription.AccountSubscriptionRepository;
@@ -161,6 +162,7 @@ public class OnboardingService {
         // "No tienes una suscripcion activa" aunque estuviera pagando.
         sub.setPlan(planResolver.resolve(session.getPlan(), null));
         sub.setStatus(SubscriptionStatus.ACTIVE);
+        sub.setBillingInterval(BillingInterval.parse(session.getBillingInterval()));
 
         if (session.getStripeCustomerId() != null && !session.getStripeCustomerId().isBlank()) {
             sub.setStripeCustomerId(session.getStripeCustomerId());
@@ -180,6 +182,7 @@ public class OnboardingService {
         // Se guarda el plan ya resuelto (metadata, o deducido del precio cobrado)
         // para que al activar la cuenta no haya que volver a adivinar.
         session.setPlan(planResolver.resolve(stripeDetails.plan(), stripeDetails.priceId()).name());
+        session.setBillingInterval(planResolver.resolveInterval(null, stripeDetails.priceId()).name());
         session.setStripeCustomerId(stripeDetails.stripeCustomerId());
         session.setStripeSubscriptionId(stripeDetails.stripeSubscriptionId());
         session.setCreatedAt(Instant.now());

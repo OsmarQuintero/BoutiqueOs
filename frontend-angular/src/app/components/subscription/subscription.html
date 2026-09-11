@@ -3,105 +3,87 @@
     <h3>{{ store.t('subscription.title') }}</h3>
   </div>
   <div class="card-content">
-    @if (store.subscriptionChecking) {
+    @if (store.subscriptionChecking && !store.subscription) {
       <div class="sub-loading">{{ store.t('refresh.updating') }}</div>
-    } @else if (store.subscription) {
+    } @else if (store.subscription; as sub) {
       <div class="sub-current">
-        <div class="sub-plan-badge" [class]="'plan-' + store.currentPlan.toLowerCase()">
-          {{ store.currentPlanName }}
+        <div class="sub-plan-row">
+          <div class="sub-plan-badge" [class]="'sub-plan-badge plan-' + sub.plan.toLowerCase()">
+            {{ store.currentPlanName }}
+          </div>
+          @if (sub.plan !== 'NONE') {
+            <span class="sub-interval">
+              {{ sub.billingInterval === 'ANNUAL' ? store.t('subscription.billedAnnual') : store.t('subscription.billedMonthly') }}
+            </span>
+          }
         </div>
         <div class="sub-status">
           <span class="sub-status-label">{{ store.t('subscription.status') }}:</span>
-          <span class="sub-status-value status-{{ store.subscription.status.toLowerCase() }}">
-            {{ store.t('subscription.status.' + store.subscription.status) }}
+          <span class="sub-status-value status-{{ sub.status.toLowerCase() }}">
+            {{ store.t('subscription.status.' + sub.status) }}
           </span>
         </div>
-        @if (store.subscription.currentPeriodEnd) {
+        @if (sub.currentPeriodEnd) {
           <div class="sub-period">
-            @if (store.subscription.status === 'ACTIVE' || store.subscription.status === 'TRIALING') {
-              <span>{{ store.t('subscription.renews') }}: {{ formatDate(store.subscription.currentPeriodEnd) }}</span>
+            @if (sub.cancelAtPeriodEnd) {
+              <span>{{ store.t('subscription.cancelsOn', { date: store.billingDate(sub.currentPeriodEnd) }) }}</span>
+            } @else if (sub.status === 'ACTIVE' || sub.status === 'TRIALING') {
+              <span>{{ store.t('subscription.renews') }}: {{ store.billingDate(sub.currentPeriodEnd) }}</span>
             } @else {
-              <span>{{ store.t('subscription.expires') }}: {{ formatDate(store.subscription.currentPeriodEnd) }}</span>
+              <span>{{ store.t('subscription.expires') }}: {{ store.billingDate(sub.currentPeriodEnd) }}</span>
             }
           </div>
         }
+        @if (sub.maxStaffUsers) {
+          <div class="sub-period">{{ store.t('subscription.seats', { n: sub.maxStaffUsers }) }}</div>
+        }
       </div>
 
-      <div class="sub-usage">
-        <div class="usage-item">
-          <div class="usage-label">
-            <span>{{ store.t('subscription.productsUsed') }}</span>
-            <span class="usage-value">
-              {{ store.subscription.usage.productCount }}
-              @if (store.subscription.usage.maxProducts >= 0) {
-                / {{ store.subscription.usage.maxProducts }}
-              } @else {
-                ({{ store.t('subscription.unlimited') }})
-              }
-            </span>
-          </div>
-          @if (store.subscription.usage.maxProducts >= 0) {
-            <div class="usage-bar">
-              <div class="usage-fill" [style.width.%]="usagePercent" [class.warning]="usagePercent > 80"></div>
-            </div>
-          }
-        </div>
-        <div class="usage-item">
-          <div class="usage-label">
-            <span>{{ store.t('subscription.customersUsed') }}</span>
-            <span class="usage-value">
-              {{ store.subscription.usage.customerCount }}
-              @if (store.subscription.usage.maxCustomers >= 0) {
-                / {{ store.subscription.usage.maxCustomers }}
-              } @else {
-                ({{ store.t('subscription.unlimited') }})
-              }
-            </span>
-          </div>
-          @if (store.subscription.usage.maxCustomers >= 0) {
-            <div class="usage-bar">
-              <div class="usage-fill" [style.width.%]="customerUsagePercent" [class.warning]="customerUsagePercent > 80"></div>
-            </div>
-          }
-        </div>
-        <div class="usage-item">
-          <div class="usage-label">
-            <span>{{ store.t('subscription.salesThisMonth') }}</span>
-            <span class="usage-value">
-              {{ store.subscription.usage.salesThisMonth }}
-              @if (store.subscription.usage.maxSalesPerMonth >= 0) {
-                / {{ store.subscription.usage.maxSalesPerMonth }}
-              } @else {
-                ({{ store.t('subscription.unlimited') }})
-              }
-            </span>
-          </div>
-          @if (store.subscription.usage.maxSalesPerMonth >= 0) {
-            <div class="usage-bar">
-              <div class="usage-fill" [style.width.%]="salesUsagePercent" [class.warning]="salesUsagePercent > 80"></div>
-            </div>
-          }
-        </div>
-      </div>
+      @if (store.billingBanner; as banner) {
+        <div class="sub-alert" [class.sub-alert-grace]="banner.kind === 'grace'" role="status">{{ banner.text }}</div>
+      }
 
-      @if (store.currentPlan === 'PRO') {
-        <div class="sub-actions">
-          <button
-            class="btn btn-outline btn-danger"
-            [disabled]="store.subscriptionLoading"
-            (click)="store.cancelSubscription()"
-          >
-            {{ store.t('subscription.cancel') }}
+      @if (sub.canManageBilling) {
+        <div class="sub-manage">
+          <p>{{ store.t('subscription.manageHint') }}</p>
+          <button class="btn btn-primary" [disabled]="store.subscriptionLoading" (click)="store.openBillingPortal()">
+            {{ store.t('subscription.manage') }}
           </button>
         </div>
-      } @else if (store.currentPlan === 'BASIC') {
+      }
+
+      @if (sub.plan !== 'PRO') {
+        <div class="sub-interval-toggle" role="group" [attr.aria-label]="store.t('subscription.interval')">
+          <button
+            type="button"
+            [class.active]="store.planInterval === 'monthly'"
+            [attr.aria-pressed]="store.planInterval === 'monthly'"
+            (click)="store.planInterval = 'monthly'"
+          >
+            {{ store.t('subscription.monthly') }}
+          </button>
+          <button
+            type="button"
+            [class.active]="store.planInterval === 'annual'"
+            [attr.aria-pressed]="store.planInterval === 'annual'"
+            (click)="store.planInterval = 'annual'"
+          >
+            {{ store.t('subscription.annual') }}
+            <span class="sub-save">{{ store.t('subscription.annualSave') }}</span>
+          </button>
+        </div>
         <div class="sub-plans">
           @for (plan of store.plans; track plan.plan) {
-            @if (plan.plan === 'PRO') {
-              <div class="plan-card plan-featured">
-                <div class="plan-badge">Popular</div>
+            @if (plan.plan !== sub.plan) {
+              <div class="plan-card" [class.plan-featured]="plan.plan === 'PRO'">
+                @if (plan.plan === 'PRO') {
+                  <div class="plan-badge">{{ store.t('subscription.recommended') }}</div>
+                }
                 <div class="plan-name">{{ plan.name }}</div>
-                <div class="plan-price">{{ plan.price }}</div>
+                <div class="plan-price">{{ store.planInterval === 'annual' ? plan.annualPrice : plan.price }}</div>
+                @if (store.planInterval === 'annual' && plan.annualPerMonth) {
+                  <div class="plan-price-note">{{ store.t('subscription.perMonth', { amount: plan.annualPerMonth }) }}</div>
+                }
                 <ul class="plan-features">
                   @for (feature of plan.features; track feature) {
                     <li>{{ feature }}</li>
@@ -109,19 +91,24 @@
                 </ul>
                 <button
                   class="btn btn-primary"
-                  [disabled]="store.subscriptionLoading || !plan.priceId"
-                  (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
+                  [disabled]="store.subscriptionLoading"
+                  (click)="store.checkoutSubscription(plan.plan)"
                 >
                   @if (store.subscriptionLoading) {
                     {{ store.t('subscription.upgrading') }}
+                  } @else if (store.hasLiveSubscription) {
+                    {{ store.t('subscription.switchPlan', { plan: plan.name }) }}
                   } @else {
-                    {{ store.t('subscription.upgrade') }}
+                    {{ store.t('subscription.selectPlan') }}
                   }
                 </button>
               </div>
             }
           }
         </div>
+      }
+
+      @if (store.hasLiveSubscription && !sub.cancelAtPeriodEnd) {
         <div class="sub-actions">
           <button
             class="btn btn-outline btn-danger"
@@ -130,34 +117,6 @@
           >
             {{ store.t('subscription.cancel') }}
           </button>
-        </div>
-      } @else {
-        <div class="sub-plans">
-          @for (plan of store.plans; track plan.plan) {
-            <div class="plan-card" [class.plan-featured]="plan.plan === 'PRO'">
-              @if (plan.plan === 'PRO') {
-                <div class="plan-badge">Popular</div>
-              }
-              <div class="plan-name">{{ plan.name }}</div>
-              <div class="plan-price">{{ plan.price }}</div>
-              <ul class="plan-features">
-                @for (feature of plan.features; track feature) {
-                  <li>{{ feature }}</li>
-                }
-              </ul>
-              <button
-                class="btn btn-primary"
-                [disabled]="store.subscriptionLoading || !plan.priceId"
-                (click)="store.checkoutSubscription(plan.plan, plan.priceId)"
-              >
-                @if (store.subscriptionLoading) {
-                  {{ store.t('subscription.upgrading') }}
-                } @else {
-                  {{ store.t('subscription.selectPlan') }}
-                }
-              </button>
-            </div>
-          }
         </div>
       }
     } @else {

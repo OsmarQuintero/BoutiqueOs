@@ -13,6 +13,7 @@ import { ReportsComponent } from './components/reports/reports';
 import { SettingsComponent } from './components/settings/settings';
 import { LanguageToggleComponent } from './components/language-toggle/language-toggle';
 import { StoreService, ViewId } from './services/store.service';
+import { BillingNoticeService } from './services/billing-notice.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -108,7 +109,17 @@ export class App implements OnInit {
       ? all.filter((item) => (this.store.cashierViews as string[]).includes(item.id))
       : all;
   }
-  constructor(protected store: StoreService, private elRef: ElementRef) {}
+  constructor(
+    protected store: StoreService,
+    private elRef: ElementRef,
+    protected billingNotice: BillingNoticeService,
+  ) {}
+
+  /** Del aviso de cobro a la tarjeta de suscripcion (en Configuracion). */
+  goToSubscription(): void {
+    this.billingNotice.clear();
+    this.store.setView('settings');
+  }
 
   @HostListener('document:click', ['$event'])
   onDocClick(e: MouseEvent): void {
