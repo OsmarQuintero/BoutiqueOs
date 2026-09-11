@@ -340,6 +340,10 @@ public class SubscriptionService {
             List<String> form = new ArrayList<>();
             form.add("customer=" + encode(sub.getStripeCustomerId()));
             form.add("return_url=" + encode(frontendUrl + "/?subscription=portal"));
+            String configuration = portalConfiguration();
+            if (configuration != null) {
+                form.add("configuration=" + encode(configuration));
+            }
             String url = stripePost("/v1/billing_portal/sessions", form).path("url").asText("");
             if (url.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe portal URL is missing");
@@ -351,6 +355,94 @@ public class SubscriptionService {
             log.error("Stripe billing portal failed", exception);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Stripe portal failed");
         }
+    }
+
+    // Configuracion del portal de clientes: se crea una vez en Stripe y se reusa.
+    private volatile String portalConfigurationId;
+
+    /**
+     * Busca (o crea) la configuracion del portal de BoutiqueOS: cambiar entre los
+     * cuatro precios con prorrateo, tarjeta, facturas y cancelar al fin del periodo.
+     * Asi el portal funciona sin tener que configurarlo a mano en el dashboard.
+     * Si algo falla se usa la configuracion por defecto de la cuenta de Stripe.
+     */
+    private String portalConfiguration() {
+        if (portalConfigurationId != null) {
+            return portalConfigurationId;
+        }
+        try {
+            JsonNode existing = stripeGet("/v1/billing_portal/configurations?active=true&limit=50");
+            for (JsonNode configuration : existing.path("data")) {
+                if ("boutiqueos".equals(configuration.path("metadata").path("app").asText(""))) {
+                    portalConfigurationId = configuration.path("id").asText();
+                    return portalConfigurationId;
+                }
+            }
+
+            java.util.Map<String, List<String>> pricesByProduct = new java.util.LinkedHashMap<>();
+            for (PlanType plan : PlanType.values()) {
+                for (BillingInterval interval : BillingInterval.values()) {
+                    String price = stripePrices.priceFor(plan, interval);
+                    if (price.isBlank()) continue;
+                    String product = stripeGet("/v1/prices/" + price).path("product").asText("");
+                    if (!product.isBlank()) {
+                        pricesByProduct.computeIfAbsent(product, key -> new ArrayList<>()).add(price);
+                    }
+                }
+            }
+
+            List<String> form = new ArrayList<>();
+            form.add("business_profile[headline]=" + encode("BoutiqueOS: administra tu suscripción"));
+            form.add("features[invoice_history][enabled]=true");
+            form.add("features[payment_method_update][enabled]=true");
+            form.add("features[customer_update][enabled]=true");
+            form.add("features[customer_update][allowed_updates][0]=email");
+            form.add("features[customer_update][allowed_updates][1]=name");
+            form.add("features[customer_update][allowed_updates][2]=address");
+            form.add("features[subscription_cancel][enabled]=true");
+            form.add("features[subscription_cancel][mode]=at_period_end");
+            form.add("features[subscription_cancel][cancellation_reason][enabled]=true");
+            String[] reasons = {"too_expensive", "missing_features", "switched_service", "unused", "other"};
+            for (int i = 0; i < reasons.length; i++) {
+                form.add("features[subscription_cancel][cancellation_reason][options][" + i + "]=" + reasons[i]);
+            }
+            if (!pricesByProduct.isEmpty()) {
+                form.add("features[subscription_update][enabled]=true");
+                form.add("features[subscription_update][default_allowed_updates][0]=price");
+                form.add("features[subscription_update][proration_behavior]=create_prorations");
+                int p = 0;
+                for (var entry : pricesByProduct.entrySet()) {
+                    form.add("features[subscription_update][products][" + p + "][product]=" + encode(entry.getKey()));
+                    for (int j = 0; j < entry.getValue().size(); j++) {
+                        form.add("features[subscription_update][products][" + p + "][prices][" + j + "]="
+                                + encode(entry.getValue().get(j)));
+                    }
+                    p++;
+                }
+            }
+            form.add("metadata[app]=boutiqueos");
+            String id = stripePost("/v1/billing_portal/configurations", form).path("id").asText("");
+            portalConfigurationId = id.isBlank() ? null : id;
+            log.info("Configuracion del portal de Stripe creada: {}", portalConfigurationId);
+            return portalConfigurationId;
+        } catch (Exception exception) {
+            log.warn("No se pudo preparar el portal de Stripe; se usa el de la cuenta: {}", exception.getMessage());
+            return null;
+        }
+    }
+
+    private JsonNode stripeGet(String path) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.stripe.com" + path))
+                .header("Authorization", authHeader())
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new IllegalStateException(describeStripeError(response));
+        }
+        return objectMapper.readTree(response.body());
     }
 
     // ---------------------------------------------------------------- webhooks
