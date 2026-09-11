@@ -41,6 +41,18 @@ public class ProductController {
         return productService.create(request);
     }
 
+    /** Un modelo con varias tallas/colores: un producto por combinacion. */
+    @PostMapping("/variants")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<Product> createVariants(@Valid @RequestBody ProductBulkRequests.Variants request) {
+        return productService.createVariants(request);
+    }
+
+    @PostMapping("/import")
+    public ProductBulkRequests.ImportResult importProducts(@Valid @RequestBody ProductBulkRequests.ImportRequest request) {
+        return productService.importProducts(request);
+    }
+
     @PutMapping("/{id}")
     public Product update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
         return productService.update(id, request);

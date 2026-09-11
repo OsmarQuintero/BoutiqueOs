@@ -1,0 +1,101 @@
+<div class="card import-card">
+  <div class="card-header">
+    <h3>{{ store.t('import.title') }}</h3>
+    <button class="btn btn-ghost btn-xs" (click)="close()">{{ store.t('common.close') }}</button>
+  </div>
+  <div class="card-content import-body">
+    <ol class="import-steps">
+      <li>
+        <span>{{ store.t('import.step1') }}</span>
+        <button class="btn btn-outline btn-xs" (click)="downloadTemplate()">{{ store.t('import.template') }}</button>
+      </li>
+      <li>
+        <span>{{ store.t('import.step2') }}</span>
+        <label class="btn btn-primary btn-xs import-file">
+          {{ store.t('import.pick') }}
+          <input type="file" accept=".xlsx,.csv,text/csv" hidden (change)="pick($event)" />
+        </label>
+        @if (fileName) {
+          <span class="import-file-name">{{ fileName }}</span>
+        }
+      </li>
+      <li>
+        <span>{{ store.t('import.step3') }}</span>
+      </li>
+    </ol>
+
+    @if (readError) {
+      <p class="import-error" role="alert">{{ readError }}</p>
+    }
+    @if (missing.length) {
+      <p class="import-error" role="alert">{{ store.t('import.missing', { cols: missing.join(', ') }) }}</p>
+    }
+
+    @if (rows.length) {
+      <div class="import-counts">
+        <span class="pill pill-green">{{ store.t('import.ready', { n: validRows.length }) }}</span>
+        @if (invalidCount) {
+          <span class="pill pill-red">{{ store.t('import.withErrors', { n: invalidCount }) }}</span>
+        }
+      </div>
+      <div class="import-table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>{{ store.t('import.line') }}</th>
+              <th>{{ store.t('products.name') }}</th>
+              <th>{{ store.t('products.category') }}</th>
+              <th>{{ store.t('products.size') }}</th>
+              <th>{{ store.t('products.color') }}</th>
+              <th>{{ store.t('products.sku') }}</th>
+              <th>{{ store.t('products.price') }}</th>
+              <th>{{ store.t('products.stock') }}</th>
+              <th>{{ store.t('import.check') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of preview; track r.line) {
+              <tr [class.import-row-bad]="!!r.problem">
+                <td class="td-mono">{{ r.line }}</td>
+                <td class="td-primary">{{ r.name || '—' }}</td>
+                <td>{{ r.category || '—' }}</td>
+                <td>{{ r.size || '—' }}</td>
+                <td>{{ r.color || '—' }}</td>
+                <td class="td-sku">{{ r.sku || store.t('import.autoSku') }}</td>
+                <td class="td-mono">{{ r.salePrice !== null ? store.formatMoney(r.salePrice) : '—' }}</td>
+                <td class="td-mono">{{ r.stock ?? 0 }}</td>
+                <td>{{ r.problem || store.t('import.ok') }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (rows.length > 100) {
+        <small class="muted-line">{{ store.t('import.previewLimit', { n: rows.length }) }}</small>
+      }
+      <label class="import-check">
+        <input type="checkbox" [(ngModel)]="updateExisting" />
+        <span>{{ store.t('import.updateExisting') }}</span>
+      </label>
+      <div class="import-actions">
+        <button class="btn btn-primary" [disabled]="!validRows.length || isImporting" (click)="runImport()">
+          {{ isImporting ? store.t('import.importing') : store.t('import.run', { n: validRows.length }) }}
+        </button>
+      </div>
+    }
+
+    @if (serverError) {
+      <p class="import-error" role="alert">{{ serverError }}</p>
+    }
+    @if (result) {
+      <div class="import-result" aria-live="polite">
+        <strong>
+          {{ store.t('import.done', { created: result.created, updated: result.updated, skipped: result.skipped }) }}
+        </strong>
+        @for (e of result.errors; track $index) {
+          <div>{{ store.t('import.lineError', { line: e.line, message: e.message }) }}</div>
+        }
+      </div>
+    }
+  </div>
+</div>

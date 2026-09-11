@@ -19,6 +19,7 @@ public record ProductRequest(
         @DecimalMin("0.00") BigDecimal salePrice,
         @Min(0) Integer stock,
         ProductStatus status,
-        @Min(0) @Max(9999) Integer minStock
+        @Min(0) @Max(9999) Integer minStock,
+        @Size(max = 60) String styleCode
 ) {
 }

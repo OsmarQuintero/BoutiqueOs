@@ -52,6 +52,10 @@ public class Product {
     // Aviso de stock bajo cuando stock <= minStock. Null = 2, el valor de siempre.
     private Integer minStock;
 
+    // Modelo: agrupa las variantes (tallas/colores) de la misma prenda.
+    @Column(length = 60)
+    private String styleCode;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
@@ -164,4 +168,6 @@ public class Product {
     }
     public Integer getMinStock() { return minStock; }
     public void setMinStock(Integer minStock) { this.minStock = minStock; }
+    public String getStyleCode() { return styleCode; }
+    public void setStyleCode(String styleCode) { this.styleCode = styleCode; }
 }

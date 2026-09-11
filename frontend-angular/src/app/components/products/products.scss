@@ -165,3 +165,52 @@
   .dual-col { padding: 10px; }
   .products-header-actions { width: 100%; justify-content: flex-start; }
 }
+
+// Varias tallas/colores: casilla, y abajo una fila por combinacion con sus piezas.
+.variant-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.variant-preview {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px dashed var(--border-strong);
+  font-size: 0.75rem;
+}
+
+.variant-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 8px;
+}
+
+.th-check,
+.td-check {
+  width: 32px;
+  text-align: center;
+}
+
+.style-code {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.products-table-wrap {
+  overflow-x: auto;
+}
+
+// El host es inline por defecto: dentro de la rejilla del catalogo se estiraba
+// al ancho de la tabla y la pagina se corria de lado en el celular.
+:host {
+  display: block;
+  min-width: 0;
+}

@@ -27,6 +27,8 @@ export interface Product {
   status: ProductStatus;
   // Avisa cuando stock <= minStock; sin valor, 2.
   minStock?: number | null;
+  // Modelo: agrupa las tallas/colores de la misma prenda.
+  styleCode?: string | null;
 }
 
 export interface ProductCategory {
@@ -564,6 +566,13 @@ export class StoreService {
   layawayDraftOpen = false;
   layawayDraft = { deposit: 0, method: 'CASH' as MixedPart, dueDate: '', notes: '' };
   layawayPaymentsToday: LayawayDayPayment[] = [];
+  // Catalogo: etiquetas, importacion y variantes.
+  labelSelection: number[] = [];
+  labelPanelOpen = false;
+  importPanelOpen = false;
+  variantMode = false;
+  variantForm = { sizes: '', colors: '' };
+  variantStocks: Record<string, number> = {};
   cashReceived = 0;
   private _statusMessage = '';
   alertMessage = '';
@@ -632,6 +641,7 @@ export class StoreService {
     stock: 0,
     status: 'ACTIVE' as ProductStatus,
     minStock: 2,
+    styleCode: '',
   };
   categoryForm = {
     // Vacio = categoria personalizada. Las sugerencias solo prellenan campos.
@@ -2820,7 +2830,11 @@ export class StoreService {
     const query = this.searchTerm.trim();
     if (!query) return;
     const lower = query.toLowerCase();
-    const bySku = this.products.find((product) => (product.sku || '').trim().toLowerCase() === lower);
+    // Las etiquetas de productos sin SKU llevan P + id (P000123).
+    const byLabel = /^p0*(\d+)$/i.exec(query);
+    const bySku =
+      this.products.find((product) => (product.sku || '').trim().toLowerCase() === lower) ??
+      (byLabel ? this.products.find((product) => product.id === Number(byLabel[1])) : undefined);
     const candidates = bySku ? [bySku] : this.filteredProducts.filter((product) => product.status !== 'ARCHIVED');
     if (candidates.length === 1) {
       this.addToCart(candidates[0]);
@@ -3010,6 +3024,126 @@ export class StoreService {
             .map((m) => ({ method: m, amount: this.round2(Number(this.mixedPayment[m])) }))
         : undefined,
     };
+  }
+
+  // ----- Catalogo: etiquetas, importacion y variantes -----
+
+  isLabelSelected(id: number): boolean {
+    return this.labelSelection.includes(id);
+  }
+
+  toggleLabel(id: number): void {
+    this.labelSelection = this.isLabelSelected(id)
+      ? this.labelSelection.filter((selected) => selected !== id)
+      : [...this.labelSelection, id];
+  }
+
+  get allLabelsSelected(): boolean {
+    return this.products.length > 0 && this.products.every((p) => this.labelSelection.includes(p.id));
+  }
+
+  toggleAllLabels(): void {
+    this.labelSelection = this.allLabelsSelected ? [] : this.products.map((p) => p.id);
+  }
+
+  openLabelPanel(): void {
+    this.importPanelOpen = false;
+    this.labelPanelOpen = true;
+  }
+
+  openImportPanel(): void {
+    this.labelPanelOpen = false;
+    this.importPanelOpen = true;
+  }
+
+  /** Lo que lleva el codigo de barras: el SKU, o P + id si el producto aun no tiene. */
+  labelCode(product: Product): string {
+    return product.sku?.trim() || `P${String(product.id).padStart(6, '0')}`;
+  }
+
+  private splitList(value: string): string[] {
+    const seen = new Set<string>();
+    return value
+      .split(/[,;]+/)
+      .map((part) => part.trim())
+      .filter((part) => {
+        const key = part.toLowerCase();
+        if (!part || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  get variantCombos(): Array<{ key: string; size: string | null; color: string | null; label: string }> {
+    const sizes = this.splitList(this.variantForm.sizes);
+    const colors = this.splitList(this.variantForm.colors);
+    if (!sizes.length && !colors.length) return [];
+    const sizeAxis: Array<string | null> = sizes.length ? sizes : [null];
+    const colorAxis: Array<string | null> = colors.length ? colors : [null];
+    const combos: Array<{ key: string; size: string | null; color: string | null; label: string }> = [];
+    for (const size of sizeAxis) {
+      for (const color of colorAxis) {
+        combos.push({
+          key: `${(size ?? '').toLowerCase()}|${(color ?? '').toLowerCase()}`,
+          size,
+          color,
+          label: [size, color].filter((part) => !!part).join(' · '),
+        });
+      }
+    }
+    return combos;
+  }
+
+  variantStock(key: string): number {
+    return this.variantStocks[key] ?? (Number(this.productForm.stock) || 0);
+  }
+
+  setVariantStock(key: string, value: number | string): void {
+    this.variantStocks = { ...this.variantStocks, [key]: Math.max(0, Math.round(Number(value) || 0)) };
+  }
+
+  /** Crea una prenda por talla/color, todas con el mismo modelo y su propio SKU. */
+  createVariantsFromForm(): void {
+    const combos = this.variantCombos;
+    if (!this.productForm.name.trim()) {
+      this.showAlert(this.t('err.productNameRequired'), 'error');
+      return;
+    }
+    if (!combos.length) {
+      this.showAlert(this.t('variants.needSizes'), 'error');
+      return;
+    }
+    if (combos.length > 60) {
+      this.showAlert(this.t('variants.tooMany'), 'error');
+      return;
+    }
+    this.http
+      .post<Product[]>(this.apiUrl('/products/variants'), {
+        name: this.productForm.name.trim(),
+        category: this.productForm.category || null,
+        costPrice: Number(this.productForm.costPrice) || 0,
+        salePrice: Number(this.productForm.salePrice) || 0,
+        styleCode: this.productForm.styleCode.trim() || null,
+        sizes: this.splitList(this.variantForm.sizes),
+        colors: this.splitList(this.variantForm.colors),
+        stocks: combos.map((combo) => ({ size: combo.size, color: combo.color, stock: this.variantStock(combo.key) })),
+        stock: Number(this.productForm.stock) || 0,
+        minStock: this.productForm.minStock,
+        imageUrl: this.productForm.imageUrl || null,
+      })
+      .subscribe({
+        next: (created) => {
+          this.showAlert(this.t('variants.created', { n: created.length }), 'success');
+          // Quedan marcadas para imprimir sus etiquetas de una vez.
+          this.labelSelection = created.map((product) => product.id);
+          this.resetProductForm();
+          this.showProductForm = false;
+          this.loadProducts();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.showAlert(error.error?.message || this.t('variants.failed'), 'error');
+        },
+      });
   }
 
   // ----- Apartados -----
@@ -3472,6 +3606,10 @@ export class StoreService {
   }
 
   createProduct(): void {
+    if (this.variantMode && !this.editingProductId) {
+      this.createVariantsFromForm();
+      return;
+    }
     if (!this.productForm.name.trim()) {
       this.statusMessage = this.t('err.productNameRequired');
       return;
@@ -3680,6 +3818,7 @@ export class StoreService {
       stock: product.stock,
       status: product.status,
       minStock: product.minStock ?? 2,
+      styleCode: product.styleCode ?? '',
     };
     this.productImageFileName = product.imageUrl ? this.t('products.imageLoaded') : '';
     this.setView('catalog', 'products');
@@ -5547,7 +5686,7 @@ export class StoreService {
     this.newCustomerNotes = '';
   }
 
-  private loadProducts(): void {
+  loadProducts(): void {
     this.http.get<Product[]>(this.apiUrl('/products')).subscribe({
       next: (products) => {
         this.products = products;
@@ -5860,7 +5999,7 @@ export class StoreService {
     void this.refreshTicketQrPreview();
   }
 
-  private loadProductCategories(): void {
+  loadProductCategories(): void {
     this.http.get<ProductCategory[]>(this.apiUrl('/product-categories')).subscribe({
       next: (categories) => {
         this.productCategories = categories;
@@ -6523,8 +6662,12 @@ export class StoreService {
       stock: 0,
       status: 'ACTIVE',
       minStock: 2,
+      styleCode: '',
     };
     this.productImageFileName = '';
+    this.variantMode = false;
+    this.variantForm = { sizes: '', colors: '' };
+    this.variantStocks = {};
   }
 
   private resetCategoryForm(): void {
@@ -6614,7 +6757,7 @@ export class StoreService {
     return this.t('comparison.moreThan');
   }
 
-  private apiUrl(path: string): string {
+  apiUrl(path: string): string {
     return `${this.apiBase}${path}`;
   }
 

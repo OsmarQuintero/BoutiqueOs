@@ -1,0 +1,75 @@
+.import-card {
+  margin: 12px;
+  border-color: #c9a961;
+}
+
+.import-body {
+  display: grid;
+  gap: 10px;
+}
+
+.import-steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+}
+
+.import-steps li > * {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.import-file {
+  cursor: pointer;
+}
+
+.import-file-name {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.import-error {
+  margin: 0;
+  color: #a12b2b;
+  font-size: 0.8rem;
+}
+
+.import-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.import-table-wrap {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border);
+}
+
+.import-row-bad td {
+  background: #fcecec;
+}
+
+.import-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.import-result {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted, #faf8f3);
+  font-size: 0.8rem;
+}

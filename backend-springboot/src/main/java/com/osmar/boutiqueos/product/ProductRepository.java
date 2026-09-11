@@ -14,5 +14,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     void deleteByIdAndAccountId(Long id, Long accountId);
 
     List<Product> findAllByAccountId(Long accountId);
+
+    java.util.Optional<Product> findFirstByAccountIdAndSkuIgnoreCase(Long accountId, String sku);
     void deleteAllByAccountId(Long accountId);
 }

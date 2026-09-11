@@ -6,12 +6,22 @@
     </div>
     <div class="products-header-actions">
       <span class="pill">{{ store.t('products.count', { n: store.products.length }) }}</span>
+      <button class="btn btn-outline btn-xs" (click)="store.openImportPanel()">{{ store.t('import.open') }}</button>
+      <button class="btn btn-outline btn-xs" [disabled]="!store.labelSelection.length" (click)="store.openLabelPanel()">
+        {{ store.t('labels.open', { n: store.labelSelection.length }) }}
+      </button>
       <button class="btn btn-primary btn-xs" (click)="store.openProductForm()">
         {{ store.showProductForm ? store.t('products.another') : store.t('products.new') }}
       </button>
     </div>
   </div>
   <div class="card-content no-pad">
+    @if (store.importPanelOpen) {
+      <app-product-import />
+    }
+    @if (store.labelPanelOpen) {
+      <app-product-labels />
+    }
     @if (store.showProductForm) {
       <div class="dual-col with-form">
         <div class="card card-form card-form-inline" id="products-form-section">
@@ -43,18 +53,39 @@
                   <small>{{ store.t('products.categoryHint') }}</small>
                 </div>
               </div>
-              <label class="field">
-                <span>{{ store.productSizeLabel }}</span>
-                <input
-                  [(ngModel)]="store.productForm.size"
-                  [placeholder]="store.productSizePlaceholder"
-                />
-              </label>
+              @if (!store.editingProductId) {
+                <label class="variant-toggle">
+                  <input type="checkbox" [(ngModel)]="store.variantMode" />
+                  <span>{{ store.t('variants.toggle') }}</span>
+                </label>
+              }
+              @if (store.variantMode && !store.editingProductId) {
+                <label class="field"
+                  ><span>{{ store.t('variants.sizes') }}</span
+                  ><input [(ngModel)]="store.variantForm.sizes" [placeholder]="store.t('variants.sizesPlaceholder')"
+                /></label>
+                <label class="field"
+                  ><span>{{ store.t('variants.colors') }}</span
+                  ><input [(ngModel)]="store.variantForm.colors" [placeholder]="store.t('variants.colorsPlaceholder')"
+                /></label>
+              } @else {
+                <label class="field">
+                  <span>{{ store.productSizeLabel }}</span>
+                  <input
+                    [(ngModel)]="store.productForm.size"
+                    [placeholder]="store.productSizePlaceholder"
+                  />
+                </label>
+                <label class="field"
+                  ><span>{{ store.t('products.color') }}</span
+                  ><input
+                    [(ngModel)]="store.productForm.color"
+                    [placeholder]="store.t('products.colorPlaceholder')"
+                /></label>
+              }
               <label class="field"
-                ><span>{{ store.t('products.color') }}</span
-                ><input
-                  [(ngModel)]="store.productForm.color"
-                  [placeholder]="store.t('products.colorPlaceholder')"
+                ><span>{{ store.t('products.styleCode') }}</span
+                ><input [(ngModel)]="store.productForm.styleCode" [placeholder]="store.t('common.optional')"
               /></label>
               <div class="field field-image">
                 <span>{{ store.t('products.image') }}</span>
@@ -110,12 +141,31 @@
                 ><span>{{ store.t('products.minStock') }}</span
                 ><input type="number" min="0" [(ngModel)]="store.productForm.minStock" placeholder="2"
               /></label>
-              <label class="field"
-                ><span>{{ store.t('products.sku') }}</span
-                ><input
-                  [(ngModel)]="store.productForm.sku"
-                  [placeholder]="store.t('common.optional')"
-              /></label>
+              @if (store.variantMode && !store.editingProductId && store.variantCombos.length) {
+                <div class="variant-preview">
+                  <span>{{ store.t('variants.preview', { n: store.variantCombos.length }) }}</span>
+                  @for (combo of store.variantCombos; track combo.key) {
+                    <label class="variant-row">
+                      <span>{{ combo.label }}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        [ngModel]="store.variantStock(combo.key)"
+                        (ngModelChange)="store.setVariantStock(combo.key, $event)"
+                        [attr.aria-label]="store.t('variants.stockFor', { name: combo.label })"
+                      />
+                    </label>
+                  }
+                </div>
+              }
+              @if (!store.variantMode || store.editingProductId) {
+                <label class="field"
+                  ><span>{{ store.t('products.sku') }}</span
+                  ><input
+                    [(ngModel)]="store.productForm.sku"
+                    [placeholder]="store.t('products.skuAuto')"
+                /></label>
+              }
               <label class="field">
                 <span>{{ store.t('products.status') }}</span>
                 <select [(ngModel)]="store.productForm.status">
@@ -125,7 +175,13 @@
                 </select>
               </label>
               <button class="btn btn-primary btn-form" (click)="store.createProduct()">
-                {{ store.editingProductId ? store.t('common.update') : store.t('common.save') }}
+                {{
+                  store.editingProductId
+                    ? store.t('common.update')
+                    : store.variantMode
+                      ? store.t('variants.create', { n: store.variantCombos.length })
+                      : store.t('common.save')
+                }}
               </button>
             </div>
           </div>
@@ -248,9 +304,19 @@
         </button>
       }
     </div>
+    <!-- La tabla tiene muchas columnas: en celular se desplaza dentro de su caja. -->
+    <div class="products-table-wrap">
     <table class="table">
       <thead>
         <tr>
+          <th class="th-check">
+            <input
+              type="checkbox"
+              [checked]="store.allLabelsSelected"
+              (change)="store.toggleAllLabels()"
+              [attr.aria-label]="store.t('labels.selectAll')"
+            />
+          </th>
           <th>{{ store.t('products.name') }}</th>
           <th>{{ store.t('products.category') }}</th>
           <th>{{ store.t('products.size') }}</th>
@@ -265,7 +331,20 @@
       <tbody>
         @for (p of store.products; track p.id) {
           <tr>
-            <td class="td-primary">{{ p.name }}</td>
+            <td class="td-check">
+              <input
+                type="checkbox"
+                [checked]="store.isLabelSelected(p.id)"
+                (change)="store.toggleLabel(p.id)"
+                [attr.aria-label]="store.t('labels.selectOne', { name: p.name })"
+              />
+            </td>
+            <td class="td-primary">
+              {{ p.name }}
+              @if (p.styleCode) {
+                <small class="style-code">{{ p.styleCode }}</small>
+              }
+            </td>
             <td>{{ p.category || '—' }}</td>
             <td>{{ p.size || '—' }}</td>
             <td>{{ p.color || '—' }}</td>
@@ -282,7 +361,7 @@
             </td>
             <td class="td-mono">{{ store.formatMoney(p.salePrice) }}</td>
             <td>
-              <span class="pill" [class.pill-red]="p.stock <= 2">{{ p.stock }}</span>
+              <span class="pill" [class.pill-red]="p.stock <= store.lowStockThreshold(p)">{{ p.stock }}</span>
             </td>
             <td>
               <div class="action-group">
@@ -298,5 +377,6 @@
         }
       </tbody>
     </table>
+    </div>
   </div>
 </div>

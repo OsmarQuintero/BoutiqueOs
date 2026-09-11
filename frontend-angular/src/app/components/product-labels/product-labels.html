@@ -1,0 +1,53 @@
+<div class="card labels-card">
+  <div class="card-header">
+    <h3>{{ store.t('labels.title', { n: selected.length }) }}</h3>
+    <button class="btn btn-ghost btn-xs" (click)="close()">{{ store.t('common.close') }}</button>
+  </div>
+  <div class="card-content labels-body">
+    <p class="labels-hint">{{ store.t('labels.hint') }}</p>
+    <fieldset class="labels-format">
+      <legend>{{ store.t('labels.format') }}</legend>
+      <label>
+        <input type="radio" name="labelFormat" value="roll" [(ngModel)]="format" />
+        <span>{{ store.t('labels.roll') }}</span>
+      </label>
+      <label>
+        <input type="radio" name="labelFormat" value="sheet" [(ngModel)]="format" />
+        <span>{{ store.t('labels.sheet') }}</span>
+      </label>
+    </fieldset>
+
+    <div class="labels-list">
+      @for (p of selected; track p.id) {
+        <div class="labels-row">
+          <div class="labels-who">
+            <strong>{{ p.name }}</strong>
+            <small>{{ store.productVariantLabel(p) }} · {{ store.labelCode(p) }}</small>
+          </div>
+          <label class="labels-copies">
+            <span>{{ store.t('labels.copies') }}</span>
+            <input
+              type="number"
+              min="0"
+              max="500"
+              [ngModel]="copiesFor(p)"
+              (ngModelChange)="setCopies(p, $event)"
+            />
+          </label>
+        </div>
+      } @empty {
+        <p class="labels-hint">{{ store.t('labels.pickSome') }}</p>
+      }
+    </div>
+
+    <div class="labels-actions">
+      <button class="btn btn-ghost btn-sm" (click)="clear()">{{ store.t('labels.clear') }}</button>
+      <button class="btn btn-primary btn-sm" [disabled]="isBuilding || !selected.length" (click)="build()">
+        {{ isBuilding ? store.t('labels.building') : store.t('labels.build', { n: totalLabels }) }}
+      </button>
+    </div>
+    @if (message) {
+      <p class="labels-message" aria-live="polite">{{ message }}</p>
+    }
+  </div>
+</div>
