@@ -81,6 +81,9 @@ public class Sale {
 
     private Long promotionId;
 
+    // Venta que viene de un apartado liquidado: su efectivo ya entro al corte con cada abono.
+    private Long layawayId;
+
     @Column(length = 40)
     private String promotionCode;
 
@@ -232,4 +235,6 @@ public class Sale {
     public void setSoldByName(String soldByName) { this.soldByName = soldByName; }
     public List<SalePayment> getPayments() { return payments; }
     public void setPayments(List<SalePayment> payments) { this.payments = payments; }
+    public Long getLayawayId() { return layawayId; }
+    public void setLayawayId(Long layawayId) { this.layawayId = layawayId; }
 }

@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.report;
 
+import com.osmar.boutiqueos.layaway.LayawayRepository;
 import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.sale.SaleRefundRepository;
 import com.osmar.boutiqueos.sale.SaleRepository;
@@ -24,14 +25,17 @@ public class DailyCashCountService {
     private final SaleRepository saleRepository;
     private final SaleRefundRepository saleRefundRepository;
     private final AccountContext accountContext;
+    private final LayawayRepository layawayRepository;
 
     public DailyCashCountService(
             DailyCashCountRepository repository,
             CashMovementRepository cashMovementRepository,
             SaleRepository saleRepository,
             SaleRefundRepository saleRefundRepository,
-            AccountContext accountContext
+            AccountContext accountContext,
+            LayawayRepository layawayRepository
     ) {
+        this.layawayRepository = layawayRepository;
         this.repository = repository;
         this.cashMovementRepository = cashMovementRepository;
         this.saleRepository = saleRepository;
@@ -137,7 +141,9 @@ public class DailyCashCountService {
         Instant endOfDay = date.plusDays(1).atStartOfDay(zone).toInstant();
 
         BigDecimal cashSales = saleRepository.sumCashSalesTotal(accountId, startOfDay, endOfDay)
-                .add(saleRepository.sumCashPartOfMixedSales(accountId, startOfDay, endOfDay));
+                .add(saleRepository.sumCashPartOfMixedSales(accountId, startOfDay, endOfDay))
+                // Abonos de apartados en efectivo (y devoluciones de anticipo, en negativo).
+                .add(layawayRepository.sumCashPayments(accountId, startOfDay, endOfDay));
         BigDecimal cashRefunds = saleRefundRepository.sumCashRefundsTotal(accountId, startOfDay, endOfDay);
         BigDecimal netMovements = cashMovementRepository.sumNetMovements(accountId, date);
 

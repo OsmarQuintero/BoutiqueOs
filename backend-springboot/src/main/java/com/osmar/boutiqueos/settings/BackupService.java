@@ -1,5 +1,9 @@
 package com.osmar.boutiqueos.settings;
 
+import com.osmar.boutiqueos.layaway.LayawayRepository;
+import com.osmar.boutiqueos.layaway.LayawayPayment;
+import com.osmar.boutiqueos.layaway.LayawayItem;
+import com.osmar.boutiqueos.layaway.Layaway;
 import com.osmar.boutiqueos.sale.SalePayment;
 import com.osmar.boutiqueos.customer.Customer;
 import com.osmar.boutiqueos.customer.CustomerRepository;
@@ -68,6 +72,7 @@ public class BackupService {
     private final LoyaltyRewardRepository loyaltyRewardRepository;
     private final LoyaltyTransactionRepository loyaltyTransactionRepository;
     private final PromotionRepository promotionRepository;
+    private final LayawayRepository layawayRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -84,8 +89,10 @@ public class BackupService {
             DailyCashCountRepository dailyCashCountRepository,
             LoyaltyRewardRepository loyaltyRewardRepository,
             LoyaltyTransactionRepository loyaltyTransactionRepository,
-            PromotionRepository promotionRepository
+            PromotionRepository promotionRepository,
+            LayawayRepository layawayRepository
     ) {
+        this.layawayRepository = layawayRepository;
         this.appSettingsService = appSettingsService;
         this.productRepository = productRepository;
         this.productCategoryRepository = productCategoryRepository;
@@ -121,7 +128,9 @@ public class BackupService {
                 dailyCashCountRepository.findAllByAccountIdOrderByBusinessDateDesc(accountId),
                 loyaltyRewardRepository.findByAccountIdOrderByNameAsc(accountId),
                 loyaltyTransactionRepository.findAllByAccountId(accountId),
-                promotionRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId)
+                promotionRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId),
+                layawayRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId).stream()
+                        .map(BackupPayload.BackupLayaway::from).toList()
         );
     }
 
@@ -164,6 +173,7 @@ public class BackupService {
         Map<Long, Long> rewardIds = new HashMap<>();
         int rewards = restoreRewards(accountId, payload, productIds, rewardIds);
         int loyaltyTransactions = restoreLoyaltyTransactions(accountId, payload, customerIds, saleIds, rewardIds);
+        int layaways = restoreLayaways(accountId, payload, productIds, customerIds, saleIds);
 
         Map<String, Integer> summary = new LinkedHashMap<>();
         summary.put("productCategories", categoryIds.size());
@@ -177,6 +187,7 @@ public class BackupService {
         summary.put("loyaltyRewards", rewards);
         summary.put("loyaltyTransactions", loyaltyTransactions);
         summary.put("promotions", promotionIds.size());
+        summary.put("layaways", layaways);
         return summary;
     }
 
@@ -185,6 +196,7 @@ public class BackupService {
      * Los items de venta y de devolucion se van en cascada con su padre.
      */
     private void wipeAccount(Long accountId) {
+        layawayRepository.deleteAllByAccountId(accountId);
         loyaltyTransactionRepository.deleteAllByAccountId(accountId);
         loyaltyRewardRepository.deleteAllByAccountId(accountId);
         promotionRepository.deleteAllByAccountId(accountId);
@@ -334,6 +346,68 @@ public class BackupService {
             }
         }
         return ordered.size();
+    }
+
+    /** Los apartados van al final: apuntan a productos, clientas y a la venta con que se liquidaron. */
+    private int restoreLayaways(
+            Long accountId,
+            BackupPayload payload,
+            Map<Long, Long> productIds,
+            Map<Long, Long> customerIds,
+            Map<Long, Long> saleIds
+    ) {
+        for (BackupPayload.BackupLayaway source : payload.layawaysOrEmpty()) {
+            Layaway layaway = new Layaway();
+            layaway.setAccountId(accountId);
+            layaway.setCustomerId(remap(customerIds, source.customerId()));
+            layaway.setCustomerName(source.customerName());
+            layaway.setStatus(source.status());
+            layaway.setTotal(source.total());
+            layaway.setPaid(source.paid());
+            layaway.setRefunded(source.refunded() == null ? BigDecimal.ZERO : source.refunded());
+            layaway.setDueDate(source.dueDate());
+            layaway.setNotes(source.notes());
+            layaway.setCreatedByName(source.createdByName());
+            if (source.createdAt() != null) {
+                layaway.setCreatedAt(source.createdAt());
+            }
+            layaway.setCompletedAt(source.completedAt());
+            layaway.setCancelledAt(source.cancelledAt());
+            layaway.setCancelReason(source.cancelReason());
+            layaway.setSaleId(remap(saleIds, source.saleId()));
+            for (BackupPayload.BackupLayawayItem sourceItem : source.itemsOrEmpty()) {
+                LayawayItem item = new LayawayItem();
+                item.setLayaway(layaway);
+                item.setProductId(remap(productIds, sourceItem.productId()));
+                item.setProductName(sourceItem.productName());
+                item.setQuantity(sourceItem.quantity());
+                item.setUnitPrice(sourceItem.unitPrice());
+                item.setUnitCost(sourceItem.unitCost());
+                item.setLineTotal(sourceItem.lineTotal());
+                layaway.getItems().add(item);
+            }
+            for (BackupPayload.BackupLayawayPayment sourcePayment : source.paymentsOrEmpty()) {
+                LayawayPayment payment = new LayawayPayment();
+                payment.setLayaway(layaway);
+                payment.setMethod(sourcePayment.method());
+                payment.setAmount(sourcePayment.amount());
+                if (sourcePayment.createdAt() != null) {
+                    payment.setCreatedAt(sourcePayment.createdAt());
+                }
+                payment.setReceivedByName(sourcePayment.receivedByName());
+                payment.setNote(sourcePayment.note());
+                layaway.getPayments().add(payment);
+            }
+            Layaway saved = layawayRepository.save(layaway);
+            // La venta con que se liquido vuelve a apuntar al apartado nuevo.
+            if (saved.getSaleId() != null) {
+                saleRepository.findById(saved.getSaleId()).ifPresent(sale -> {
+                    sale.setLayawayId(saved.getId());
+                    saleRepository.save(sale);
+                });
+            }
+        }
+        return payload.layawaysOrEmpty().size();
     }
 
     private int restoreRefunds(

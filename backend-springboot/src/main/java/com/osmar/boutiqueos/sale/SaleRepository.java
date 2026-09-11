@@ -30,14 +30,15 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     @Query("SELECT COALESCE(SUM(s.total), 0) FROM Sale s " +
            "WHERE s.accountId = :accountId AND s.status IN ('CONFIRMED', 'PARTIALLY_REFUNDED', 'REFUNDED') " +
-           "AND s.paymentMethod = 'CASH' AND s.createdAt >= :start AND s.createdAt < :end")
+           "AND s.paymentMethod = 'CASH' AND s.layawayId IS NULL AND s.createdAt >= :start AND s.createdAt < :end")
     BigDecimal sumCashSalesTotal(@Param("accountId") Long accountId,
                                   @Param("start") Instant start,
                                   @Param("end") Instant end);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Sale s JOIN s.payments p " +
            "WHERE s.accountId = :accountId AND s.status IN ('CONFIRMED', 'PARTIALLY_REFUNDED', 'REFUNDED') " +
-           "AND s.paymentMethod = 'MIXED' AND p.method = 'CASH' AND s.createdAt >= :start AND s.createdAt < :end")
+           "AND s.paymentMethod = 'MIXED' AND p.method = 'CASH' AND s.layawayId IS NULL " +
+           "AND s.createdAt >= :start AND s.createdAt < :end")
     BigDecimal sumCashPartOfMixedSales(@Param("accountId") Long accountId,
                                        @Param("start") Instant start,
                                        @Param("end") Instant end);

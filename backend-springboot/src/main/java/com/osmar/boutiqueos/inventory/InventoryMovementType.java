@@ -4,5 +4,7 @@ public enum InventoryMovementType {
     PURCHASE,
     SALE,
     ADJUSTMENT,
-    RETURN
+    RETURN,
+    /** Mercancia reservada por un apartado. */
+    LAYAWAY
 }

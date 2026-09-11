@@ -255,6 +255,60 @@ public class SaleService {
         return merged.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
     }
 
+    /**
+     * Apartado liquidado: se registra como venta ya cobrada. El stock ya se habia
+     * descontado al apartar y el efectivo entro al corte con cada abono, por eso
+     * la venta lleva layawayId y no vuelve a contar en el efectivo del dia.
+     */
+    @Transactional
+    public Sale recordLayawaySale(LayawaySale data) {
+        Sale sale = new Sale();
+        sale.setAccountId(accountContext.requireAccountId());
+        sale.setLayawayId(data.layawayId());
+        sale.setCustomerId(data.customerId());
+        sale.setCustomerName(data.customerName());
+        sale.setSoldByStaffId(currentUser.get().staffUserId());
+        sale.setSoldByName(data.soldByName());
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal profit = BigDecimal.ZERO;
+        for (LayawaySale.Line line : data.lines()) {
+            BigDecimal quantity = BigDecimal.valueOf(line.quantity());
+            BigDecimal lineTotal = line.unitPrice().multiply(quantity);
+            SaleItem item = new SaleItem();
+            item.setSale(sale);
+            item.setProductId(line.productId());
+            item.setProductName(line.productName());
+            item.setQuantity(line.quantity());
+            item.setUnitPrice(line.unitPrice());
+            item.setUnitCost(line.unitCost());
+            item.setLineTotal(lineTotal);
+            sale.getItems().add(item);
+            subtotal = subtotal.add(lineTotal);
+            profit = profit.add(lineTotal.subtract(line.unitCost().multiply(quantity)));
+        }
+        sale.setSubtotal(subtotal);
+        sale.setManualDiscount(BigDecimal.ZERO);
+        sale.setPromotionDiscount(BigDecimal.ZERO);
+        sale.setDiscount(BigDecimal.ZERO);
+        sale.setTotal(subtotal);
+        sale.setCashReceived(BigDecimal.ZERO);
+        sale.setChangeDue(BigDecimal.ZERO);
+        sale.setEstimatedProfit(profit.max(BigDecimal.ZERO));
+        if (data.payments().size() == 1) {
+            sale.setPaymentMethod(data.payments().keySet().iterator().next());
+        } else {
+            sale.setPaymentMethod(PaymentMethod.MIXED);
+            data.payments().forEach((method, amount) -> sale.getPayments().add(new SalePayment(method, amount)));
+        }
+        sale.setStatus(SaleStatus.CONFIRMED);
+        Sale saved = saleRepository.save(sale);
+        if (saved.getCustomerId() != null) {
+            earnLoyaltyPoints(saved);
+        }
+        return saved;
+    }
+
     public List<Sale> listPending() {
         return saleRepository.findByAccountIdAndStatus(accountContext.requireAccountId(), SaleStatus.PENDING);
     }

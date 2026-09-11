@@ -1,5 +1,7 @@
 package com.osmar.boutiqueos.settings;
 
+import com.osmar.boutiqueos.layaway.LayawayStatus;
+import com.osmar.boutiqueos.layaway.Layaway;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.osmar.boutiqueos.customer.Customer;
 import com.osmar.boutiqueos.customer.loyalty.LoyaltyReward;
@@ -49,12 +51,14 @@ public record BackupPayload(
         List<DailyCashCount> dailyCashCounts,
         List<LoyaltyReward> loyaltyRewards,
         List<LoyaltyTransaction> loyaltyTransactions,
-        List<Promotion> promotions
+        List<Promotion> promotions,
+        List<BackupLayaway> layaways
 ) {
 
     /** Version del formato. Se sube cuando cambie la forma del archivo. */
     // v3: agrega promociones y el desglose del descuento de cada venta.
-    public static final int CURRENT_FORMAT_VERSION = 3;
+    // v4: agrega apartados y el desglose de los pagos mixtos.
+    public static final int CURRENT_FORMAT_VERSION = 4;
 
     /** Nunca devuelve null, para no tener que checar cada lista al restaurar. */
     public List<Product> productsOrEmpty() { return products == null ? List.of() : products; }
@@ -68,6 +72,53 @@ public record BackupPayload(
     public List<LoyaltyReward> rewardsOrEmpty() { return loyaltyRewards == null ? List.of() : loyaltyRewards; }
     public List<LoyaltyTransaction> loyaltyTransactionsOrEmpty() { return loyaltyTransactions == null ? List.of() : loyaltyTransactions; }
     public List<Promotion> promotionsOrEmpty() { return promotions == null ? List.of() : promotions; }
+    public List<BackupLayaway> layawaysOrEmpty() { return layaways == null ? List.of() : layaways; }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BackupLayaway(
+            Long id,
+            Long customerId,
+            String customerName,
+            LayawayStatus status,
+            BigDecimal total,
+            BigDecimal paid,
+            BigDecimal refunded,
+            java.time.LocalDate dueDate,
+            String notes,
+            String createdByName,
+            Instant createdAt,
+            Instant completedAt,
+            Instant cancelledAt,
+            String cancelReason,
+            Long saleId,
+            List<BackupLayawayItem> items,
+            List<BackupLayawayPayment> payments
+    ) {
+        public static BackupLayaway from(Layaway layaway) {
+            return new BackupLayaway(
+                    layaway.getId(), layaway.getCustomerId(), layaway.getCustomerName(), layaway.getStatus(),
+                    layaway.getTotal(), layaway.getPaid(), layaway.getRefunded(), layaway.getDueDate(),
+                    layaway.getNotes(), layaway.getCreatedByName(), layaway.getCreatedAt(), layaway.getCompletedAt(),
+                    layaway.getCancelledAt(), layaway.getCancelReason(), layaway.getSaleId(),
+                    layaway.getItems().stream().map(i -> new BackupLayawayItem(i.getProductId(), i.getProductName(),
+                            i.getQuantity(), i.getUnitPrice(), i.getUnitCost(), i.getLineTotal())).toList(),
+                    layaway.getPayments().stream().map(p -> new BackupLayawayPayment(p.getMethod(), p.getAmount(),
+                            p.getCreatedAt(), p.getReceivedByName(), p.getNote())).toList());
+        }
+
+        public List<BackupLayawayItem> itemsOrEmpty() { return items == null ? List.of() : items; }
+        public List<BackupLayawayPayment> paymentsOrEmpty() { return payments == null ? List.of() : payments; }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BackupLayawayItem(Long productId, String productName, int quantity, BigDecimal unitPrice,
+                                    BigDecimal unitCost, BigDecimal lineTotal) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BackupLayawayPayment(PaymentMethod method, BigDecimal amount, Instant createdAt,
+                                       String receivedByName, String note) {
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record BackupSale(

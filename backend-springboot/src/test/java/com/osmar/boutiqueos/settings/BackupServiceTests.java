@@ -139,7 +139,7 @@ class BackupServiceTests {
     void rechazaUnArchivoQueNoEsRespaldo() {
         BackupPayload vacio = new BackupPayload(
                 Instant.now(), 3, null, List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
         assertThrows(Exception.class, () -> backupService.restore(ACCOUNT, vacio));
         assertThrows(Exception.class, () -> backupService.restore(ACCOUNT, null));

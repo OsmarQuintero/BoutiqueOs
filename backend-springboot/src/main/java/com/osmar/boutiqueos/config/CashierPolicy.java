@@ -40,6 +40,8 @@ public class CashierPolicy {
             rule("GET", "/api/reports/range"),
             rule("DELETE", "/api/reports/cash-movements/.*"),
             rule("POST", "/api/sales/[^/]+/(refund|cancel)"),
+            // La caja aparta y recibe abonos; cancelar (y decidir si se devuelve el anticipo) es de la duena.
+            rule("POST", "/api/layaways/[^/]+/cancel"),
             rule("POST|PUT|DELETE", "/api/loyalty/rewards(/.*)?"),
             rule("POST", "/api/loyalty/adjust/.*"),
             rule("DELETE", "/api/customers/.*")

@@ -22,7 +22,8 @@ public record SaleResponse(
         Instant refundedAt,
         List<Item> items,
         String soldByName,
-        List<Payment> payments
+        List<Payment> payments,
+        Long layawayId
 ) {
     public static SaleResponse from(Sale sale) {
         return new SaleResponse(
@@ -43,7 +44,8 @@ public record SaleResponse(
                 sale.getRefundedAt(),
                 sale.getItems().stream().map(Item::from).toList(),
                 sale.getSoldByName(),
-                sale.getPayments().stream().map(p -> new Payment(p.getMethod(), p.getAmount())).toList()
+                sale.getPayments().stream().map(p -> new Payment(p.getMethod(), p.getAmount())).toList(),
+                sale.getLayawayId()
         );
     }
 

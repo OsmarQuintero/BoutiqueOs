@@ -9,7 +9,7 @@ public enum PlanType {
     PRO("Boutique OS Pro", Set.of(
         "products", "customers", "sales", "inventory", "categories",
         "ticket_customization", "reports", "cash_count", "customer_history",
-        "backup", "promotions", "multi_user", "purchases", "refunds"
+        "backup", "promotions", "multi_user", "purchases", "refunds", "layaways"
     ));
 
     private final String displayName;

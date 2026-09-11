@@ -1,0 +1,196 @@
+<div class="card section-gap">
+  <div class="card-header layaway-header">
+    <div>
+      <h3>{{ store.t('layaway.title') }}</h3>
+      <small class="muted-line">
+        {{ store.t('layaway.subtitle', { amount: store.formatMoney(store.openLayawaysRemaining) }) }}
+      </small>
+    </div>
+    <div class="panel-switch">
+      @for (f of store.layawayFilters; track f.id) {
+        <button
+          class="btn btn-outline btn-xs"
+          [class.active]="store.layawayFilter === f.id"
+          (click)="store.layawayFilter = f.id"
+        >
+          {{ f.label }} ({{ f.count }})
+        </button>
+      }
+    </div>
+  </div>
+  <div class="card-content layaway-hint">{{ store.t('layaway.howTo') }}</div>
+</div>
+
+<div class="layaway-grid">
+  <div class="card">
+    <div class="card-content no-pad layaway-table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{{ store.t('layaway.customer') }}</th>
+            <th>{{ store.t('layaway.total') }}</th>
+            <th>{{ store.t('layaway.paidLabel') }}</th>
+            <th>{{ store.t('layaway.remainingLabel') }}</th>
+            <th>{{ store.t('layaway.dueDate') }}</th>
+            <th>{{ store.t('layaway.state') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of store.filteredLayaways; track l.id) {
+            <tr
+              class="layaway-row"
+              [class.layaway-row-active]="store.selectedLayawayId === l.id"
+              tabindex="0"
+              (click)="store.selectLayaway(l.id)"
+              (keydown.enter)="store.selectLayaway(l.id)"
+            >
+              <td class="td-primary">#{{ l.id }}</td>
+              <td>{{ l.customerName }}</td>
+              <td class="td-mono">{{ store.formatMoney(l.total) }}</td>
+              <td class="td-mono">{{ store.formatMoney(l.paid) }}</td>
+              <td class="td-mono">{{ store.formatMoney(l.remaining) }}</td>
+              <td [class.layaway-overdue]="l.overdue">{{ l.dueDate ? store.layawayDateLabel(l.dueDate) : '—' }}</td>
+              <td>
+                <span
+                  class="pill"
+                  [class.pill-amber]="l.status === 'OPEN' && !l.overdue"
+                  [class.pill-red]="l.overdue || l.status === 'CANCELLED'"
+                  [class.pill-green]="l.status === 'COMPLETED'"
+                >
+                  {{ l.overdue ? store.t('layaway.overdue') : store.layawayStatusLabel(l.status) }}
+                </span>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="empty-cell">{{ store.t('layaway.empty') }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card layaway-detail">
+    @if (store.selectedLayaway; as l) {
+      <div class="card-header">
+        <h3>{{ store.t('layaway.detailTitle', { id: l.id }) }}</h3>
+        <button class="btn btn-outline btn-xs" (click)="store.openLayawayReceipt(l)">
+          {{ store.t('layaway.receipt') }}
+        </button>
+      </div>
+      <div class="card-content layaway-detail-body">
+        <dl class="layaway-summary">
+          <div>
+            <dt>{{ store.t('layaway.customer') }}</dt>
+            <dd>{{ l.customerName }}</dd>
+          </div>
+          <div>
+            <dt>{{ store.t('layaway.total') }}</dt>
+            <dd>{{ store.formatMoney(l.total) }}</dd>
+          </div>
+          <div>
+            <dt>{{ store.t('layaway.paidLabel') }}</dt>
+            <dd>{{ store.formatMoney(l.paid) }}</dd>
+          </div>
+          <div>
+            <dt>{{ store.t('layaway.remainingLabel') }}</dt>
+            <dd class="layaway-remaining">{{ store.formatMoney(l.remaining) }}</dd>
+          </div>
+          <div>
+            <dt>{{ store.t('layaway.dueDate') }}</dt>
+            <dd [class.layaway-overdue]="l.overdue">{{ l.dueDate ? store.layawayDateLabel(l.dueDate) : '—' }}</dd>
+          </div>
+          @if (l.createdByName) {
+            <div>
+              <dt>{{ store.t('layaway.createdBy') }}</dt>
+              <dd>{{ l.createdByName }}</dd>
+            </div>
+          }
+        </dl>
+        @if (l.notes) {
+          <p class="layaway-notes">{{ l.notes }}</p>
+        }
+
+        <h4>{{ store.t('layaway.items') }}</h4>
+        <ul class="layaway-list">
+          @for (item of l.items; track $index) {
+            <li>
+              <span>{{ item.quantity }} × {{ item.productName }}</span>
+              <strong>{{ store.formatMoney(item.lineTotal) }}</strong>
+            </li>
+          }
+        </ul>
+
+        <h4>{{ store.t('layaway.payments') }}</h4>
+        <ul class="layaway-list">
+          @for (p of l.payments; track p.id) {
+            <li [class.layaway-refund]="p.amount < 0">
+              <span>
+                {{ store.formatDateTime(p.createdAt) }} · {{ store.paymentLabel(p.method) }}
+                @if (p.note) {
+                  · {{ p.note }}
+                }
+              </span>
+              <strong>{{ store.formatMoney(p.amount) }}</strong>
+            </li>
+          }
+        </ul>
+
+        @if (l.status === 'OPEN') {
+          <div class="layaway-pay settings-form">
+            <label class="field">
+              <span>{{ store.t('layaway.amount') }}</span>
+              <input type="number" min="0" step="1" [(ngModel)]="store.layawayPayForm.amount" />
+            </label>
+            <label class="field">
+              <span>{{ store.t('pos.paymentMethod') }}</span>
+              <select [(ngModel)]="store.layawayPayForm.method">
+                @for (m of store.mixedMethods; track m) {
+                  <option [ngValue]="m">{{ store.paymentLabel(m) }}</option>
+                }
+              </select>
+            </label>
+            <label class="field layaway-pay-note">
+              <span>{{ store.t('layaway.note') }}</span>
+              <input [(ngModel)]="store.layawayPayForm.note" [placeholder]="store.t('common.optional')" />
+            </label>
+            <div class="layaway-actions">
+              <button class="btn btn-ghost btn-sm" (click)="store.fillLayawayRemaining()">
+                {{ store.t('layaway.payAll') }}
+              </button>
+              <button class="btn btn-primary btn-sm" [disabled]="store.isSavingLayaway" (click)="store.payLayaway()">
+                {{ store.t('layaway.registerPayment') }}
+              </button>
+            </div>
+          </div>
+          @if (!store.isCashier) {
+            <div class="layaway-cancel">
+              <span>{{ store.t('layaway.cancelTitle') }}</span>
+              @if (l.paid > 0) {
+                <button class="btn btn-outline btn-xs" (click)="store.cancelLayaway(true)">
+                  {{ store.t('layaway.cancelRefund', { amount: store.formatMoney(l.paid) }) }}
+                </button>
+              }
+              <button class="btn btn-ghost btn-xs" (click)="store.cancelLayaway(false)">
+                {{ l.paid > 0 ? store.t('layaway.cancelKeep') : store.t('layaway.cancelPlain') }}
+              </button>
+            </div>
+          }
+        } @else if (l.status === 'COMPLETED') {
+          <p class="layaway-state-note">{{ store.t('layaway.completedNote', { sale: l.saleId ?? '' }) }}</p>
+        } @else {
+          <p class="layaway-state-note">
+            {{ store.t('layaway.cancelledNote', { refunded: store.formatMoney(l.refunded) }) }}
+          </p>
+        }
+        @if (store.layawayMessage) {
+          <p class="layaway-message" aria-live="polite">{{ store.layawayMessage }}</p>
+        }
+      </div>
+    } @else {
+      <div class="card-content layaway-pick">{{ store.t('layaway.pick') }}</div>
+    }
+  </div>
+</div>

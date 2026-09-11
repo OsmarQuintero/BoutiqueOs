@@ -21,6 +21,9 @@ public class SchemaMigrationRunner implements CommandLineRunner {
         // un CHECK que Hibernate no actualiza solo: sin esto la venta mixta falla.
         migrateEnum("sales", "payment_method", "ENUM('CASH', 'TRANSFER', 'CARD', 'MIXED')");
         dropConstraintIfPresent("sales", "sales_payment_method_check");
+        // Apartados: nuevo tipo de movimiento de inventario.
+        migrateEnum("inventory_movements", "type", "ENUM('PURCHASE', 'SALE', 'ADJUSTMENT', 'RETURN', 'LAYAWAY')");
+        dropConstraintIfPresent("inventory_movements", "inventory_movements_type_check");
         makeIdentityIfPossible("app_settings", "id");
         addColumnIfMissing("sales", "refunded_total", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
         addColumnIfMissing("sales", "refunded_profit", "DECIMAL(12,2) DEFAULT 0 NOT NULL");

@@ -209,6 +209,47 @@
       >
         {{ store.isCharging ? store.t('pos.charging') : store.t('pos.charge') }}
       </button>
+      @if (store.hasFeature('layaways')) {
+        <button
+          class="btn btn-outline btn-block"
+          [disabled]="store.isSavingLayaway || !store.cart.length"
+          (click)="store.openLayawayDraft()"
+        >
+          {{ store.t('layaway.putAside') }}
+        </button>
+      }
+      @if (store.layawayDraftOpen) {
+        <div class="layaway-draft">
+          <strong>{{ store.t('layaway.draftTitle', { customer: store.selectedCustomerName }) }}</strong>
+          <small>{{ store.t('layaway.draftHint', { total: store.formatMoney(store.cartSubtotal) }) }}</small>
+          <div class="discount-row">
+            <label class="payment-label" for="layawayDeposit">{{ store.t('layaway.deposit') }}</label>
+            <input id="layawayDeposit" type="number" min="0" step="1" class="input-sm" [(ngModel)]="store.layawayDraft.deposit" />
+          </div>
+          <div class="discount-row">
+            <label class="payment-label" for="layawayMethod">{{ store.t('pos.paymentMethod') }}</label>
+            <select id="layawayMethod" class="customer-select" [(ngModel)]="store.layawayDraft.method">
+              @for (m of store.mixedMethods; track m) {
+                <option [ngValue]="m">{{ store.paymentLabel(m) }}</option>
+              }
+            </select>
+          </div>
+          <div class="discount-row">
+            <label class="payment-label" for="layawayDue">{{ store.t('layaway.dueDate') }}</label>
+            <input id="layawayDue" type="date" class="input-sm" [(ngModel)]="store.layawayDraft.dueDate" />
+          </div>
+          <div class="discount-row">
+            <label class="payment-label" for="layawayNotes">{{ store.t('layaway.note') }}</label>
+            <input id="layawayNotes" class="input-sm" [(ngModel)]="store.layawayDraft.notes" />
+          </div>
+          <div class="layaway-draft-actions">
+            <button class="btn btn-ghost btn-sm" (click)="store.closeLayawayDraft()">{{ store.t('layaway.back') }}</button>
+            <button class="btn btn-primary btn-sm" [disabled]="store.isSavingLayaway" (click)="store.createLayawayFromCart()">
+              {{ store.t('layaway.confirm') }}
+            </button>
+          </div>
+        </div>
+      }
       <div class="status-line">{{ store.statusMessage }}</div>
     </div>
   </div>

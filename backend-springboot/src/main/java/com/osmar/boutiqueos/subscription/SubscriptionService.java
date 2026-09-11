@@ -144,7 +144,7 @@ public class SubscriptionService {
 
         String[] allFeatures = {
             "ticket_customization", "reports", "cash_count", "customer_history",
-            "backup", "promotions", "multi_user", "purchases", "refunds"
+            "backup", "promotions", "multi_user", "purchases", "refunds", "layaways"
         };
 
         List<Map<String, Object>> result = new ArrayList<>();

@@ -1,0 +1,188 @@
+// Apartados: lista a la izquierda, detalle con abonos a la derecha.
+
+.layaway-header {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.layaway-hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.layaway-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+// minmax(0, ...) y no 1fr: con 1fr la tabla ancha estiraba la columna y la
+// pagina se desbordaba de lado en el celular.
+@media (max-width: 1000px) {
+  .layaway-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.layaway-table-wrap {
+  overflow-x: auto;
+}
+
+.layaway-row {
+  cursor: pointer;
+}
+
+.layaway-row:hover td {
+  background: var(--surface-muted, #faf8f3);
+}
+
+.layaway-row-active td {
+  background: #fbf3dc;
+}
+
+.layaway-row:focus-visible {
+  outline: 2px solid #c9a961;
+  outline-offset: -2px;
+}
+
+.layaway-overdue {
+  color: #a12b2b;
+  font-weight: 600;
+}
+
+.layaway-detail-body {
+  display: grid;
+  gap: 10px;
+}
+
+.layaway-detail-body h4 {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.layaway-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.layaway-summary div {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.layaway-summary dt {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+.layaway-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.layaway-remaining {
+  color: #7a5f22;
+}
+
+.layaway-notes {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px dashed var(--border-strong);
+  font-size: 0.78rem;
+}
+
+.layaway-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.layaway-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-light, #eee);
+}
+
+.layaway-list strong {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.layaway-refund {
+  color: #a12b2b;
+}
+
+.layaway-pay {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.layaway-pay .field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.layaway-pay select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  background: var(--bg, #fff);
+  color: var(--text);
+}
+
+.layaway-pay-note {
+  grid-column: 1 / -1;
+}
+
+.layaway-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.layaway-cancel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.layaway-state-note,
+.layaway-message {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.layaway-message {
+  font-weight: 600;
+}
+
+.layaway-pick {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}

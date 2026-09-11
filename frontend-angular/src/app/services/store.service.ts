@@ -160,6 +160,8 @@ export interface SaleRecord {
   // Pago mixto: cuanto se cobro con cada metodo.
   payments?: Array<{ method: PaymentMethod; amount: number }>;
   soldByName?: string | null;
+  // Venta de un apartado liquidado: su efectivo entro al corte con cada abono.
+  layawayId?: number | null;
 }
 
 export interface SaleRefundRecordItem {
@@ -208,6 +210,40 @@ export interface SalesRangeReport {
   sellers: Array<{ seller: string; salesCount: number; salesTotal: number }>;
 }
 
+export type LayawayStatus = 'OPEN' | 'COMPLETED' | 'CANCELLED';
+export type LayawayFilter = LayawayStatus | 'ALL';
+
+export interface LayawayRecord {
+  id: number;
+  customerId: number;
+  customerName: string;
+  status: LayawayStatus;
+  total: number;
+  paid: number;
+  remaining: number;
+  refunded: number;
+  dueDate: string | null;
+  overdue: boolean;
+  notes: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  saleId: number | null;
+  items: Array<{ productId: number | null; productName: string; quantity: number; unitPrice: number; lineTotal: number }>;
+  payments: Array<{ id: number; method: PaymentMethod; amount: number; createdAt: string; receivedByName: string | null; note: string | null }>;
+}
+
+export interface LayawayDayPayment {
+  layawayId: number;
+  customerName: string;
+  method: PaymentMethod;
+  amount: number;
+  createdAt: string;
+  note: string | null;
+}
+
 export interface DailyCashCount {
   id: number;
   businessDate: string;
@@ -234,6 +270,7 @@ export type CatalogSection = 'products';
 export type CategoriesSection = 'categories';
 export type CustomersSection = 'form' | 'list' | 'history';
 export type PromosSection = 'form' | 'list';
+export type LayawaysSection = 'list';
 
 export interface SubscriptionUsage {
   productCount: number;
@@ -261,6 +298,7 @@ export type ViewSectionId =
   | CategoriesSection
   | CustomersSection
   | PromosSection
+  | LayawaysSection
   | ReportPanel
   | InventoryPanel
   | SettingsSection;
@@ -390,6 +428,7 @@ export type ViewId =
   | 'customers'
   | 'promos'
   | 'reports'
+  | 'layaways'
   | 'settings';
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
 
@@ -488,6 +527,7 @@ export class StoreService {
     customers: 'list',
     promos: 'list',
     reports: 'summary',
+    layaways: 'list',
     settings: 'profile',
   };
   products: Product[] = [];
@@ -514,6 +554,16 @@ export class StoreService {
   rangeLoading = false;
   rangeError = '';
   private rangeMaxDay = 0;
+  // Apartados.
+  layaways: LayawayRecord[] = [];
+  layawayFilter: LayawayFilter = 'OPEN';
+  selectedLayawayId: number | null = null;
+  layawayPayForm = { method: 'CASH' as MixedPart, amount: 0, note: '' };
+  layawayMessage = '';
+  isSavingLayaway = false;
+  layawayDraftOpen = false;
+  layawayDraft = { deposit: 0, method: 'CASH' as MixedPart, dueDate: '', notes: '' };
+  layawayPaymentsToday: LayawayDayPayment[] = [];
   cashReceived = 0;
   private _statusMessage = '';
   alertMessage = '';
@@ -691,7 +741,7 @@ export class StoreService {
   // con 403 todo lo que no le toca, esto solo evita ensenarle botones inutiles.
   userRole: 'OWNER' | 'CASHIER' = 'OWNER';
   userDisplayName = '';
-  readonly cashierViews: ViewId[] = ['pos', 'catalog', 'customers'];
+  readonly cashierViews: ViewId[] = ['pos', 'catalog', 'customers', 'layaways'];
 
   // Usuarios de caja (solo la duena, plan Pro).
   staffMembers: StaffMember[] = [];
@@ -1442,12 +1492,16 @@ export class StoreService {
 
   get cashExpected(): number {
     const cashSalesToday = this.salesToday
-      .filter((sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED')
+      .filter((sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED' && !sale.layawayId)
       .reduce((total, sale) => total + this.paymentAmountFor(sale, 'CASH'), 0);
+    // Abonos de apartados en efectivo (las devoluciones de anticipo vienen en negativo).
+    const layawayCash = this.layawayPaymentsToday
+      .filter((payment) => payment.method === 'CASH')
+      .reduce((total, payment) => total + payment.amount, 0);
     const cashRefundsToday = this.refundedToday
       .filter((refund) => refund.paymentMethod === 'CASH')
       .reduce((total, refund) => total + refund.total, 0);
-    return this.openingFloatInput + cashSalesToday - cashRefundsToday;
+    return this.openingFloatInput + cashSalesToday - cashRefundsToday + layawayCash;
   }
 
   get cashDifference(): number {
@@ -2742,6 +2796,7 @@ export class StoreService {
       this.loadProducts();
     }
     if (view === 'customers') this.loadCustomers();
+    if (view === 'layaways') this.loadLayaways();
     if (view === 'promos') this.loadCustomers();
     if (view !== 'pos') this.searchTerm = '';
   }
@@ -2955,6 +3010,278 @@ export class StoreService {
             .map((m) => ({ method: m, amount: this.round2(Number(this.mixedPayment[m])) }))
         : undefined,
     };
+  }
+
+  // ----- Apartados -----
+
+  get layawayFilters(): Array<{ id: LayawayFilter; label: string; count: number }> {
+    const count = (status: LayawayStatus) => this.layaways.filter((l) => l.status === status).length;
+    return [
+      { id: 'OPEN', label: this.t('layaway.filterOpen'), count: count('OPEN') },
+      { id: 'COMPLETED', label: this.t('layaway.filterCompleted'), count: count('COMPLETED') },
+      { id: 'CANCELLED', label: this.t('layaway.filterCancelled'), count: count('CANCELLED') },
+      { id: 'ALL', label: this.t('layaway.filterAll'), count: this.layaways.length },
+    ];
+  }
+
+  get filteredLayaways(): LayawayRecord[] {
+    return this.layawayFilter === 'ALL'
+      ? this.layaways
+      : this.layaways.filter((l) => l.status === this.layawayFilter);
+  }
+
+  get selectedLayaway(): LayawayRecord | null {
+    return this.layaways.find((l) => l.id === this.selectedLayawayId) ?? null;
+  }
+
+  get openLayawaysRemaining(): number {
+    return this.layaways.filter((l) => l.status === 'OPEN').reduce((sum, l) => sum + l.remaining, 0);
+  }
+
+  get selectedCustomerName(): string {
+    return this.customers.find((customer) => customer.id === this.selectedCustomerId)?.name ?? '';
+  }
+
+  layawayStatusLabel(status: LayawayStatus): string {
+    return this.t(`layaway.status.${status}`);
+  }
+
+  layawayDateLabel(date: string): string {
+    return new Date(`${date}T00:00:00`).toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  loadLayaways(): void {
+    if (!this.hasFeature('layaways')) return;
+    this.http.get<LayawayRecord[]>(this.apiUrl('/layaways')).subscribe({
+      next: (list) => {
+        this.layaways = list;
+        if (this.selectedLayawayId && !list.some((l) => l.id === this.selectedLayawayId)) {
+          this.selectedLayawayId = null;
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  selectLayaway(id: number): void {
+    this.selectedLayawayId = id;
+    this.layawayPayForm = { method: 'CASH', amount: 0, note: '' };
+    this.layawayMessage = '';
+  }
+
+  /** Abre el apartado con lo que hay en el carrito; va a nombre de la clienta elegida. */
+  openLayawayDraft(): void {
+    if (!this.cart.length) {
+      this.statusMessage = this.t('warn.addProductsFirst');
+      return;
+    }
+    if (!this.selectedCustomerId) {
+      this.statusMessage = this.t('layaway.needCustomer');
+      return;
+    }
+    const due = new Date();
+    due.setDate(due.getDate() + 30);
+    this.layawayDraft = { deposit: 0, method: 'CASH', dueDate: this.rangeIso(due), notes: '' };
+    this.layawayDraftOpen = true;
+  }
+
+  closeLayawayDraft(): void {
+    this.layawayDraftOpen = false;
+  }
+
+  createLayawayFromCart(): void {
+    const deposit = this.round2(Number(this.layawayDraft.deposit) || 0);
+    if (deposit <= 0) {
+      this.statusMessage = this.t('layaway.depositRequired');
+      return;
+    }
+    if (deposit > this.cartSubtotal) {
+      this.statusMessage = this.t('layaway.depositTooHigh', { total: this.formatMoney(this.cartSubtotal) });
+      return;
+    }
+    if (this.isSavingLayaway) return;
+    this.isSavingLayaway = true;
+    this.http
+      .post<LayawayRecord>(this.apiUrl('/layaways'), {
+        customerId: this.selectedCustomerId,
+        items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
+        deposit: { method: this.layawayDraft.method, amount: deposit, note: null },
+        dueDate: this.layawayDraft.dueDate || null,
+        notes: this.layawayDraft.notes.trim() || null,
+      })
+      .pipe(finalize(() => (this.isSavingLayaway = false)))
+      .subscribe({
+        next: (layaway) => {
+          this.cart = [];
+          this.selectedCustomerId = null;
+          this.selectedPromoId = null;
+          this.checkoutDiscount = 0;
+          this.cashReceived = 0;
+          this.layawayDraftOpen = false;
+          this.layaways = [layaway, ...this.layaways.filter((l) => l.id !== layaway.id)];
+          this.loadProducts();
+          this.loadLayawayPaymentsToday();
+          this.showAlert(this.t('layaway.created', { id: layaway.id }), 'success');
+          this.layawayFilter = layaway.status === 'COMPLETED' ? 'COMPLETED' : 'OPEN';
+          this.setView('layaways');
+          this.selectLayaway(layaway.id);
+          if (this.settings.autoOpenTicket) {
+            void this.openLayawayReceipt(layaway);
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          this.statusMessage = error.error?.message || this.t('layaway.failed');
+        },
+      });
+  }
+
+  fillLayawayRemaining(): void {
+    const layaway = this.selectedLayaway;
+    if (layaway) {
+      this.layawayPayForm = { ...this.layawayPayForm, amount: layaway.remaining };
+    }
+  }
+
+  payLayaway(): void {
+    const layaway = this.selectedLayaway;
+    if (!layaway) return;
+    const amount = this.round2(Number(this.layawayPayForm.amount) || 0);
+    if (amount <= 0) {
+      this.layawayMessage = this.t('layaway.amountRequired');
+      return;
+    }
+    if (amount > layaway.remaining + 0.001) {
+      this.layawayMessage = this.t('layaway.amountTooHigh', { amount: this.formatMoney(layaway.remaining) });
+      return;
+    }
+    if (this.isSavingLayaway) return;
+    this.isSavingLayaway = true;
+    this.http
+      .post<LayawayRecord>(this.apiUrl(`/layaways/${layaway.id}/payments`), {
+        method: this.layawayPayForm.method,
+        amount,
+        note: this.layawayPayForm.note.trim() || null,
+      })
+      .pipe(finalize(() => (this.isSavingLayaway = false)))
+      .subscribe({
+        next: (updated) => {
+          this.replaceLayaway(updated);
+          this.layawayPayForm = { method: 'CASH', amount: 0, note: '' };
+          this.layawayMessage =
+            updated.status === 'COMPLETED'
+              ? this.t('layaway.completed', { sale: updated.saleId ?? '' })
+              : this.t('layaway.paid', {
+                  amount: this.formatMoney(amount),
+                  rest: this.formatMoney(updated.remaining),
+                });
+          this.refreshReportData();
+          if (this.settings.autoOpenTicket) {
+            void this.openLayawayReceipt(updated);
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          this.layawayMessage = error.error?.message || this.t('layaway.failed');
+        },
+      });
+  }
+
+  cancelLayaway(refund: boolean): void {
+    const layaway = this.selectedLayaway;
+    if (!layaway) return;
+    const key = refund ? 'layaway.confirmCancelRefund' : 'layaway.confirmCancelKeep';
+    if (!window.confirm(this.t(key, { id: layaway.id, amount: this.formatMoney(layaway.paid) }))) return;
+    this.http
+      .post<LayawayRecord>(this.apiUrl(`/layaways/${layaway.id}/cancel`), { refundPayments: refund, reason: null })
+      .subscribe({
+        next: (updated) => {
+          this.replaceLayaway(updated);
+          this.layawayMessage = this.t('layaway.cancelled');
+          this.loadProducts();
+          this.refreshReportData();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.layawayMessage = error.error?.message || this.t('layaway.failed');
+        },
+      });
+  }
+
+  /** Recibo del apartado: prendas, abonos, lo que falta y la fecha limite. */
+  async openLayawayReceipt(layaway: LayawayRecord): Promise<void> {
+    const { jsPDF } = await import('jspdf');
+    const width = 80;
+    const height = 150 + layaway.items.length * 8 + layaway.payments.length * 8;
+    const doc = new jsPDF({ unit: 'mm', format: [width, height] });
+    let y = 9;
+    const center = (text: string, size = 9, style: 'normal' | 'bold' = 'normal') => {
+      doc.setFont('helvetica', style);
+      doc.setFontSize(size);
+      doc.text(text, width / 2, y, { align: 'center' });
+      y += size * 0.45 + 1.8;
+    };
+    const row = (left: string, right: string, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(8);
+      const wrapped = doc.splitTextToSize(left, width - 32) as string[];
+      doc.text(wrapped, 5, y);
+      doc.text(right, width - 5, y, { align: 'right' });
+      y += wrapped.length * 3.6 + 0.8;
+    };
+    const rule = () => {
+      doc.setLineWidth(0.2);
+      doc.line(5, y - 1, width - 5, y - 1);
+      y += 2.5;
+    };
+
+    center(this.settings.storeName || 'Boutique OS', 11, 'bold');
+    if (this.settings.phone) center(this.settings.phone, 8);
+    y += 1;
+    center(this.t('layaway.receiptTitle', { id: layaway.id }), 10, 'bold');
+    center(this.formatDateTime(new Date().toISOString()), 8);
+    rule();
+    row(this.t('layaway.customer'), layaway.customerName);
+    if (layaway.dueDate) row(this.t('layaway.dueDate'), this.layawayDateLabel(layaway.dueDate));
+    rule();
+    for (const item of layaway.items) {
+      row(`${item.quantity} x ${item.productName}`, this.formatMoney(item.lineTotal));
+    }
+    rule();
+    row(this.t('layaway.total'), this.formatMoney(layaway.total), true);
+    for (const payment of layaway.payments) {
+      row(`${this.formatDateTime(payment.createdAt)} ${this.paymentLabel(payment.method)}`, this.formatMoney(payment.amount));
+    }
+    rule();
+    row(this.t('layaway.paidLabel'), this.formatMoney(layaway.paid), true);
+    row(this.t('layaway.remainingLabel'), this.formatMoney(layaway.remaining), true);
+    y += 2;
+    const footer = this.t(layaway.status === 'COMPLETED' ? 'layaway.receiptCompleted' : 'layaway.receiptKeep');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(doc.splitTextToSize(footer, width - 10) as string[], width / 2, y, { align: 'center' });
+
+    const url = String(doc.output('bloburl'));
+    const opened = window.open(url, '_blank');
+    if (!opened) {
+      doc.save(`apartado-${layaway.id}.pdf`);
+    }
+  }
+
+  private replaceLayaway(updated: LayawayRecord): void {
+    this.layaways = this.layaways.map((l) => (l.id === updated.id ? updated : l));
+  }
+
+  private loadLayawayPaymentsToday(): void {
+    if (!this.hasFeature('layaways')) {
+      this.layawayPaymentsToday = [];
+      return;
+    }
+    this.http.get<LayawayDayPayment[]>(this.apiUrl(`/layaways/payments?date=${this.reportDate}`)).subscribe({
+      next: (payments) => (this.layawayPaymentsToday = payments),
+      error: () => (this.layawayPaymentsToday = []),
+    });
   }
 
   // ----- Reporte por periodo -----
@@ -5663,6 +5990,7 @@ export class StoreService {
     this.loadRefundsToday();
     this.loadRefundsYesterday();
     this.loadCashCount();
+    this.loadLayawayPaymentsToday();
     this.loadReportHistory();
     this.loadReportInventoryMovements();
     this.loadYesterdayReportInventoryMovements();

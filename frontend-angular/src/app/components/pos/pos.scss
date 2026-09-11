@@ -34,7 +34,8 @@
 .cart-footer { padding: 10px 14px; border-top: 1px solid var(--border-light); }
 .payment-row { margin-bottom: 8px; }
 .payment-label { font-size: 0.68rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
-.payment-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+/* Cuatro metodos (con Mixto) en 2x2: en 3 columnas Mixto quedaba solo en otro renglon. */
+.payment-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
 .btn-payment { background: var(--surface); color: var(--text-secondary); border-color: var(--border); font-size: 0.72rem; min-height: 28px; padding: 0 6px; }
 .btn-payment.active { border-color: var(--primary); background: var(--primary-subtle); color: var(--primary-text); font-weight: 700; }
 .discount-row { display: grid; gap: 4px; margin-bottom: 8px; }
@@ -107,4 +108,25 @@
 
 .mixed-warn {
   color: var(--amber, #8a5a00);
+}
+
+// Apartar: formulario corto debajo de Cobrar.
+.layaway-draft {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid #c9a961;
+  background: #fbf6e8;
+}
+
+.layaway-draft small {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.layaway-draft-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
 }

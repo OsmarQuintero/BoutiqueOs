@@ -4,6 +4,7 @@ import { CategoriesComponent } from './components/categories/categories';
 import { CatalogComponent } from './components/catalog/catalog';
 import { CustomersComponent } from './components/customers/customers';
 import { InventoryComponent } from './components/inventory/inventory';
+import { LayawaysComponent } from './components/layaways/layaways';
 import { ModuleStripComponent, ModuleStripItem } from './components/module-strip/module-strip';
 import { PosComponent } from './components/pos/pos';
 import { PromosComponent } from './components/promos/promos';
@@ -24,6 +25,7 @@ import { StoreService, ViewId } from './services/store.service';
     CategoriesComponent,
     InventoryComponent,
     CustomersComponent,
+    LayawaysComponent,
     PromosComponent,
     ReportsComponent,
     SettingsComponent,
@@ -67,6 +69,15 @@ export class App implements OnInit {
           'M8.5 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m7 1a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 15.5 12m-7 1c-2.76 0-5 1.57-5 3.5V18h10v-1.5c0-1.93-2.24-3.5-5-3.5m7 1c-.91 0-1.77.18-2.5.5 1.19.73 2 1.81 2 3V18H20v-.8c0-1.78-2.02-3.2-4.5-3.2',
       },
     ];
+
+    if (this.store.hasFeature('layaways')) {
+      all.push({
+        id: 'layaways',
+        label: this.store.t('nav.layaways'),
+        iconPath:
+          'M7 7V6a5 5 0 0 1 10 0v1h3l-1.2 13H5.2L4 7zm2 0h6V6a3 3 0 0 0-6 0zM6.2 9l.8 9h10l.8-9zM10 11h4v1.5h-4z',
+      });
+    }
 
     if (this.store.hasFeature('promotions')) {
       all.push({
