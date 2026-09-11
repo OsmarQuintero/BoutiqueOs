@@ -91,7 +91,8 @@ public record BackupPayload(
             Long promotionId,
             String promotionCode,
             BigDecimal promotionDiscount,
-            String soldByName
+            String soldByName,
+            List<BackupPayment> payments
     ) {
         public static BackupSale from(Sale sale) {
             return new BackupSale(
@@ -115,13 +116,18 @@ public record BackupPayload(
                     sale.getPromotionId(),
                     sale.getPromotionCode(),
                     sale.getPromotionDiscount(),
-                    sale.getSoldByName()
+                    sale.getSoldByName(),
+                    sale.getPayments().stream().map(p -> new BackupPayment(p.getMethod(), p.getAmount())).toList()
             );
         }
 
         public List<BackupSaleItem> itemsOrEmpty() {
             return items == null ? List.of() : items;
         }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BackupPayment(PaymentMethod method, BigDecimal amount) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

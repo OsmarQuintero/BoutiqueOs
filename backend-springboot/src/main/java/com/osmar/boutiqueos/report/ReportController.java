@@ -22,11 +22,21 @@ public class ReportController {
     private final DailyCashCountService dailyCashCountService;
     private final CashMovementService cashMovementService;
     private final SubscriptionService subscriptionService;
+    private final SalesReportService salesReportService;
 
-    public ReportController(DailyCashCountService dailyCashCountService, CashMovementService cashMovementService, SubscriptionService subscriptionService) {
+    public ReportController(DailyCashCountService dailyCashCountService, CashMovementService cashMovementService,
+                            SubscriptionService subscriptionService, SalesReportService salesReportService) {
+        this.salesReportService = salesReportService;
         this.dailyCashCountService = dailyCashCountService;
         this.cashMovementService = cashMovementService;
         this.subscriptionService = subscriptionService;
+    }
+
+    /** Ventas de un periodo (dias de la tienda, ambos incluidos). */
+    @GetMapping("/range")
+    public SalesRangeReport range(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+        subscriptionService.requireFeature("reports");
+        return salesReportService.range(from, to);
     }
 
     @GetMapping("/cash-count/today")

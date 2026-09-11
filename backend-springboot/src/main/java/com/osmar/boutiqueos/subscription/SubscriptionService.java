@@ -97,7 +97,7 @@ public class SubscriptionService {
         long customerCount = customerRepository.countByAccountId(accountId);
 
         Instant monthStart = LocalDate.now().withDayOfMonth(1)
-                .atStartOfDay(ZoneOffset.UTC).toInstant();
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
         long salesThisMonth = saleRepository.countByAccountIdAndCreatedAtAfter(accountId, monthStart);
 
         return new SubscriptionUsage(

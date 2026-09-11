@@ -17,6 +17,10 @@ public class SchemaMigrationRunner implements CommandLineRunner {
     public void run(String... args) {
         migrateEnum("sales", "status", "ENUM('PENDING', 'CONFIRMED', 'PARTIALLY_REFUNDED', 'CANCELLED', 'REFUNDED')");
         migrateEnum("products", "status", "ENUM('ACTIVE', 'OUT_OF_STOCK', 'ARCHIVED')");
+        // Pago mixto. H2 guarda el enum como tipo ENUM; Postgres como texto con
+        // un CHECK que Hibernate no actualiza solo: sin esto la venta mixta falla.
+        migrateEnum("sales", "payment_method", "ENUM('CASH', 'TRANSFER', 'CARD', 'MIXED')");
+        dropConstraintIfPresent("sales", "sales_payment_method_check");
         makeIdentityIfPossible("app_settings", "id");
         addColumnIfMissing("sales", "refunded_total", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
         addColumnIfMissing("sales", "refunded_profit", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
@@ -82,6 +86,14 @@ public class SchemaMigrationRunner implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE " + table + " ALTER COLUMN " + column + " " + enumDefinition);
         } catch (Exception ignored) {
             // The app still boots on fresh schemas or if the enum already matches.
+        }
+    }
+
+    private void dropConstraintIfPresent(String table, String constraint) {
+        try {
+            jdbcTemplate.execute("ALTER TABLE " + table + " DROP CONSTRAINT IF EXISTS " + constraint);
+        } catch (Exception ignored) {
+            // No existe en H2 ni en esquemas nuevos.
         }
     }
 

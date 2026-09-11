@@ -74,6 +74,7 @@ public class ProductService {
         product.setSalePrice(defaultMoney(request.salePrice()));
         product.setStock(request.stock() == null ? 0 : request.stock());
         product.setStatus(request.status() == null ? ProductStatus.ACTIVE : request.status());
+        product.setMinStock(request.minStock());
     }
 
     private BigDecimal defaultMoney(BigDecimal value) {

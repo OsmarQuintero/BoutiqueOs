@@ -4,17 +4,21 @@
       <h3>{{ store.t('reports.daily') }}</h3>
       <small class="muted-line">{{ store.t('reports.subtitle') }}</small>
     </div>
-    <label class="report-date-picker">
-      <span>{{ store.t('reports.date') }}</span>
-      <input
-        type="date"
-        [ngModel]="store.reportDate"
-        (ngModelChange)="store.changeReportDate($event)"
-      />
-    </label>
+    @if (store.reportPanel !== 'range') {
+      <label class="report-date-picker">
+        <span>{{ store.t('reports.date') }}</span>
+        <input
+          type="date"
+          [ngModel]="store.reportDate"
+          (ngModelChange)="store.changeReportDate($event)"
+        />
+      </label>
+    }
   </div>
   <div class="card-content report-toolbar">
     <div class="date-quick-actions">
+      <!-- El periodo trae sus propias fechas: los atajos del dia no aplican ahi. -->
+      @if (store.reportPanel !== 'range') {
       <button class="btn btn-ghost btn-xs" (click)="store.shiftReportDate(-1)">
         {{ store.t('common.yesterday') }}
       </button>
@@ -27,6 +31,7 @@
       <button class="btn btn-outline btn-xs" (click)="store.exportDailyReportPdf()">
         {{ store.t('reports.exportPdf') }}
       </button>
+      }
       <!-- Exporta solo el panel abierto; el rotulo lo dice para que no sorprenda. -->
       <button class="btn btn-outline btn-xs" (click)="store.exportReportPanelCsv()">
         {{ store.t('reports.exportCsv', { panel: store.reportPanelLabel }) }}
@@ -61,6 +66,9 @@
   }
   @case ('movements') {
     <app-report-inventory-movements />
+  }
+  @case ('range') {
+    <app-report-range />
   }
   @case ('history') {
     <app-report-history />

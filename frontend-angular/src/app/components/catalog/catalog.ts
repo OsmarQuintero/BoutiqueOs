@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ProductsComponent } from '../products/products';
 import { StoreService } from '../../services/store.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-catalog',
   imports: [ProductsComponent],
   templateUrl: './catalog.html',

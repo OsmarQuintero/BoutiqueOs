@@ -25,8 +25,22 @@ public record SaleRequest(
         Long customerId,
         @NotEmpty List<@Valid SaleItemRequest> items,
         Long promotionId,
-        @DecimalMin("0.00") BigDecimal manualDiscount
+        @DecimalMin("0.00") BigDecimal manualDiscount,
+        List<@Valid PaymentPart> payments
 ) {
+
+    /** Sin desglose de pago (todo con un solo metodo). */
+    public SaleRequest(
+            PaymentMethod paymentMethod,
+            BigDecimal discount,
+            BigDecimal cashReceived,
+            Long customerId,
+            List<SaleItemRequest> items,
+            Long promotionId,
+            BigDecimal manualDiscount
+    ) {
+        this(paymentMethod, discount, cashReceived, customerId, items, promotionId, manualDiscount, null);
+    }
 
     /** Formato anterior (sin promocion ni descuento manual separados). */
     public SaleRequest(
@@ -37,6 +51,13 @@ public record SaleRequest(
             List<SaleItemRequest> items
     ) {
         this(paymentMethod, discount, cashReceived, customerId, items, null, null);
+    }
+
+    /** Pago mixto: cuanto se cobro con cada metodo. */
+    public record PaymentPart(
+            @NotNull PaymentMethod method,
+            @NotNull @DecimalMin("0.00") BigDecimal amount
+    ) {
     }
 
     public record SaleItemRequest(

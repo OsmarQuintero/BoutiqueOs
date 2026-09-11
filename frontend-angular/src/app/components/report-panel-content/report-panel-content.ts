@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ReportHistoryComponent } from '../report-history/report-history';
 import { ReportInventoryMovementsComponent } from '../report-inventory-movements/report-inventory-movements';
 import { ReportRefundsComponent } from '../report-refunds/report-refunds';
@@ -8,6 +8,7 @@ import { ReportTicketsComponent } from '../report-tickets/report-tickets';
 import { StoreService } from '../../services/store.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-report-panel-content',
   standalone: true,
   imports: [

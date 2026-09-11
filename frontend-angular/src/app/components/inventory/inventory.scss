@@ -115,3 +115,14 @@
 @media (max-width: 480px) {
   .inventory-kpis { grid-template-columns: 1fr; }
 }
+
+// Stock bajo: arriba del inventario, con su propio scroll si son muchos.
+.low-stock-card {
+  margin-bottom: 12px;
+  border-color: #e3b4b4;
+}
+
+.low-stock-scroll {
+  max-height: 260px;
+  overflow: auto;
+}

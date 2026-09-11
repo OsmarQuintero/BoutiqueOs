@@ -70,3 +70,41 @@
 
 @media (max-width: 1024px) { .pos-grid { grid-template-columns: 1fr; } .cart-card { position: static; } }
 @media (max-width: 768px) { .product-grid { grid-template-columns: 1fr; } }
+
+// Pago mixto: un renglon por metodo y abajo cuanto falta o sobra.
+.mixed-box {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-muted, #faf8f3);
+}
+
+// Metodo, monto y "Resto" en un solo renglon: apilados ocupaban media pantalla.
+.mixed-box .mixed-row {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.mixed-box .mixed-row .payment-label {
+  margin: 0;
+}
+
+.mixed-box .mixed-row input {
+  min-width: 0;
+}
+
+.mixed-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mixed-ok {
+  color: var(--green, #2f7a45);
+}
+
+.mixed-warn {
+  color: var(--amber, #8a5a00);
+}

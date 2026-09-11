@@ -5,7 +5,9 @@ import { finalize, retry, throwError, timeout, timer } from 'rxjs';
 import { LanguageService, TranslateParams, AppLang } from './language.service';
 import { RefreshService } from './refresh.service';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'MIXED';
+export type MixedPart = 'CASH' | 'CARD' | 'TRANSFER';
+export type RangePreset = 'today' | 'week' | 'month' | 'lastMonth' | 'year';
 export type SaleStatus = 'PENDING' | 'CONFIRMED' | 'PARTIALLY_REFUNDED' | 'CANCELLED' | 'REFUNDED';
 export type ProductStatus = 'ACTIVE' | 'OUT_OF_STOCK' | 'ARCHIVED';
 export type PromotionType = 'PERCENT' | 'FIXED';
@@ -23,6 +25,8 @@ export interface Product {
   salePrice: number;
   stock: number;
   status: ProductStatus;
+  // Avisa cuando stock <= minStock; sin valor, 2.
+  minStock?: number | null;
 }
 
 export interface ProductCategory {
@@ -153,6 +157,9 @@ export interface SaleRecord {
   createdAt: string;
   refundedAt?: string | null;
   items: SaleRecordItem[];
+  // Pago mixto: cuanto se cobro con cada metodo.
+  payments?: Array<{ method: PaymentMethod; amount: number }>;
+  soldByName?: string | null;
 }
 
 export interface SaleRefundRecordItem {
@@ -177,6 +184,30 @@ export interface SaleRefundRecord {
   items: SaleRefundRecordItem[];
 }
 
+export interface SalesRangeReport {
+  from: string;
+  to: string;
+  totals: {
+    salesCount: number;
+    units: number;
+    grossSales: number;
+    discounts: number;
+    salesTotal: number;
+    refundsTotal: number;
+    netSales: number;
+    profit: number;
+    averageTicket: number;
+    marginPercent: number;
+    pendingCount: number;
+    pendingTotal: number;
+  };
+  days: Array<{ date: string; salesCount: number; salesTotal: number; refundsTotal: number; netSales: number }>;
+  paymentMethods: Array<{ method: PaymentMethod; salesTotal: number; refundsTotal: number; net: number }>;
+  products: Array<{ productId: number | null; productName: string; category: string; units: number; revenue: number; profit: number }>;
+  categories: Array<{ category: string; units: number; revenue: number; profit: number; sharePercent: number }>;
+  sellers: Array<{ seller: string; salesCount: number; salesTotal: number }>;
+}
+
 export interface DailyCashCount {
   id: number;
   businessDate: string;
@@ -194,7 +225,7 @@ export interface DailyCashCount {
 }
 
 export type InventoryMovementType = 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'RETURN';
-export type ReportPanel = 'summary' | 'sales' | 'tickets' | 'refunds' | 'movements' | 'history';
+export type ReportPanel = 'summary' | 'sales' | 'tickets' | 'refunds' | 'movements' | 'history' | 'range';
 export type ReportIncidentFilter = 'ALL' | 'PENDING' | 'REFUNDS' | 'CANCELLED' | 'ADJUSTMENTS';
 export type InventoryPanel = 'summary' | 'purchases';
 export type PosSection = 'products' | 'sale' | 'ticket';
@@ -383,6 +414,7 @@ interface OfflineSaleEntry {
     // Opcionales: las ventas que ya estaban en cola antes del cambio no los traen.
     manualDiscount?: number;
     promotionId?: number | null;
+    payments?: Array<{ method: MixedPart; amount: number }>;
   };
   createdAt: string;
 }
@@ -472,6 +504,16 @@ export class StoreService {
   reportPanel: ReportPanel = 'summary';
   reportIncidentFilter: ReportIncidentFilter = 'ALL';
   selectedPayment: PaymentMethod = 'CASH';
+  // Pago mixto: cuanto se cobra con cada metodo (tiene que sumar el total).
+  mixedPayment: Record<MixedPart, number> = { CASH: 0, CARD: 0, TRANSFER: 0 };
+  readonly mixedMethods: MixedPart[] = ['CASH', 'CARD', 'TRANSFER'];
+  // Reporte por periodo.
+  rangeFrom = this.monthStartString();
+  rangeTo = this.todayDateString();
+  rangeReport: SalesRangeReport | null = null;
+  rangeLoading = false;
+  rangeError = '';
+  private rangeMaxDay = 0;
   cashReceived = 0;
   private _statusMessage = '';
   alertMessage = '';
@@ -539,6 +581,7 @@ export class StoreService {
     salePrice: 0,
     stock: 0,
     status: 'ACTIVE' as ProductStatus,
+    minStock: 2,
   };
   categoryForm = {
     // Vacio = categoria personalizada. Las sugerencias solo prellenan campos.
@@ -677,6 +720,11 @@ export class StoreService {
     ];
   }
 
+  /** Los del punto de venta: los tres de siempre y el mixto. */
+  get posPaymentMethods(): Array<{ label: string; value: PaymentMethod }> {
+    return [...this.paymentMethods, { label: this.t('payment.MIXED'), value: 'MIXED' }];
+  }
+
   get productStatuses(): Array<{ label: string; value: ProductStatus }> {
     return [
       { label: this.t('productStatus.ACTIVE'), value: 'ACTIVE' },
@@ -708,6 +756,7 @@ export class StoreService {
       { id: 'refunds', label: this.t('reports.refunds') },
       { id: 'movements', label: this.t('reports.movements') },
       { id: 'history', label: this.t('reports.history') },
+      ...(this.hasFeature('reports') ? [{ id: 'range' as ReportPanel, label: this.t('reports.range') }] : []),
     ];
   }
 
@@ -1225,6 +1274,27 @@ export class StoreService {
     return this.selectedCategoryPreset?.productHint || 'S, M, L, 28';
   }
 
+  /** Con esto o menos avisa. Sin valor guardado: 2 piezas, como antes. */
+  lowStockThreshold(product: Product): number {
+    return product.minStock ?? 2;
+  }
+
+  get lowStockProducts(): Product[] {
+    return this.products
+      .filter((p) => p.status !== 'ARCHIVED' && p.stock <= this.lowStockThreshold(p))
+      .sort((a, b) => a.stock - b.stock || a.name.localeCompare(b.name));
+  }
+
+  productVariantLabel(product: Product): string {
+    return [product.size, product.color].filter((part) => !!part && part.trim()).join(' · ') || '—';
+  }
+
+  /** Lleva a registrar la compra de ese producto. */
+  startRestock(product: Product): void {
+    this.purchaseForm = { ...this.purchaseForm, productId: product.id };
+    this.setView('inventory', 'purchases');
+  }
+
   get filteredInventoryProducts(): Product[] {
     return this.products.filter(
       (product) =>
@@ -1301,9 +1371,55 @@ export class StoreService {
   }
 
   get cartChangeDue(): number {
-    return this.selectedPayment === 'CASH'
-      ? Math.max((this.cashReceived || 0) - this.cartTotal, 0)
-      : 0;
+    const cashDue = this.cartCashDue;
+    return cashDue > 0 && (this.cashReceived || 0) > 0 ? Math.max(this.cashReceived - cashDue, 0) : 0;
+  }
+
+  /** Lo que toca cobrar en efectivo: todo si es efectivo, su parte si es mixto. */
+  get cartCashDue(): number {
+    if (this.selectedPayment === 'CASH') return this.cartTotal;
+    if (this.selectedPayment === 'MIXED') return Number(this.mixedPayment.CASH) || 0;
+    return 0;
+  }
+
+  get mixedPaidTotal(): number {
+    return this.round2(this.mixedMethods.reduce((sum, m) => sum + (Number(this.mixedPayment[m]) || 0), 0));
+  }
+
+  get mixedRemaining(): number {
+    return this.round2(this.cartTotal - this.mixedPaidTotal);
+  }
+
+  get mixedStatusKind(): 'ok' | 'missing' | 'over' {
+    const rest = this.mixedRemaining;
+    return rest === 0 ? 'ok' : rest > 0 ? 'missing' : 'over';
+  }
+
+  get mixedStatusText(): string {
+    const rest = this.mixedRemaining;
+    if (rest === 0) return this.t('pos.mixedExact');
+    return rest > 0
+      ? this.t('pos.mixedMissing', { amount: this.formatMoney(rest) })
+      : this.t('pos.mixedOver', { amount: this.formatMoney(-rest) });
+  }
+
+  /** Pone en ese metodo lo que falta por repartir. */
+  fillMixedRemaining(method: MixedPart): void {
+    const rest = this.mixedRemaining;
+    if (rest <= 0) return;
+    this.mixedPayment = { ...this.mixedPayment, [method]: this.round2((Number(this.mixedPayment[method]) || 0) + rest) };
+  }
+
+  /** Cuanto de una venta se cobro con ese metodo (las mixtas se reparten). */
+  paymentAmountFor(sale: SaleRecord, method: PaymentMethod): number {
+    if (sale.paymentMethod === 'MIXED') {
+      return (sale.payments ?? []).filter((p) => p.method === method).reduce((sum, p) => sum + p.amount, 0);
+    }
+    return sale.paymentMethod === method ? sale.total : 0;
+  }
+
+  private round2(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   get todayTotal(): number {
@@ -1326,11 +1442,8 @@ export class StoreService {
 
   get cashExpected(): number {
     const cashSalesToday = this.salesToday
-      .filter(
-        (sale) =>
-          sale.status !== 'PENDING' && sale.status !== 'CANCELLED' && sale.paymentMethod === 'CASH',
-      )
-      .reduce((total, sale) => total + sale.total, 0);
+      .filter((sale) => sale.status !== 'PENDING' && sale.status !== 'CANCELLED')
+      .reduce((total, sale) => total + this.paymentAmountFor(sale, 'CASH'), 0);
     const cashRefundsToday = this.refundedToday
       .filter((refund) => refund.paymentMethod === 'CASH')
       .reduce((total, refund) => total + refund.total, 0);
@@ -1399,6 +1512,22 @@ export class StoreService {
         icon: '⏳',
         title: this.t('notifications.pendingSales'),
         detail: `${this.pendingSalesCount} ${this.t('notifications.pendingConfirmation')}`,
+        type: 'alert',
+      });
+    }
+    const low = this.lowStockProducts;
+    if (low.length > 0) {
+      items.push({
+        id: 'low-stock',
+        icon: '📦',
+        title: this.t('notifications.lowStock'),
+        detail: this.t('notifications.lowStockDetail', {
+          n: low.length,
+          names: low
+            .slice(0, 3)
+            .map((p) => p.name)
+            .join(', '),
+        }),
         type: 'alert',
       });
     }
@@ -1471,11 +1600,11 @@ export class StoreService {
         (sale) =>
           sale.status !== 'PENDING' &&
           sale.status !== 'CANCELLED' &&
-          sale.paymentMethod === method.value,
+          this.paymentAmountFor(sale, method.value) > 0,
       );
       const refunds = this.refundedToday.filter((sale) => sale.paymentMethod === method.value);
       const total =
-        sales.reduce((sum, sale) => sum + sale.total, 0) -
+        sales.reduce((sum, sale) => sum + this.paymentAmountFor(sale, method.value), 0) -
         refunds.reduce((sum, sale) => sum + sale.total, 0);
       return {
         ...method,
@@ -2014,7 +2143,7 @@ export class StoreService {
     if (this.pendingSales.length > 0) {
       t.push(this.t('tasks.pendingPayments', { n: this.pendingSales.length }));
     }
-    for (const p of this.products.filter((product) => product.stock <= 2)) {
+    for (const p of this.lowStockProducts) {
       t.push(this.t('tasks.restock', { name: p.name, stock: p.stock }));
     }
     if (t.length === 0) t.push(this.t('tasks.noNews'));
@@ -2683,6 +2812,7 @@ export class StoreService {
     this.selectedPromoId = null;
     this.checkoutDiscount = 0;
     this.cashReceived = 0;
+    this.mixedPayment = { CASH: 0, CARD: 0, TRANSFER: 0 };
     this.statusMessage = this.t('ok.cartCleared');
   }
 
@@ -2730,25 +2860,33 @@ export class StoreService {
       return;
     }
 
-    // Si captura efectivo, tiene que cubrir el total; en 0 se toma como pago exacto.
-    if (this.selectedPayment === 'CASH' && this.cashReceived > 0 && this.cashReceived < this.cartTotal) {
+    if (this.selectedPayment === 'MIXED') {
+      const used = this.mixedMethods.filter((m) => (Number(this.mixedPayment[m]) || 0) > 0);
+      if (used.length < 2) {
+        this.statusMessage = this.t('err.mixedNeedsTwo');
+        return;
+      }
+      if (this.mixedRemaining !== 0) {
+        this.statusMessage = this.t('err.mixedMismatch', {
+          paid: this.formatMoney(this.mixedPaidTotal),
+          total: this.formatMoney(this.cartTotal),
+        });
+        return;
+      }
+    }
+    // Si captura efectivo, tiene que cubrir lo que toca en efectivo; en 0 se toma como pago exacto.
+    const cashDue = this.cartCashDue;
+    if (cashDue > 0 && this.cashReceived > 0 && this.cashReceived < cashDue) {
       this.statusMessage = this.t('err.cashNotEnough');
       return;
     }
+    const payload = this.buildSalePayload();
 
     this.isCharging = true;
     this.refresh
       .track(
         this.t('refresh.processingSale'),
-        this.http.post<SaleRecord>(this.apiUrl('/sales'), {
-          paymentMethod: this.selectedPayment,
-          discount: this.cartDiscount,
-          cashReceived: this.selectedPayment === 'CASH' ? this.cashReceived : 0,
-          customerId: this.selectedCustomerId,
-          items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
-          manualDiscount: this.manualCartDiscount,
-          promotionId: this.activeCartPromo ? Number(this.activeCartPromo.id) : null,
-        }),
+        this.http.post<SaleRecord>(this.apiUrl('/sales'), payload),
       )
       .subscribe({
         next: (sale) => {
@@ -2757,6 +2895,7 @@ export class StoreService {
           this.selectedPromoId = null;
           this.checkoutDiscount = 0;
           this.cashReceived = 0;
+          this.mixedPayment = { CASH: 0, CARD: 0, TRANSFER: 0 };
           this.lastTicket = sale;
           this.activeSections = { ...this.activeSections, pos: 'ticket' };
           if (this.settings.autoOpenTicket) {
@@ -2779,20 +2918,13 @@ export class StoreService {
         },
         error: (error: unknown) => {
           if (this.shouldQueueOffline(error)) {
-            this.queueOfflineSale({
-              paymentMethod: this.selectedPayment,
-              discount: this.cartDiscount,
-              cashReceived: this.selectedPayment === 'CASH' ? this.cashReceived : 0,
-              customerId: this.selectedCustomerId,
-              items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
-              manualDiscount: this.manualCartDiscount,
-              promotionId: this.activeCartPromo ? Number(this.activeCartPromo.id) : null,
-            });
+            this.queueOfflineSale(payload);
             this.cart = [];
             this.selectedCustomerId = null;
             this.selectedPromoId = null;
             this.checkoutDiscount = 0;
             this.cashReceived = 0;
+            this.mixedPayment = { CASH: 0, CARD: 0, TRANSFER: 0 };
             this.isCharging = false;
             this.statusMessage = this.t('warn.offlineQueued');
             return;
@@ -2805,6 +2937,111 @@ export class StoreService {
           this.isCharging = false;
         },
       });
+  }
+
+  private buildSalePayload(): OfflineSaleEntry['payload'] {
+    const mixed = this.selectedPayment === 'MIXED';
+    return {
+      paymentMethod: this.selectedPayment,
+      discount: this.cartDiscount,
+      cashReceived: this.cartCashDue > 0 ? this.cashReceived || 0 : 0,
+      customerId: this.selectedCustomerId,
+      items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
+      manualDiscount: this.manualCartDiscount,
+      promotionId: this.activeCartPromo ? Number(this.activeCartPromo.id) : null,
+      payments: mixed
+        ? this.mixedMethods
+            .filter((m) => (Number(this.mixedPayment[m]) || 0) > 0)
+            .map((m) => ({ method: m, amount: this.round2(Number(this.mixedPayment[m])) }))
+        : undefined,
+    };
+  }
+
+  // ----- Reporte por periodo -----
+
+  get rangePresets(): Array<{ id: RangePreset; label: string }> {
+    return [
+      { id: 'today', label: this.t('range.today') },
+      { id: 'week', label: this.t('range.week') },
+      { id: 'month', label: this.t('range.month') },
+      { id: 'lastMonth', label: this.t('range.lastMonth') },
+      { id: 'year', label: this.t('range.year') },
+    ];
+  }
+
+  setRangePreset(preset: RangePreset): void {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const today = this.rangeIso(now);
+    switch (preset) {
+      case 'today':
+        this.rangeFrom = today;
+        this.rangeTo = today;
+        break;
+      case 'week':
+        this.rangeFrom = this.rangeIso(new Date(y, m, now.getDate() - 6));
+        this.rangeTo = today;
+        break;
+      case 'month':
+        this.rangeFrom = this.rangeIso(new Date(y, m, 1));
+        this.rangeTo = today;
+        break;
+      case 'lastMonth':
+        this.rangeFrom = this.rangeIso(new Date(y, m - 1, 1));
+        this.rangeTo = this.rangeIso(new Date(y, m, 0));
+        break;
+      case 'year':
+        this.rangeFrom = this.rangeIso(new Date(y, 0, 1));
+        this.rangeTo = today;
+        break;
+    }
+    this.loadRangeReport();
+  }
+
+  loadRangeReport(): void {
+    if (!this.rangeFrom || !this.rangeTo) return;
+    if (this.rangeTo < this.rangeFrom) {
+      this.rangeError = this.t('range.errOrder');
+      return;
+    }
+    this.rangeLoading = true;
+    this.rangeError = '';
+    this.http
+      .get<SalesRangeReport>(this.apiUrl(`/reports/range?from=${this.rangeFrom}&to=${this.rangeTo}`))
+      .pipe(finalize(() => (this.rangeLoading = false)))
+      .subscribe({
+        next: (report) => {
+          this.rangeReport = report;
+          this.rangeMaxDay = Math.max(0, ...report.days.map((day) => day.netSales));
+        },
+        error: (error: HttpErrorResponse) => {
+          this.rangeError = error.error?.message || this.t('range.errLoad');
+        },
+      });
+  }
+
+  rangeBarPercent(value: number): number {
+    return this.rangeMaxDay > 0 ? (Math.max(0, value) / this.rangeMaxDay) * 100 : 0;
+  }
+
+  rangeDayLabel(date: string): string {
+    return new Date(`${date}T00:00:00`).toLocaleDateString('es-MX', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    });
+  }
+
+  private rangeIso(date: Date): string {
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${mm}-${dd}`;
+  }
+
+  private monthStartString(): string {
+    const now = new Date();
+    return this.rangeIso(new Date(now.getFullYear(), now.getMonth(), 1));
   }
 
   confirmSale(id: number): void {
@@ -3115,6 +3352,7 @@ export class StoreService {
       salePrice: product.salePrice,
       stock: product.stock,
       status: product.status,
+      minStock: product.minStock ?? 2,
     };
     this.productImageFileName = product.imageUrl ? this.t('products.imageLoaded') : '';
     this.setView('catalog', 'products');
@@ -3909,7 +4147,7 @@ export class StoreService {
         .join('\r\n');
     this.downloadBlob(
       new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-      `corte-${this.reportDate}-${table.slug}.csv`,
+      this.reportPanel === 'range' ? `ventas-${table.slug}.csv` : `corte-${this.reportDate}-${table.slug}.csv`,
     );
     this.statusMessage = this.t('ok.reportCsv');
   }
@@ -3919,6 +4157,24 @@ export class StoreService {
     const counter = this.t('pos.counter');
 
     switch (this.reportPanel) {
+      case 'range':
+        return {
+          slug: `periodo-${this.rangeFrom}-a-${this.rangeTo}`,
+          headers: [
+            this.t('range.product'),
+            this.t('range.category'),
+            this.t('range.units'),
+            this.t('range.revenue'),
+            this.t('range.profit'),
+          ],
+          rows: (this.rangeReport?.products ?? []).map((p) => [
+            p.productName,
+            p.category,
+            String(p.units),
+            money(p.revenue),
+            money(p.profit),
+          ]),
+        };
       case 'sales':
         return {
           slug: 'ventas',
@@ -4637,11 +4893,20 @@ export class StoreService {
     doubleLine();
 
     // === PAYMENT ===
-    if (sale.paymentMethod === 'CASH') {
+    if (sale.paymentMethod === 'MIXED') {
+      for (const part of sale.payments ?? []) {
+        row(this.paymentLabel(part.method), this.formatMoney(part.amount));
+      }
+    }
+    if (sale.paymentMethod === 'CASH' || (sale.paymentMethod === 'MIXED' && (sale.cashReceived || 0) > 0)) {
       row(this.t('ticket.received'), this.formatMoney(sale.cashReceived || 0));
       if (this.settings.showChangeOnTicket) {
         row(this.t('ticket.change'), this.formatMoney(sale.changeDue || 0), true);
       }
+    }
+    // Quien cobro: solo si fue una cuenta de caja.
+    if (sale.soldByName && sale.soldByName !== 'Dueña' && sale.soldByName !== 'Duena') {
+      row(this.t('ticket.servedBy'), sale.soldByName);
     }
     row(this.t('ticket.pieces'), String(sale.items.reduce((sum, item) => sum + item.quantity, 0)));
     singleLine();
@@ -5929,6 +6194,7 @@ export class StoreService {
       salePrice: 0,
       stock: 0,
       status: 'ACTIVE',
+      minStock: 2,
     };
     this.productImageFileName = '';
   }

@@ -36,6 +36,8 @@ public class CashierPolicy {
             rule("POST", "/api/inventory/adjustments"),
             rule("DELETE", "/api/inventory/movements/.*"),
             rule("POST", "/api/reports/cash-count/today/(close|reopen)"),
+            // Trae utilidades y ventas de todas: es de la duena.
+            rule("GET", "/api/reports/range"),
             rule("DELETE", "/api/reports/cash-movements/.*"),
             rule("POST", "/api/sales/[^/]+/(refund|cancel)"),
             rule("POST|PUT|DELETE", "/api/loyalty/rewards(/.*)?"),

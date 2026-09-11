@@ -14,6 +14,8 @@ public interface SaleRefundRepository extends JpaRepository<SaleRefund, Long> {
 
     List<SaleRefund> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
 
+    List<SaleRefund> findByAccountIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(Long accountId, Instant start, Instant end);
+
     @Query("SELECT COALESCE(SUM(r.total), 0) FROM SaleRefund r " +
            "WHERE r.accountId = :accountId AND r.paymentMethod = 'CASH' " +
            "AND r.createdAt >= :start AND r.createdAt < :end")

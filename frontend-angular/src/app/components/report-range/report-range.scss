@@ -1,0 +1,96 @@
+// Reporte por periodo: controles de fecha arriba, barras por dia a la izquierda
+// y metodo / quien cobro a la derecha.
+
+.range-header {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.range-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.range-date {
+  display: grid;
+  gap: 2px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.range-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.range-error {
+  margin: 0 14px 12px;
+  color: var(--red, #a12b2b);
+  font-size: 0.8rem;
+}
+
+.range-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .range-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.range-side {
+  display: grid;
+  gap: 12px;
+}
+
+// Un año son 366 filas: la lista se desplaza dentro de la tarjeta.
+.range-days {
+  display: grid;
+  gap: 4px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.range-day {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+
+.range-day-empty {
+  color: var(--text-tertiary);
+}
+
+.range-day-label {
+  white-space: nowrap;
+}
+
+.range-day-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.range-bar {
+  height: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted, #f4f2ec);
+}
+
+.range-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, #e2c684, #c9a961);
+}
+
+.range-table-wrap {
+  overflow-x: auto;
+}

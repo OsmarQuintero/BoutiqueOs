@@ -15,7 +15,7 @@ public class CurrentUser {
     public record Info(UserRole role, Long staffUserId, String displayName, Integer maxDiscountPercent) {
     }
 
-    private static final Info OWNER = new Info(UserRole.OWNER, null, "Duena", null);
+    private static final Info OWNER = new Info(UserRole.OWNER, null, "Dueña", null);
 
     private final ThreadLocal<Info> holder = new ThreadLocal<>();
 

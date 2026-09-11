@@ -41,7 +41,7 @@ public class AuthSessionService {
     /** Quien es el dueno del token, para los permisos de la peticion. */
     public CurrentUser.Info userFor(SessionInfo info) {
         if (!info.isStaff()) {
-            return new CurrentUser.Info(UserRole.OWNER, null, "Duena", null);
+            return new CurrentUser.Info(UserRole.OWNER, null, "Dueña", null);
         }
         return staffUserRepository.findById(info.staffUserId())
                 .map(staff -> new CurrentUser.Info(UserRole.CASHIER, staff.getId(), staff.getName(), staff.getMaxDiscountPercent()))

@@ -79,7 +79,7 @@
       <div class="payment-row">
         <div class="payment-label">{{ store.t('pos.paymentMethod') }}</div>
         <div class="payment-group">
-          @for (m of store.paymentMethods; track m.value) {
+          @for (m of store.posPaymentMethods; track m.value) {
             <button
               class="btn btn-payment"
               [class.active]="store.selectedPayment === m.value"
@@ -132,9 +132,41 @@
           }
         </div>
       }
-      @if (store.selectedPayment === 'CASH') {
+      @if (store.selectedPayment === 'MIXED') {
+        <!-- Pago mixto: el total se reparte entre metodos; "Resto" pone lo que falta. -->
+        <div class="mixed-box">
+          @for (m of store.mixedMethods; track m) {
+            <div class="discount-row mixed-row">
+              <label class="payment-label" [for]="'mixed-' + m">{{ store.paymentLabel(m) }}</label>
+              <input
+                [id]="'mixed-' + m"
+                type="number"
+                min="0"
+                step="1"
+                class="input-sm"
+                [(ngModel)]="store.mixedPayment[m]"
+                placeholder="0"
+              />
+              <button type="button" class="btn btn-ghost btn-xs" (click)="store.fillMixedRemaining(m)">
+                {{ store.t('pos.mixedRest') }}
+              </button>
+            </div>
+          }
+          <div
+            class="mixed-status"
+            [class.mixed-ok]="store.mixedStatusKind === 'ok'"
+            [class.mixed-warn]="store.mixedStatusKind !== 'ok'"
+            aria-live="polite"
+          >
+            {{ store.mixedStatusText }}
+          </div>
+        </div>
+      }
+      @if (store.cartCashDue > 0) {
         <div class="discount-row">
-          <label class="payment-label" for="cashReceived">{{ store.t('pos.received') }}</label>
+          <label class="payment-label" for="cashReceived">{{
+            store.selectedPayment === 'MIXED' ? store.t('pos.receivedCash') : store.t('pos.received')
+          }}</label>
           <input
             id="cashReceived"
             type="number"
@@ -221,7 +253,15 @@
           {{ store.t('pos.paymentColon') }}
           <strong>{{ store.paymentLabel(store.lastTicket.paymentMethod) }}</strong>
         </div>
-        @if (store.lastTicket.paymentMethod === 'CASH') {
+        @if (store.lastTicket.paymentMethod === 'MIXED') {
+          @for (part of store.lastTicket.payments ?? []; track part.method) {
+            <div>
+              {{ store.paymentLabel(part.method) }}:
+              <strong>{{ store.formatMoney(part.amount) }}</strong>
+            </div>
+          }
+        }
+        @if (store.lastTicket.paymentMethod === 'CASH' || store.lastTicket.changeDue > 0) {
           <div>
             {{ store.t('pos.changeColon') }}
             <strong>{{ store.formatMoney(store.lastTicket.changeDue) }}</strong>

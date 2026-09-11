@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { StoreService, ViewId } from '../../services/store.service';
 
 export interface ModuleStripItem {
@@ -9,6 +9,7 @@ export interface ModuleStripItem {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-module-strip',
   standalone: true,
   imports: [CommonModule],

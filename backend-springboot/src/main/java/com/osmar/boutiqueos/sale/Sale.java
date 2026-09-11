@@ -1,5 +1,11 @@
 package com.osmar.boutiqueos.sale;
 
+import org.hibernate.annotations.FetchMode;
+import org.hibernate.annotations.Fetch;
+import jakarta.persistence.OrderColumn;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -86,6 +92,13 @@ public class Sale {
 
     @Column(precision = 12, scale = 2)
     private BigDecimal promotionDiscount = BigDecimal.ZERO;
+
+    // Solo en pagos mixtos: cuanto se pago con cada metodo (suman el total).
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "sale_payments", joinColumns = @JoinColumn(name = "sale_id"))
+    @OrderColumn(name = "payment_order")
+    @Fetch(FetchMode.SELECT)
+    private List<SalePayment> payments = new ArrayList<>();
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<SaleItem> items = new ArrayList<>();
@@ -217,4 +230,6 @@ public class Sale {
     public void setSoldByStaffId(Long soldByStaffId) { this.soldByStaffId = soldByStaffId; }
     public String getSoldByName() { return soldByName; }
     public void setSoldByName(String soldByName) { this.soldByName = soldByName; }
+    public List<SalePayment> getPayments() { return payments; }
+    public void setPayments(List<SalePayment> payments) { this.payments = payments; }
 }

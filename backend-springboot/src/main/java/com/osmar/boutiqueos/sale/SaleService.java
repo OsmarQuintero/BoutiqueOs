@@ -143,11 +143,12 @@ public class SaleService {
 
         applyDiscounts(sale, request, subtotal);
         BigDecimal total = subtotal.subtract(sale.getDiscount()).max(BigDecimal.ZERO);
-        BigDecimal cashReceived = resolveCashReceived(sale.getPaymentMethod(), request.cashReceived(), total);
+        BigDecimal cashDue = applyPayments(sale, request.payments(), total);
+        BigDecimal cashReceived = resolveCashReceived(cashDue, request.cashReceived(), total);
         sale.setSubtotal(subtotal);
         sale.setTotal(total);
         sale.setCashReceived(cashReceived);
-        sale.setChangeDue(sale.getPaymentMethod() == PaymentMethod.CASH ? cashReceived.subtract(total).max(BigDecimal.ZERO) : BigDecimal.ZERO);
+        sale.setChangeDue(cashDue.signum() > 0 ? cashReceived.subtract(cashDue).max(BigDecimal.ZERO) : BigDecimal.ZERO);
         sale.setEstimatedProfit(estimatedProfit.subtract(sale.getDiscount()).max(BigDecimal.ZERO));
 
         sale = saleRepository.save(sale);
@@ -204,18 +205,54 @@ public class SaleService {
      * frenar la caja. Si captura menos que el total, se rechaza: antes pasaba y
      * el efectivo esperado del corte quedaba descuadrado.
      */
-    private BigDecimal resolveCashReceived(PaymentMethod method, BigDecimal received, BigDecimal total) {
-        if (method != PaymentMethod.CASH) {
+    private BigDecimal resolveCashReceived(BigDecimal cashDue, BigDecimal received, BigDecimal total) {
+        if (cashDue.signum() == 0) {
             return BigDecimal.ZERO;
         }
         if (received == null || received.signum() == 0) {
-            return total;
+            return cashDue;
         }
-        if (received.compareTo(total) < 0) {
+        if (received.compareTo(cashDue) < 0) {
+            String what = cashDue.compareTo(total) == 0 ? "el total" : "la parte en efectivo";
             throw new IllegalArgumentException("El efectivo recibido ($" + received.setScale(2, java.math.RoundingMode.HALF_UP)
-                    + ") no cubre el total ($" + total.setScale(2, java.math.RoundingMode.HALF_UP) + ")");
+                    + ") no cubre " + what + " ($" + cashDue.setScale(2, java.math.RoundingMode.HALF_UP) + ")");
         }
         return received;
+    }
+
+    /**
+     * Pago mixto: se guarda cuanto se cobro con cada metodo y tiene que sumar
+     * exactamente el total. Devuelve lo que toca cobrar en efectivo (con eso se
+     * calcula el cambio y lo que entra al corte).
+     */
+    private BigDecimal applyPayments(Sale sale, List<SaleRequest.PaymentPart> parts, BigDecimal total) {
+        sale.getPayments().clear();
+        if (sale.getPaymentMethod() != PaymentMethod.MIXED) {
+            return sale.getPaymentMethod() == PaymentMethod.CASH ? total : BigDecimal.ZERO;
+        }
+        if (parts == null || parts.isEmpty()) {
+            throw new IllegalArgumentException("Indica cuanto se pago con cada metodo");
+        }
+        Map<PaymentMethod, BigDecimal> merged = new java.util.EnumMap<>(PaymentMethod.class);
+        for (SaleRequest.PaymentPart part : parts) {
+            if (part == null || part.method() == null || part.method() == PaymentMethod.MIXED) {
+                throw new IllegalArgumentException("Metodo de pago no valido dentro del pago mixto");
+            }
+            if (part.amount() == null || part.amount().signum() <= 0) {
+                continue;
+            }
+            merged.merge(part.method(), part.amount().setScale(2, RoundingMode.HALF_UP), BigDecimal::add);
+        }
+        if (merged.size() < 2) {
+            throw new IllegalArgumentException("Un pago mixto necesita al menos dos metodos. Si todo se pago con uno, elige ese metodo.");
+        }
+        BigDecimal sum = merged.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal expected = total.setScale(2, RoundingMode.HALF_UP);
+        if (sum.compareTo(expected) != 0) {
+            throw new IllegalArgumentException("Los pagos suman $" + sum + " y el total es $" + expected + ". Deben coincidir.");
+        }
+        merged.forEach((method, amount) -> sale.getPayments().add(new SalePayment(method, amount)));
+        return merged.getOrDefault(PaymentMethod.CASH, BigDecimal.ZERO);
     }
 
     public List<Sale> listPending() {
@@ -332,7 +369,8 @@ public class SaleService {
         SaleRefund refund = new SaleRefund();
         refund.setAccountId(sale.getAccountId());
         refund.setSaleId(sale.getId());
-        refund.setPaymentMethod(sale.getPaymentMethod());
+        // Una venta mixta se devuelve en efectivo: es lo que sale de la caja.
+        refund.setPaymentMethod(sale.getPaymentMethod() == PaymentMethod.MIXED ? PaymentMethod.CASH : sale.getPaymentMethod());
         refund.setCustomerName(sale.getCustomerName());
         refund.setTotal(refundTotal);
         refund.setEstimatedProfit(refundProfit);

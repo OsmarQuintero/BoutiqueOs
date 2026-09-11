@@ -107,6 +107,10 @@
                 ><input type="number" [(ngModel)]="store.productForm.stock" placeholder="0"
               /></label>
               <label class="field"
+                ><span>{{ store.t('products.minStock') }}</span
+                ><input type="number" min="0" [(ngModel)]="store.productForm.minStock" placeholder="2"
+              /></label>
+              <label class="field"
                 ><span>{{ store.t('products.sku') }}</span
                 ><input
                   [(ngModel)]="store.productForm.sku"

@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CategoriesComponent } from './components/categories/categories';
 import { CatalogComponent } from './components/catalog/catalog';
@@ -14,6 +14,7 @@ import { LanguageToggleComponent } from './components/language-toggle/language-t
 import { StoreService, ViewId } from './services/store.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-root',
   imports: [
     FormsModule,

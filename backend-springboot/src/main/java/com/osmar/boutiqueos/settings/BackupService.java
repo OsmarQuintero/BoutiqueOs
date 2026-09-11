@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.settings;
 
+import com.osmar.boutiqueos.sale.SalePayment;
 import com.osmar.boutiqueos.customer.Customer;
 import com.osmar.boutiqueos.customer.CustomerRepository;
 import com.osmar.boutiqueos.customer.loyalty.LoyaltyReward;
@@ -301,6 +302,9 @@ public class BackupService {
             // contrasenas en un archivo descargable): se conserva solo el nombre.
             sale.setSoldByName(source.soldByName());
             sale.setPromotionDiscount(source.promotionDiscount() != null ? source.promotionDiscount() : BigDecimal.ZERO);
+            if (source.payments() != null) {
+                source.payments().forEach(p -> sale.getPayments().add(new SalePayment(p.method(), p.amount())));
+            }
 
             List<Long> oldItemIds = new ArrayList<>();
             for (BackupPayload.BackupSaleItem sourceItem : source.itemsOrEmpty()) {

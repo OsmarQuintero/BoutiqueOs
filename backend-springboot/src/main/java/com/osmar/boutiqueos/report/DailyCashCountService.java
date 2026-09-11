@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -132,10 +131,13 @@ public class DailyCashCountService {
     }
 
     private BigDecimal calculateExpectedCash(Long accountId, LocalDate date, BigDecimal openingFloat) {
-        Instant startOfDay = date.atStartOfDay(ZoneOffset.UTC).toInstant();
-        Instant endOfDay = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        // Dia de la tienda (antes era el dia UTC y las ventas de la noche caian al dia siguiente).
+        ZoneId zone = ZoneId.systemDefault();
+        Instant startOfDay = date.atStartOfDay(zone).toInstant();
+        Instant endOfDay = date.plusDays(1).atStartOfDay(zone).toInstant();
 
-        BigDecimal cashSales = saleRepository.sumCashSalesTotal(accountId, startOfDay, endOfDay);
+        BigDecimal cashSales = saleRepository.sumCashSalesTotal(accountId, startOfDay, endOfDay)
+                .add(saleRepository.sumCashPartOfMixedSales(accountId, startOfDay, endOfDay));
         BigDecimal cashRefunds = saleRefundRepository.sumCashRefundsTotal(accountId, startOfDay, endOfDay);
         BigDecimal netMovements = cashMovementRepository.sumNetMovements(accountId, date);
 

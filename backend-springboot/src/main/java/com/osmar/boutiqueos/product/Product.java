@@ -49,6 +49,9 @@ public class Product {
     @Column(nullable = false)
     private int stock;
 
+    // Aviso de stock bajo cuando stock <= minStock. Null = 2, el valor de siempre.
+    private Integer minStock;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
@@ -159,4 +162,6 @@ public class Product {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+    public Integer getMinStock() { return minStock; }
+    public void setMinStock(Integer minStock) { this.minStock = minStock; }
 }

@@ -147,10 +147,10 @@ public class AppSettingsController {
         if (email == null) {
             // Sin correo no hay a donde mandar el codigo: entra, y la pantalla le
             // pide agregar un correo para activar el segundo paso.
-            return LoginResponse.signedIn(authSessionService.createSession(account.getId()), null, false, "OWNER", "Duena");
+            return LoginResponse.signedIn(authSessionService.createSession(account.getId()), null, false, "OWNER", "Dueña");
         }
         if (twoFactorService.isTrustedDevice(account.getId(), deviceToken)) {
-            return LoginResponse.signedIn(authSessionService.createSession(account.getId()), null, true, "OWNER", "Duena");
+            return LoginResponse.signedIn(authSessionService.createSession(account.getId()), null, true, "OWNER", "Dueña");
         }
         TwoFactorService.Started started = twoFactorService.start(account.getId(), email, TwoFactorPurpose.LOGIN);
         return LoginResponse.challenge(started.challengeId(), started.maskedEmail(), false);
@@ -199,7 +199,7 @@ public class AppSettingsController {
                 ? twoFactorService.trustDevice(accountId, staffId, userAgent(httpRequest))
                 : null;
         if (staffId == null) {
-            return LoginResponse.signedIn(authSessionService.createSession(accountId), deviceToken, true, "OWNER", "Duena");
+            return LoginResponse.signedIn(authSessionService.createSession(accountId), deviceToken, true, "OWNER", "Dueña");
         }
         String name = staffService.nameOf(staffId);
         return LoginResponse.signedIn(authSessionService.createStaffSession(accountId, staffId), deviceToken, true, "CASHIER", name);

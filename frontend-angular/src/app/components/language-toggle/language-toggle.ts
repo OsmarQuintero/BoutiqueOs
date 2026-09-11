@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { StoreService } from '../../services/store.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-language-toggle',
   templateUrl: './language-toggle.html',
   styleUrl: './language-toggle.scss',

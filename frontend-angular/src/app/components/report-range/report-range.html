@@ -1,0 +1,213 @@
+<div class="card section-gap">
+  <div class="card-header range-header">
+    <h3>{{ store.t('range.title') }}</h3>
+    <div class="range-controls">
+      <label class="range-date">
+        <span>{{ store.t('range.from') }}</span>
+        <input type="date" [(ngModel)]="store.rangeFrom" [max]="store.rangeTo" />
+      </label>
+      <label class="range-date">
+        <span>{{ store.t('range.to') }}</span>
+        <input type="date" [(ngModel)]="store.rangeTo" [min]="store.rangeFrom" />
+      </label>
+      <button class="btn btn-primary btn-xs" [disabled]="store.rangeLoading" (click)="store.loadRangeReport()">
+        {{ store.rangeLoading ? store.t('range.loading') : store.t('range.show') }}
+      </button>
+    </div>
+  </div>
+  <div class="card-content range-presets">
+    @for (preset of store.rangePresets; track preset.id) {
+      <button class="btn btn-ghost btn-xs" (click)="store.setRangePreset(preset.id)">{{ preset.label }}</button>
+    }
+  </div>
+  @if (store.rangeError) {
+    <p class="range-error" role="alert">{{ store.rangeError }}</p>
+  }
+</div>
+
+@if (store.rangeReport; as r) {
+  <div class="summary-grid section-gap">
+    <div class="card">
+      <div class="card-content payment-card">
+        <div class="payment-card-top">
+          <span class="pill pill-green">{{ store.t('range.netSales') }}</span>
+        </div>
+        <div class="payment-total">{{ store.formatMoney(r.totals.netSales) }}</div>
+        <small class="muted-line">
+          {{ store.t('range.salesMinusRefunds', {
+            sales: store.formatMoney(r.totals.salesTotal),
+            refunds: store.formatMoney(r.totals.refundsTotal)
+          }) }}
+        </small>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-content payment-card">
+        <div class="payment-card-top">
+          <span class="pill">{{ store.t('range.profit') }}</span>
+        </div>
+        <div class="payment-total">{{ store.formatMoney(r.totals.profit) }}</div>
+        <small class="muted-line">{{ store.t('range.margin', { n: r.totals.marginPercent }) }}</small>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-content payment-card">
+        <div class="payment-card-top">
+          <span class="pill">{{ store.t('range.tickets') }}</span>
+        </div>
+        <div class="payment-total">{{ r.totals.salesCount }}</div>
+        <small class="muted-line">
+          {{ store.t('range.averageTicket', { amount: store.formatMoney(r.totals.averageTicket) }) }}
+        </small>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-content payment-card">
+        <div class="payment-card-top">
+          <span class="pill">{{ store.t('range.units') }}</span>
+        </div>
+        <div class="payment-total">{{ r.totals.units }}</div>
+        <small class="muted-line">
+          {{ store.t('range.discounts', { amount: store.formatMoney(r.totals.discounts) }) }}
+        </small>
+      </div>
+    </div>
+    @if (r.totals.pendingCount > 0) {
+      <div class="card">
+        <div class="card-content payment-card">
+          <div class="payment-card-top">
+            <span class="pill pill-amber">{{ store.t('range.pending') }}</span>
+          </div>
+          <div class="payment-total">{{ store.formatMoney(r.totals.pendingTotal) }}</div>
+          <small class="muted-line">{{ store.t('range.pendingHint', { n: r.totals.pendingCount }) }}</small>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="range-grid section-gap">
+    <div class="card">
+      <div class="card-header">
+        <h3>{{ store.t('range.byDay') }}</h3>
+      </div>
+      <div class="card-content range-days">
+        @for (day of r.days; track day.date) {
+          <div class="range-day" [class.range-day-empty]="day.salesCount === 0 && day.refundsTotal === 0">
+            <span class="range-day-label">{{ store.rangeDayLabel(day.date) }}</span>
+            <span class="range-bar" aria-hidden="true">
+              <span class="range-bar-fill" [style.width.%]="store.rangeBarPercent(day.netSales)"></span>
+            </span>
+            <span class="range-day-value">{{ store.formatMoney(day.netSales) }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="range-side">
+      <div class="card">
+        <div class="card-header">
+          <h3>{{ store.t('range.byMethod') }}</h3>
+        </div>
+        <div class="card-content no-pad">
+          <table class="table">
+            <tbody>
+              @for (m of r.paymentMethods; track m.method) {
+                <tr>
+                  <td class="td-primary">{{ store.paymentLabel(m.method) }}</td>
+                  <td class="td-mono">{{ store.formatMoney(m.net) }}</td>
+                </tr>
+              } @empty {
+                <tr><td>{{ store.t('range.empty') }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>{{ store.t('range.bySeller') }}</h3>
+        </div>
+        <div class="card-content no-pad">
+          <table class="table">
+            <tbody>
+              @for (s of r.sellers; track s.seller) {
+                <tr>
+                  <td class="td-primary">{{ s.seller }}</td>
+                  <td>{{ store.t('range.ticketsN', { n: s.salesCount }) }}</td>
+                  <td class="td-mono">{{ store.formatMoney(s.salesTotal) }}</td>
+                </tr>
+              } @empty {
+                <tr><td>{{ store.t('range.empty') }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-header">
+      <h3>{{ store.t('range.byCategory') }}</h3>
+    </div>
+    <div class="card-content no-pad range-table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{{ store.t('range.category') }}</th>
+            <th>{{ store.t('range.units') }}</th>
+            <th>{{ store.t('range.revenue') }}</th>
+            <th>{{ store.t('range.profit') }}</th>
+            <th>{{ store.t('range.share') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of r.categories; track c.category) {
+            <tr>
+              <td class="td-primary">{{ c.category }}</td>
+              <td class="td-mono">{{ c.units }}</td>
+              <td class="td-mono">{{ store.formatMoney(c.revenue) }}</td>
+              <td class="td-mono">{{ store.formatMoney(c.profit) }}</td>
+              <td class="td-mono">{{ c.sharePercent }}%</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">{{ store.t('range.empty') }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-header">
+      <h3>{{ store.t('range.topProducts') }}</h3>
+      <span class="pill">{{ store.t('range.topProductsHint') }}</span>
+    </div>
+    <div class="card-content no-pad range-table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{{ store.t('range.product') }}</th>
+            <th>{{ store.t('range.category') }}</th>
+            <th>{{ store.t('range.units') }}</th>
+            <th>{{ store.t('range.revenue') }}</th>
+            <th>{{ store.t('range.profit') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of r.products; track $index) {
+            <tr>
+              <td class="td-primary">{{ p.productName }}</td>
+              <td>{{ p.category }}</td>
+              <td class="td-mono">{{ p.units }}</td>
+              <td class="td-mono">{{ store.formatMoney(p.revenue) }}</td>
+              <td class="td-mono">{{ store.formatMoney(p.profit) }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">{{ store.t('range.empty') }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

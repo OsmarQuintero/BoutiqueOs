@@ -21,7 +21,8 @@ public record SaleResponse(
         Instant createdAt,
         Instant refundedAt,
         List<Item> items,
-        String soldByName
+        String soldByName,
+        List<Payment> payments
 ) {
     public static SaleResponse from(Sale sale) {
         return new SaleResponse(
@@ -41,8 +42,12 @@ public record SaleResponse(
                 sale.getCreatedAt(),
                 sale.getRefundedAt(),
                 sale.getItems().stream().map(Item::from).toList(),
-                sale.getSoldByName()
+                sale.getSoldByName(),
+                sale.getPayments().stream().map(p -> new Payment(p.getMethod(), p.getAmount())).toList()
         );
+    }
+
+    public record Payment(PaymentMethod method, BigDecimal amount) {
     }
 
     public record Item(

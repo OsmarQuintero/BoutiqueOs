@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.product;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -17,6 +18,7 @@ public record ProductRequest(
         @DecimalMin("0.00") BigDecimal costPrice,
         @DecimalMin("0.00") BigDecimal salePrice,
         @Min(0) Integer stock,
-        ProductStatus status
+        ProductStatus status,
+        @Min(0) @Max(9999) Integer minStock
 ) {
 }

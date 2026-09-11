@@ -40,6 +40,49 @@
 </div>
 
 @if (store.inventoryPanel === 'summary') {
+  @if (store.lowStockProducts.length) {
+    <!-- Lo que ya llego a su minimo, lo mas urgente arriba. -->
+    <div class="card low-stock-card">
+      <div class="card-header">
+        <h3>{{ store.t('inventory.lowStockTitle') }}</h3>
+        <span class="pill pill-red">{{ store.t('inventory.lowStockCount', { n: store.lowStockProducts.length }) }}</span>
+      </div>
+      <div class="card-content no-pad low-stock-scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>{{ store.t('inventory.product') }}</th>
+              <th>{{ store.t('inventory.variant') }}</th>
+              <th>{{ store.t('products.stock') }}</th>
+              <th>{{ store.t('inventory.min') }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of store.lowStockProducts; track p.id) {
+              <tr>
+                <td class="td-primary">{{ p.name }}</td>
+                <td>{{ store.productVariantLabel(p) }}</td>
+                <td>
+                  <span class="pill" [class.pill-red]="p.stock === 0" [class.pill-amber]="p.stock > 0">{{
+                    p.stock
+                  }}</span>
+                </td>
+                <td class="td-mono">{{ store.lowStockThreshold(p) }}</td>
+                <td>
+                  @if (store.hasFeature('purchases')) {
+                    <button class="btn btn-primary btn-xs" (click)="store.startRestock(p)">
+                      {{ store.t('inventory.restock') }}
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
   <div class="card inventory-stock-card">
     <div class="card-header">
       <h3>{{ store.t('inventory.currentStock') }}</h3>
@@ -93,8 +136,8 @@
               <td>
                 <span
                   class="pill"
-                  [class.pill-red]="p.stock <= 2"
-                  [class.pill-amber]="p.stock <= 5 && p.stock > 2"
+                  [class.pill-red]="p.stock <= store.lowStockThreshold(p)"
+                  [class.pill-amber]="p.stock > store.lowStockThreshold(p) && p.stock <= store.lowStockThreshold(p) + 3"
                   >{{ p.stock }} {{ store.t('common.units') }}</span
                 >
               </td>
