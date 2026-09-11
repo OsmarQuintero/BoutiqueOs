@@ -3,9 +3,11 @@ package com.osmar.boutiqueos.onboarding;
 import com.osmar.boutiqueos.settings.AppSettingsService;
 import com.osmar.boutiqueos.subscription.AccountSubscription;
 import com.osmar.boutiqueos.subscription.AccountSubscriptionRepository;
-import com.osmar.boutiqueos.subscription.PlanType;
+import com.osmar.boutiqueos.subscription.PlanResolver;
 import com.osmar.boutiqueos.subscription.SubscriptionStatus;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -18,24 +20,37 @@ import java.util.Base64;
 @Service
 public class OnboardingService {
 
-    private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
+    /**
+     * Ventana para activar la cuenta despues de pagar. Es larga a proposito:
+     * el enlace tambien llega por correo, y un cliente puede pagar hoy y
+     * sentarse a configurar su tienda mañana.
+     */
+    private static final Duration TOKEN_TTL = Duration.ofDays(7);
+
+    private static final Logger log = LoggerFactory.getLogger(OnboardingService.class);
 
     private final OnboardingSessionRepository onboardingSessionRepository;
     private final StripeCheckoutVerifier stripeCheckoutVerifier;
     private final AppSettingsService appSettingsService;
     private final AccountSubscriptionRepository subscriptionRepository;
+    private final OnboardingMailService onboardingMailService;
+    private final PlanResolver planResolver;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public OnboardingService(
             OnboardingSessionRepository onboardingSessionRepository,
             StripeCheckoutVerifier stripeCheckoutVerifier,
             AppSettingsService appSettingsService,
-            AccountSubscriptionRepository subscriptionRepository
+            AccountSubscriptionRepository subscriptionRepository,
+            OnboardingMailService onboardingMailService,
+            PlanResolver planResolver
     ) {
         this.onboardingSessionRepository = onboardingSessionRepository;
         this.stripeCheckoutVerifier = stripeCheckoutVerifier;
         this.appSettingsService = appSettingsService;
         this.subscriptionRepository = subscriptionRepository;
+        this.onboardingMailService = onboardingMailService;
+        this.planResolver = planResolver;
     }
 
     @Transactional
@@ -65,6 +80,42 @@ public class OnboardingService {
         }
 
         return new OnboardingStartResponse(true, session.getToken(), session.getCustomerEmail(), session.getExpiresAt());
+    }
+
+    /**
+     * Registra un pago que llego por webhook, sin depender de que el navegador
+     * del cliente haya vuelto a la app. Antes de esto, si el cliente cerraba la
+     * pestaña despues de pagar el cobro quedaba solo en Stripe y el sistema no
+     * se enteraba nunca.
+     *
+     * <p>Es idempotente: Stripe reintenta los webhooks y una sesion ya
+     * registrada o ya consumida no vuelve a notificarse.
+     */
+    @Transactional
+    public void registerPaidCheckout(String stripeSessionId) {
+        if (stripeSessionId == null || stripeSessionId.isBlank()) {
+            return;
+        }
+
+        String sessionId = stripeSessionId.trim();
+        OnboardingSession existing = onboardingSessionRepository.findByStripeSessionId(sessionId).orElse(null);
+
+        if (existing != null && existing.getConsumedAt() != null) {
+            log.info("Checkout {} ya fue activado; no se reenvia el correo", sessionId);
+            return;
+        }
+        if (existing != null && existing.getExpiresAt().isAfter(Instant.now())) {
+            log.info("Checkout {} ya estaba registrado y sigue vigente", sessionId);
+            return;
+        }
+
+        var stripeDetails = stripeCheckoutVerifier.verifyPaidSession(sessionId);
+        OnboardingSession session = existing == null
+                ? createSession(stripeDetails)
+                : extendSession(existing, stripeDetails.customerEmail());
+
+        onboardingMailService.sendActivationLink(session.getCustomerEmail(), session.getStripeSessionId());
+        log.info("Pago registrado por webhook y enlace de activacion enviado para checkout {}", sessionId);
     }
 
     @Transactional
@@ -104,17 +155,12 @@ public class OnboardingService {
         AccountSubscription sub = new AccountSubscription();
         sub.setAccountId(accountId);
 
-        if (session.getPlan() != null && !session.getPlan().isBlank()) {
-            try {
-                PlanType plan = PlanType.valueOf(session.getPlan());
-                sub.setPlan(plan);
-                sub.setStatus(SubscriptionStatus.ACTIVE);
-            } catch (IllegalArgumentException e) {
-                sub.setStatus(SubscriptionStatus.INCOMPLETE);
-            }
-        } else {
-            sub.setStatus(SubscriptionStatus.INCOMPLETE);
-        }
+        // Llegamos aqui solo despues de que Stripe confirmo el cobro, asi que
+        // el cliente siempre queda con un plan usable. Antes, un checkout sin
+        // metadata.plan dejaba el plan en null y el sistema le respondia
+        // "No tienes una suscripcion activa" aunque estuviera pagando.
+        sub.setPlan(planResolver.resolve(session.getPlan(), null));
+        sub.setStatus(SubscriptionStatus.ACTIVE);
 
         if (session.getStripeCustomerId() != null && !session.getStripeCustomerId().isBlank()) {
             sub.setStripeCustomerId(session.getStripeCustomerId());
@@ -131,7 +177,9 @@ public class OnboardingService {
         session.setToken(generateToken());
         session.setStripeSessionId(stripeDetails.sessionId());
         session.setCustomerEmail(stripeDetails.customerEmail());
-        session.setPlan(stripeDetails.plan());
+        // Se guarda el plan ya resuelto (metadata, o deducido del precio cobrado)
+        // para que al activar la cuenta no haya que volver a adivinar.
+        session.setPlan(planResolver.resolve(stripeDetails.plan(), stripeDetails.priceId()).name());
         session.setStripeCustomerId(stripeDetails.stripeCustomerId());
         session.setStripeSubscriptionId(stripeDetails.stripeSubscriptionId());
         session.setCreatedAt(Instant.now());

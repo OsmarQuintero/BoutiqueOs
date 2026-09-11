@@ -3,7 +3,6 @@
 }
 
 #reports-summary-section,
-.comparison-grid,
 .summary-grid,
 .insight-grid,
 .section-gap {
@@ -23,12 +22,12 @@
   padding: 14px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8f7f4 100%);
 }
 
 .executive-card-primary {
-  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
-  border-color: #bfd5f5;
+  background: linear-gradient(180deg, #f7f0dc 0%, #efe2bd 100%);
+  border-color: #d9c28a;
 }
 
 .executive-card-warn {
@@ -44,21 +43,24 @@
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .kpi { text-align: center; padding: 4px 0; }
 .kpi-label { font-size: 0.68rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
-.kpi-value { font-size: 1.3rem; font-weight: 800; color: var(--text); }
+// tabular-nums para que las cifras de las tarjetas queden alineadas entre si
+.kpi-value { font-size: 1.3rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi-green { color: var(--green); }
 .kpi-red { color: var(--red); }
 
+// Pie de la tarjeta ejecutiva: la comparativa contra ayer. Antes esto era una
+// segunda fila de tarjetas que repetia el mismo numero de arriba.
+.kpi-delta { display: block; font-size: 0.72rem; margin-top: 2px; color: var(--text-tertiary); }
+.kpi-delta-good { color: var(--green); }
+.kpi-delta-warn { color: #a16207; }
+.kpi-delta-risk { color: var(--red); }
+
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.comparison-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .insight-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 12px; }
 .payment-card { display: grid; gap: 10px; }
 .payment-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .payment-count { font-size: 0.72rem; color: var(--text-tertiary); }
 .payment-total { font-size: 1.2rem; font-weight: 800; color: var(--text); }
-.comparison-card { display: grid; gap: 8px; }
-.comparison-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.comparison-now { font-size: 1.15rem; font-weight: 800; color: var(--text); }
-.comparison-detail { color: var(--text-secondary); }
 .history-date { font-size: 1rem; line-height: 1.35; }
 .report-closure-banner {
   display: flex;
@@ -67,9 +69,9 @@
   gap: 12px;
   margin-bottom: 12px;
   padding: 12px 14px;
-  border: 1px solid #bfd5f5;
+  border: 1px solid #d9c28a;
   border-radius: var(--radius);
-  background: linear-gradient(180deg, #eff6ff 0%, #e0f2fe 100%);
+  background: linear-gradient(180deg, #f7f0dc 0%, #f3e9cc 100%);
 }
 
 .metric-list,
@@ -95,7 +97,7 @@
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
-  background: #fbfcfe;
+  background: #fbfaf8;
 }
 
 .alert-card span {
@@ -161,9 +163,9 @@
   color: var(--text);
 }
 .incident-chip-active {
-  border-color: #bfd5f5;
-  background: #eff6ff;
-  box-shadow: inset 0 0 0 1px #dbeafe;
+  border-color: #d9c28a;
+  background: #f7f0dc;
+  box-shadow: inset 0 0 0 1px #efe2bd;
 }
 .history-search { width: min(360px, 100%); }
 .history-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
@@ -190,7 +192,6 @@
 @media (max-width: 1024px) {
   .executive-grid,
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .comparison-grid,
   .summary-grid,
   .insight-grid,
   .incident-chip-grid { grid-template-columns: repeat(2, 1fr); }
@@ -203,7 +204,6 @@
 @media (max-width: 480px) {
   .executive-grid,
   .kpi-row,
-  .comparison-grid,
   .summary-grid,
   .insight-grid,
   .incident-chip-grid { grid-template-columns: 1fr; }

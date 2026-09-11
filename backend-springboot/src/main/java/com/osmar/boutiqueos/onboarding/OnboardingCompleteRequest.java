@@ -13,6 +13,6 @@ public record OnboardingCompleteRequest(
         String city,
         String postalCode,
         @NotBlank @Email String email,
-        @NotBlank @Size(min = 8, max = 72) String password
+        @NotBlank @Size(min = 12, max = 72) String password
 ) {
 }

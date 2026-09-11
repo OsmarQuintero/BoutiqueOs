@@ -5,7 +5,7 @@
 .link-btn {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
   font-size: inherit;
   cursor: pointer;
@@ -26,7 +26,7 @@
   padding: 14px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #fbfdff 0%, #f3f7fb 100%);
+  background: linear-gradient(180deg, #fcfbf9 0%, #f4f2ee 100%);
 }
 
 .customer-avatar {
@@ -35,8 +35,8 @@
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
-  color: #fff;
+  background: linear-gradient(180deg, var(--ink-black-soft) 0%, var(--ink-black) 100%);
+  color: var(--gold-bright);
   font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -83,7 +83,7 @@
   padding: 12px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: #f8f7f4;
 }
 
 .history-stat span,
@@ -136,9 +136,9 @@
   gap: 2px;
   min-width: 140px;
   padding: 10px 12px;
-  border: 1px solid #d9e3ee;
+  border: 1px solid #e2dfd8;
   border-radius: 14px;
-  background: #f8fbff;
+  background: #faf9f6;
 }
 
 .favorite-pill strong {
@@ -166,7 +166,7 @@
   padding: 14px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8f7f4 100%);
 }
 
 .customer-card-top {
@@ -199,7 +199,7 @@
 }
 
 .customer-meta a {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 700;
   text-decoration: none;
 }
@@ -215,7 +215,7 @@
   padding: 20px;
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: #f8f7f4;
   color: var(--text-secondary);
   font-size: 0.82rem;
 }

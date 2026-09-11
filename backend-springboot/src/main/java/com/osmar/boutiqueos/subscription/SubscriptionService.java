@@ -3,6 +3,7 @@ package com.osmar.boutiqueos.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.osmar.boutiqueos.config.AccountContext;
+import com.osmar.boutiqueos.onboarding.OnboardingService;
 import com.osmar.boutiqueos.product.ProductRepository;
 import com.osmar.boutiqueos.customer.CustomerRepository;
 import com.osmar.boutiqueos.sale.SaleRepository;
@@ -42,6 +43,7 @@ public class SubscriptionService {
     private final CustomerRepository customerRepository;
     private final SaleRepository saleRepository;
     private final AppSettingsRepository appSettingsRepository;
+    private final OnboardingService onboardingService;
     private final String stripeSecretKey;
     private final String frontendUrl;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -57,7 +59,8 @@ public class SubscriptionService {
             SaleRepository saleRepository,
             AppSettingsRepository appSettingsRepository,
             @Value("${app.stripe.secret-key:}") String stripeSecretKey,
-            @Value("${app.frontend.url:http://localhost:4200}") String frontendUrl
+            @Value("${app.frontend.url:http://localhost:4200}") String frontendUrl,
+            OnboardingService onboardingService
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.accountContext = accountContext;
@@ -67,6 +70,7 @@ public class SubscriptionService {
         this.appSettingsRepository = appSettingsRepository;
         this.stripeSecretKey = stripeSecretKey == null ? "" : stripeSecretKey.trim();
         this.frontendUrl = frontendUrl == null ? "http://localhost:4200" : frontendUrl.trim().replaceAll("/+$", "");
+        this.onboardingService = onboardingService;
     }
 
     @Transactional
@@ -257,7 +261,16 @@ public class SubscriptionService {
         String planStr = session.path("metadata").path("plan").asText("");
 
         if (accountIdStr.isBlank()) {
-            log.warn("checkout.session.completed without account_id metadata");
+            // Compra desde la landing: todavia no existe la cuenta, por eso el
+            // checkout no pudo mandar account_id. Antes se descartaba aqui y el
+            // pago quedaba solo en Stripe; ahora se registra y se le manda al
+            // cliente el enlace para activar.
+            String checkoutSessionId = session.path("id").asText("");
+            if (checkoutSessionId.isBlank()) {
+                log.warn("checkout.session.completed sin account_id ni id de sesion; se ignora");
+                return;
+            }
+            onboardingService.registerPaidCheckout(checkoutSessionId);
             return;
         }
 

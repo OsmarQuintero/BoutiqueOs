@@ -10,4 +10,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     List<Purchase> findTop30ByAccountIdOrderByCreatedAtDesc(Long accountId);
 
     List<Purchase> findByAccountIdAndCreatedAtBetweenOrderByCreatedAtDesc(Long accountId, Instant start, Instant end);
+
+    List<Purchase> findAllByAccountIdOrderByCreatedAtDesc(Long accountId);
+    void deleteAllByAccountId(Long accountId);
 }

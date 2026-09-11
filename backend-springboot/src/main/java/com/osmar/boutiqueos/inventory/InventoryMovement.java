@@ -50,6 +50,12 @@ public class InventoryMovement {
         return id;
     }
 
+    // Necesario para restaurar un respaldo: se reinserta con id nuevo y se
+    // conserva la fecha original, si no todo el historial quedaria fechado hoy.
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public Long getAccountId() {
         return accountId;
     }

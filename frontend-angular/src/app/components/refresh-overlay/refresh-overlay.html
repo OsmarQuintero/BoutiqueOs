@@ -1,11 +1,11 @@
-@if (refresh.isActive()) {
-  <div class="refresh-overlay" aria-live="polite" aria-busy="true">
-    <div class="refresh-panel">
-      <div class="refresh-spinner"></div>
-      <div>
-        <strong>{{ refresh.message() }}</strong>
-        <span>{{ store.t('refresh.moment') }}</span>
-      </div>
-    </div>
-  </div>
-}
+<div
+  class="refresh-bar"
+  [class.is-visible]="refresh.isVisible()"
+  role="status"
+  aria-live="polite"
+>
+  <span class="refresh-bar-track"><span class="refresh-bar-fill"></span></span>
+  @if (refresh.isVisible()) {
+    <span class="visually-hidden">{{ refresh.message() }}</span>
+  }
+</div>

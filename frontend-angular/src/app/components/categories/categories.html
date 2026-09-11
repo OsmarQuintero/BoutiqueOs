@@ -13,11 +13,12 @@
     <div class="card-content">
       <div class="category-form">
         <label class="field">
-          <span>{{ store.t('categories.baseType') }}</span>
+          <span>{{ store.t('categories.suggestion') }}</span>
           <select
             [(ngModel)]="store.categoryForm.presetName"
             (ngModelChange)="store.selectCategoryPreset($event)"
           >
+            <option [ngValue]="''">{{ store.t('categories.custom') }}</option>
             @for (preset of store.categoryPresets; track preset.name) {
               <option [ngValue]="preset.name">{{ preset.name }}</option>
             }
@@ -25,8 +26,12 @@
         </label>
         <label class="field"
           ><span>{{ store.t('categories.name') }}</span
-          ><input [(ngModel)]="store.categoryForm.name" placeholder="Tenis, Gorras, Accesorios"
+          ><input [(ngModel)]="store.categoryForm.name" placeholder="Vestidos, Blusas, Accesorios"
         /></label>
+        <label class="field">
+          <span>{{ store.t('categories.sizeLabelField') }}</span>
+          <input [(ngModel)]="store.categoryForm.sizeLabel" placeholder="Talla, Numero, Ajuste" />
+        </label>
         <label class="field field-area">
           <span>{{ store.t('categories.description') }}</span>
           <textarea
@@ -42,7 +47,11 @@
             <option [ngValue]="false">{{ store.t('categories.no') }}</option>
           </select>
         </label>
-        <button class="btn btn-primary btn-form" (click)="store.createCategory()">
+        <button
+          class="btn btn-primary btn-form"
+          [disabled]="store.isSavingCategory"
+          (click)="store.createCategory()"
+        >
           {{ store.editingCategoryId ? store.t('common.update') : store.t('common.save') }}
         </button>
       </div>

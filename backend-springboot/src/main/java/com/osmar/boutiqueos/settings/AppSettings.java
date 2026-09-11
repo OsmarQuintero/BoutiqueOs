@@ -79,12 +79,21 @@ public class AppSettings {
     private String username = "admin";
 
     @Column(nullable = false)
-    private String password = "admin";
+    /**
+     * Sin contraseña por defecto: una cuenta creada automaticamente queda
+     * bloqueada hasta que alguien le asigne una. Antes nacia con "admin" y
+     * cualquiera podia entrar a una instalacion recien levantada.
+     */
+    private String password = "";
 
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
     private Instant registrationCompletedAt;
+
+    // Los tokens emitidos antes de esto ya no valen. Se actualiza al cambiar la
+    // contrasena (SEC-05). Null = nunca se ha cambiado.
+    private Instant sessionsValidAfter;
 
     @Column(nullable = false)
     private boolean showIvaOnTicket = true;
@@ -178,4 +187,6 @@ public class AppSettings {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+    public Instant getSessionsValidAfter() { return sessionsValidAfter; }
+    public void setSessionsValidAfter(Instant sessionsValidAfter) { this.sessionsValidAfter = sessionsValidAfter; }
 }

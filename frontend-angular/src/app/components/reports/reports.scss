@@ -33,9 +33,9 @@
 .date-quick-actions,
 .panel-switch { display: flex; gap: 8px; flex-wrap: wrap; }
 .panel-switch .btn.active {
-  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
-  color: #fff;
-  border-color: #274f80;
+  background: linear-gradient(180deg, var(--ink-black-soft) 0%, var(--ink-black) 100%);
+  color: var(--gold-bright);
+  border-color: #000;
 }
 .muted-line { display: block; color: var(--text-tertiary); margin-top: 2px; }
 

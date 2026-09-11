@@ -149,3 +149,140 @@
     </div>
   </div>
 </div>
+
+<!--
+  Recompensas de lealtad. Las clientas ya juntaban puntos y en su ficha habia
+  boton de canje, pero no habia donde definir que se canjea.
+-->
+<div class="card rewards-section">
+  <div class="card-header">
+    <div>
+      <h3>{{ store.t('rewards.title') }}</h3>
+      <small class="rewards-subtitle">{{ store.t('rewards.subtitle') }}</small>
+    </div>
+    <span class="pill">{{ store.allLoyaltyRewards.length }}</span>
+  </div>
+  <div class="card-content rewards-layout">
+    <div class="form-compact">
+      <strong class="rewards-form-title">{{
+        store.editingRewardId ? store.t('rewards.edit') : store.t('rewards.new')
+      }}</strong>
+      <label class="field">
+        <span>{{ store.t('rewards.name') }}</span>
+        <input
+          [(ngModel)]="store.rewardForm.name"
+          [placeholder]="store.t('rewards.namePlaceholder')"
+        />
+      </label>
+      <div class="promo-grid">
+        <label class="field">
+          <span>{{ store.t('rewards.points') }}</span>
+          <input
+            [(ngModel)]="store.rewardForm.pointsRequired"
+            type="number"
+            min="1"
+            step="1"
+            inputmode="numeric"
+          />
+        </label>
+        <label class="field">
+          <span>{{ store.t('rewards.type') }}</span>
+          <select class="input-sm" [(ngModel)]="store.rewardForm.rewardType">
+            <option value="DISCOUNT">{{ store.t('rewards.typeDiscount') }}</option>
+            <option value="PRODUCT">{{ store.t('rewards.typeProduct') }}</option>
+          </select>
+        </label>
+      </div>
+      @if (store.rewardForm.rewardType === 'DISCOUNT') {
+        <label class="field">
+          <span>{{ store.t('rewards.amount') }}</span>
+          <input
+            [(ngModel)]="store.rewardForm.discountAmount"
+            type="number"
+            min="1"
+            step="1"
+            inputmode="decimal"
+          />
+        </label>
+      } @else {
+        <label class="field">
+          <span>{{ store.t('rewards.product') }}</span>
+          <select class="input-sm" [(ngModel)]="store.rewardForm.productId">
+            <option [ngValue]="null" disabled>{{ store.t('rewards.pickProduct') }}</option>
+            @for (product of store.rewardProducts; track product.id) {
+              <option [ngValue]="product.id">{{ product.name }}</option>
+            }
+          </select>
+        </label>
+      }
+      <label class="field">
+        <span>{{ store.t('rewards.description') }}</span>
+        <input [(ngModel)]="store.rewardForm.description" />
+      </label>
+      <label class="promo-check">
+        <input [(ngModel)]="store.rewardForm.active" type="checkbox" />
+        <span>{{ store.t('rewards.active') }}</span>
+      </label>
+      @if (store.rewardError) {
+        <p class="reward-error" role="alert">{{ store.rewardError }}</p>
+      }
+      <div class="promo-actions">
+        <button
+          class="btn btn-primary"
+          [disabled]="store.isSavingReward"
+          (click)="store.saveReward()"
+        >
+          {{
+            store.isSavingReward
+              ? store.t('rewards.saving')
+              : store.editingRewardId
+                ? store.t('rewards.update')
+                : store.t('rewards.save')
+          }}
+        </button>
+        @if (store.editingRewardId) {
+          <button class="btn btn-ghost btn-sm" (click)="store.cancelRewardEdit()">
+            {{ store.t('common.cancel') }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="promos-list">
+      @for (reward of store.allLoyaltyRewards; track reward.id) {
+        <article class="promo-card" [class.reward-paused]="!reward.active">
+          <div class="promo-card-top">
+            <div>
+              <strong>{{ reward.name }}</strong>
+              <span class="promo-code">{{
+                store.t('rewards.pointsValue', { n: reward.pointsRequired })
+              }}</span>
+            </div>
+            <span class="pill" [class.pill-green]="reward.active" [class.pill-amber]="!reward.active">
+              {{ reward.active ? store.t('rewards.activeBadge') : store.t('rewards.pausedBadge') }}
+            </span>
+          </div>
+          <div class="promo-meta">
+            <span>{{ store.rewardSummary(reward) }}</span>
+          </div>
+          @if (reward.description) {
+            <p class="promo-notes">{{ reward.description }}</p>
+          }
+          <div class="promo-actions">
+            <button class="btn btn-outline btn-sm" (click)="store.editReward(reward)">
+              {{ store.t('common.edit') }}
+            </button>
+            <button class="btn btn-outline btn-sm" (click)="store.toggleRewardActive(reward)">
+              {{ reward.active ? store.t('rewards.pause') : store.t('rewards.resume') }}
+            </button>
+            <button class="btn btn-ghost btn-xs" (click)="store.deleteReward(reward)">
+              {{ store.t('common.delete') }}
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="customer-empty-state">{{ store.t('rewards.empty') }}</div>
+      }
+    </div>
+  </div>
+</div>

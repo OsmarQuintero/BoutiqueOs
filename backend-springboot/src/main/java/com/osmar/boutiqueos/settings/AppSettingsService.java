@@ -1,5 +1,9 @@
 package com.osmar.boutiqueos.settings;
 
+import com.osmar.boutiqueos.settings.staff.StaffUserRepository;
+import java.util.Optional;
+import java.time.temporal.ChronoUnit;
+import com.osmar.boutiqueos.settings.twofactor.TwoFactorService;
 import com.osmar.boutiqueos.config.AccountContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,7 +25,7 @@ public class AppSettingsService {
     private static final String PASSWORD_PREFIX = "pbkdf2$";
     private static final int PASSWORD_ITERATIONS = 120_000;
     private static final int PASSWORD_KEY_LENGTH = 256;
-    private static final Pattern STRONG_PASSWORD = Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,72}$");
+    private static final Pattern STRONG_PASSWORD = Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{12,72}$");
     private static final Pattern SAFE_DATA_IMAGE = Pattern.compile(
             "^data:image/(png|jpeg|jpg|webp|gif);base64,[a-zA-Z0-9+/=\\r\\n]+$"
     );
@@ -31,7 +35,14 @@ public class AppSettingsService {
     private final AccountContext accountContext;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public AppSettingsService(AppSettingsRepository appSettingsRepository, AccountContext accountContext) {
+    private final StaffUserRepository staffUserRepository;
+
+    public AppSettingsService(
+            AppSettingsRepository appSettingsRepository,
+            AccountContext accountContext,
+            StaffUserRepository staffUserRepository
+    ) {
+        this.staffUserRepository = staffUserRepository;
         this.appSettingsRepository = appSettingsRepository;
         this.accountContext = accountContext;
     }
@@ -124,12 +135,17 @@ public class AppSettingsService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
         String nextUsername = normalizeUsername(request.username());
-        if (!settings.getUsername().equalsIgnoreCase(nextUsername) && appSettingsRepository.existsByUsernameIgnoreCase(nextUsername)) {
+        if (!settings.getUsername().equalsIgnoreCase(nextUsername) && usernameTaken(nextUsername)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
         }
         settings.setUsername(nextUsername);
         if (request.newPassword() != null && !request.newPassword().isBlank()) {
-            settings.setPassword(hashPassword(request.newPassword().trim()));
+            String newPassword = request.newPassword().trim();
+            // SEC-03: antes aqui no se validaba nada; bastaba una letra.
+            validateStrongPassword(newPassword);
+            settings.setPassword(hashPassword(newPassword));
+            // SEC-05: cualquier sesion abierta antes de este momento deja de valer.
+            settings.setSessionsValidAfter(Instant.now().truncatedTo(ChronoUnit.SECONDS));
         }
         settings.setUpdatedAt(Instant.now());
         return appSettingsRepository.save(settings);
@@ -146,8 +162,10 @@ public class AppSettingsService {
             String username,
             String password
     ) {
+        // Misma regla que al recuperar o cambiar la contrasena: antes aqui bastaban 8 caracteres.
+        validateStrongPassword(password == null ? "" : password.trim());
         String normalizedUsername = normalizeUsername(username);
-        if (appSettingsRepository.existsByUsernameIgnoreCase(normalizedUsername)) {
+        if (usernameTaken(normalizedUsername)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This email is already registered");
         }
 
@@ -167,11 +185,43 @@ public class AppSettingsService {
         return appSettingsRepository.save(settings);
     }
 
+    /**
+     * Crea o restablece la cuenta de dueño con una contraseña elegida.
+     *
+     * <p>Reemplaza a las credenciales fijas admin/admin: aqui la contraseña la
+     * decide quien tiene el secreto de administracion, y queda hasheada como
+     * cualquier otra. Si el usuario ya existe, solo se le cambia la contraseña.
+     */
+    @Transactional
+    public AppSettings provisionOwner(String username, String password, String storeName) {
+        String normalizedUsername = normalizeUsername(username);
+        AppSettings settings = appSettingsRepository.findByUsernameIgnoreCase(normalizedUsername)
+                .orElseGet(AppSettings::new);
+
+        boolean isNew = settings.getId() == null;
+        if (isNew) {
+            settings.setStoreName(cleanOrDefault(storeName, "Boutique OS"));
+            settings.setRegistrationCompletedAt(Instant.now());
+        } else if (storeName != null && !storeName.isBlank()) {
+            settings.setStoreName(storeName.trim());
+        }
+
+        settings.setUsername(normalizedUsername);
+        settings.setPassword(hashPassword(password.trim()));
+        settings.setRole("admin");
+        settings.setUpdatedAt(Instant.now());
+        return appSettingsRepository.save(settings);
+    }
+
     @Transactional
     public AppSettings authenticate(LoginRequest request) {
         String normalizedUsername = normalizeUsername(request.username());
+        // Solo se autentica contra una cuenta que exista de verdad. Antes, el
+        // usuario "admin" caia a get(), que sin sesion resuelve a la primera
+        // cuenta de la tabla: en una base vacia eso creaba admin/admin y dejaba
+        // entrar a cualquiera.
         AppSettings settings = appSettingsRepository.findByUsernameIgnoreCase(normalizedUsername)
-                .orElseGet(() -> "admin".equals(normalizedUsername) ? get() : null);
+                .orElse(null);
         if (settings == null || !passwordMatches(settings.getPassword(), request.password().trim())) {
             return null;
         }
@@ -195,8 +245,41 @@ public class AppSettingsService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a different password");
         }
         settings.setPassword(hashPassword(newPassword));
+        settings.setSessionsValidAfter(Instant.now().truncatedTo(ChronoUnit.SECONDS));
         settings.setUpdatedAt(Instant.now());
         appSettingsRepository.save(settings);
+    }
+
+    /** Valida la regla de contrasena y devuelve el hash. Lo usan tambien las cuentas de caja. */
+    public String encodeNewPassword(String rawPassword) {
+        validateStrongPassword(rawPassword);
+        return hashPassword(rawPassword);
+    }
+
+    public boolean passwordMatchesHash(String storedHash, String candidate) {
+        return passwordMatches(storedHash, candidate == null ? null : candidate.trim());
+    }
+
+    public Optional<AppSettings> findByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        return appSettingsRepository.findByUsernameIgnoreCase(normalizeUsername(username));
+    }
+
+    /** Correo al que va el codigo de verificacion: el usuario si es correo, si no el de contacto. */
+    public String twoFactorEmail(AppSettings settings) {
+        return TwoFactorService.resolveEmail(settings.getUsername(), settings.getContactEmail());
+    }
+
+    public boolean currentPasswordMatches(AppSettings settings, String candidate) {
+        return passwordMatches(settings.getPassword(), candidate == null ? null : candidate.trim());
+    }
+
+    /** Ocupado por otra duena o por una cuenta de caja: el login busca en ambas. */
+    private boolean usernameTaken(String username) {
+        return appSettingsRepository.existsByUsernameIgnoreCase(username)
+                || staffUserRepository.existsByUsernameIgnoreCase(username);
     }
 
     private String cleanOrDefault(String value, String fallback) {
@@ -247,7 +330,7 @@ public class AppSettingsService {
         if (!STRONG_PASSWORD.matcher(password).matches()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Password must include uppercase, lowercase and a number"
+                    "La contrasena debe tener al menos 12 caracteres e incluir mayuscula, minuscula y numero"
             );
         }
     }
@@ -329,6 +412,15 @@ public class AppSettingsService {
     }
 
     private boolean passwordMatches(String storedPassword, String candidate) {
+        // Una cuenta creada automaticamente nace sin contraseña. Sin esta guarda,
+        // la comparacion en texto plano de abajo dejaria entrar a quien mandara
+        // una cadena vacia.
+        if (storedPassword == null || storedPassword.isBlank()) {
+            return false;
+        }
+        if (candidate == null || candidate.isBlank()) {
+            return false;
+        }
         if (!isHashed(storedPassword)) {
             return storedPassword.equals(candidate);
         }

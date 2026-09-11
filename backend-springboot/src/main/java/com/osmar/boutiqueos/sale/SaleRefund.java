@@ -105,6 +105,12 @@ public class SaleRefund {
         return createdAt;
     }
 
+    // Necesario para restaurar un respaldo: se reinserta con id nuevo y se
+    // conserva la fecha original, si no todo el historial quedaria fechado hoy.
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public List<SaleRefundItem> getItems() {
         return items;
     }

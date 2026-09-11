@@ -27,6 +27,10 @@
       <button class="btn btn-outline btn-xs" (click)="store.exportDailyReportPdf()">
         {{ store.t('reports.exportPdf') }}
       </button>
+      <!-- Exporta solo el panel abierto; el rotulo lo dice para que no sorprenda. -->
+      <button class="btn btn-outline btn-xs" (click)="store.exportReportPanelCsv()">
+        {{ store.t('reports.exportCsv', { panel: store.reportPanelLabel }) }}
+      </button>
     </div>
     <div class="panel-switch">
       @for (panel of store.reportPanels; track panel.id) {

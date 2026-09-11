@@ -1,5 +1,11 @@
 package com.osmar.boutiqueos.settings;
 
+import com.osmar.boutiqueos.settings.staff.StaffUser;
+import com.osmar.boutiqueos.settings.staff.StaffService;
+import java.util.Map;
+import com.osmar.boutiqueos.settings.twofactor.TwoFactorService;
+import com.osmar.boutiqueos.settings.twofactor.TwoFactorPurpose;
+import com.osmar.boutiqueos.settings.twofactor.TwoFactorException;
 import com.osmar.boutiqueos.subscription.SubscriptionService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,7 +19,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,19 +35,28 @@ public class AppSettingsController {
     private final LoginAttemptService loginAttemptService;
     private final PasswordResetService passwordResetService;
     private final SubscriptionService subscriptionService;
+    private final TwoFactorService twoFactorService;
+    private final CredentialsService credentialsService;
+    private final StaffService staffService;
 
     public AppSettingsController(
             AppSettingsService appSettingsService,
             AuthSessionService authSessionService,
             LoginAttemptService loginAttemptService,
             PasswordResetService passwordResetService,
-            SubscriptionService subscriptionService
+            SubscriptionService subscriptionService,
+            TwoFactorService twoFactorService,
+            CredentialsService credentialsService,
+            StaffService staffService
     ) {
         this.appSettingsService = appSettingsService;
         this.authSessionService = authSessionService;
         this.loginAttemptService = loginAttemptService;
         this.passwordResetService = passwordResetService;
         this.subscriptionService = subscriptionService;
+        this.twoFactorService = twoFactorService;
+        this.credentialsService = credentialsService;
+        this.staffService = staffService;
     }
 
     @GetMapping
@@ -71,12 +85,41 @@ public class AppSettingsController {
     }
 
     @PutMapping("/credentials")
-    public AppSettingsResponse updateCredentials(
+    public CredentialsUpdateResponse updateCredentials(
             @RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token,
             @Valid @RequestBody CredentialsSettingsRequest request
     ) {
-        requireSession(token);
-        return AppSettingsResponse.from(appSettingsService.updateCredentials(request));
+        SessionInfo session = requireSessionInfo(token);
+        String key = credentialsAttemptKey(session.accountId());
+        requireNotBlocked(key);
+        AppSettings updated;
+        try {
+            updated = credentialsService.update(session.accountId(), request);
+        } catch (CurrentPasswordMismatchException mismatch) {
+            recordCredentialsFailure(key);
+            throw mismatch;
+        }
+        loginAttemptService.reset(key);
+        // La sesion actual tambien se cerro con el cambio; esta la mantiene dentro.
+        return new CredentialsUpdateResponse(
+                AppSettingsResponse.from(updated), authSessionService.createSession(session.accountId()));
+    }
+
+    /** Paso 1 del cambio de credenciales: confirma la contrasena actual y manda el codigo. */
+    @PostMapping("/credentials/code")
+    public CredentialsCodeResponse requestCredentialsCode(
+            @RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token,
+            @Valid @RequestBody CredentialsCodeRequest request
+    ) {
+        SessionInfo session = requireSessionInfo(token);
+        String key = credentialsAttemptKey(session.accountId());
+        requireNotBlocked(key);
+        try {
+            return credentialsService.sendCode(session.accountId(), request.currentPassword());
+        } catch (CurrentPasswordMismatchException mismatch) {
+            recordCredentialsFailure(key);
+            throw mismatch;
+        }
     }
 
     @PostMapping("/login")
@@ -85,14 +128,87 @@ public class AppSettingsController {
         if (loginAttemptService.isBlocked(key)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts. Try again later.");
         }
-
         AppSettings account = appSettingsService.authenticate(request);
-        if (account == null) {
-            loginAttemptService.recordFailure(key);
-            return new LoginResponse(false, null);
+        if (account != null) {
+            loginAttemptService.reset(key);
+            return ownerLogin(account, request.deviceToken());
         }
-        loginAttemptService.reset(key);
-        return new LoginResponse(true, authSessionService.createSession(account.getId()));
+        StaffUser staff = staffService.authenticate(request.username(), request.password());
+        if (staff != null) {
+            loginAttemptService.reset(key);
+            return staffLogin(staff, request.deviceToken());
+        }
+        loginAttemptService.recordFailure(key);
+        return LoginResponse.invalid();
+    }
+
+    private LoginResponse ownerLogin(AppSettings account, String deviceToken) {
+        String email = appSettingsService.twoFactorEmail(account);
+        if (email == null) {
+            // Sin correo no hay a donde mandar el codigo: entra, y la pantalla le
+            // pide agregar un correo para activar el segundo paso.
+            return LoginResponse.signedIn(authSessionService.createSession(account.getId()), null, false, "OWNER", "Duena");
+        }
+        if (twoFactorService.isTrustedDevice(account.getId(), deviceToken)) {
+            return LoginResponse.signedIn(authSessionService.createSession(account.getId()), null, true, "OWNER", "Duena");
+        }
+        TwoFactorService.Started started = twoFactorService.start(account.getId(), email, TwoFactorPurpose.LOGIN);
+        return LoginResponse.challenge(started.challengeId(), started.maskedEmail(), false);
+    }
+
+    /**
+     * Cuenta de caja: el codigo va al correo de la DUENA. Asi ella autoriza cada
+     * dispositivo nuevo de caja y la cajera no necesita correo propio.
+     */
+    private LoginResponse staffLogin(StaffUser staff, String deviceToken) {
+        Long accountId = staff.getAccountId();
+        String ownerEmail = appSettingsService.twoFactorEmail(appSettingsService.getByAccountId(accountId));
+        if (ownerEmail == null) {
+            return LoginResponse.signedIn(authSessionService.createStaffSession(accountId, staff.getId()),
+                    null, false, "CASHIER", staff.getName());
+        }
+        if (twoFactorService.isTrustedDevice(accountId, staff.getId(), deviceToken)) {
+            return LoginResponse.signedIn(authSessionService.createStaffSession(accountId, staff.getId()),
+                    null, true, "CASHIER", staff.getName());
+        }
+        TwoFactorService.Started started =
+                twoFactorService.start(accountId, staff.getId(), ownerEmail, TwoFactorPurpose.LOGIN);
+        return LoginResponse.challenge(started.challengeId(), started.maskedEmail(), true);
+    }
+
+    /** Paso 2 del login: el codigo que llego al correo. */
+    @PostMapping("/login/verify")
+    public LoginResponse verifyLogin(
+            @Valid @RequestBody TwoFactorVerifyRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String key = clientIp(httpRequest) + "|two-factor";
+        if (loginAttemptService.isBlocked(key, 20, Duration.ofMinutes(15), Duration.ofMinutes(15))) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos. Espera unos minutos.");
+        }
+        TwoFactorService.Verified verified;
+        try {
+            verified = twoFactorService.verifyChallenge(request.challengeId(), request.code(), TwoFactorPurpose.LOGIN);
+        } catch (TwoFactorException wrongCode) {
+            loginAttemptService.recordFailure(key, 20, Duration.ofMinutes(15), Duration.ofMinutes(15));
+            throw wrongCode;
+        }
+        Long accountId = verified.accountId();
+        Long staffId = verified.staffUserId();
+        String deviceToken = Boolean.TRUE.equals(request.rememberDevice())
+                ? twoFactorService.trustDevice(accountId, staffId, userAgent(httpRequest))
+                : null;
+        if (staffId == null) {
+            return LoginResponse.signedIn(authSessionService.createSession(accountId), deviceToken, true, "OWNER", "Duena");
+        }
+        String name = staffService.nameOf(staffId);
+        return LoginResponse.signedIn(authSessionService.createStaffSession(accountId, staffId), deviceToken, true, "CASHIER", name);
+    }
+
+    @PostMapping("/login/resend")
+    public Map<String, String> resendLoginCode(@Valid @RequestBody TwoFactorResendRequest request) {
+        TwoFactorService.Started started = twoFactorService.resend(request.challengeId(), TwoFactorPurpose.LOGIN);
+        return Map.of("challengeId", started.challengeId(), "maskedEmail", started.maskedEmail());
     }
 
     @PostMapping("/password-reset/request")
@@ -116,19 +232,6 @@ public class AppSettingsController {
         return new PasswordResetRequestResponse(true);
     }
 
-    @GetMapping("/password-reset/validate")
-    public PasswordResetValidateResponse validatePasswordReset(
-            @RequestParam("token") String token,
-            HttpServletRequest httpRequest
-    ) {
-        String ipKey = passwordResetIpAttemptKey(httpRequest) + "|validate";
-        if (loginAttemptService.isBlocked(ipKey, 10, PASSWORD_RESET_WINDOW, PASSWORD_RESET_BLOCK_DURATION)) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Try again later.");
-        }
-        loginAttemptService.recordFailure(ipKey, 10, PASSWORD_RESET_WINDOW, PASSWORD_RESET_BLOCK_DURATION);
-        return passwordResetService.validateToken(token);
-    }
-
     @PostMapping("/password-reset/confirm")
     public PasswordResetConfirmResponse confirmPasswordReset(
             @Valid @RequestBody PasswordResetConfirmRequest request
@@ -147,6 +250,42 @@ public class AppSettingsController {
         if (!authSessionService.isValid(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
         }
+    }
+
+    private SessionInfo requireSessionInfo(String token) {
+        SessionInfo session = authSessionService.getSession(token);
+        if (session == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
+        }
+        return session;
+    }
+
+    // SEC-04: antes se podia probar la contrasena actual sin limite desde una
+    // sesion abierta. Ahora 5 fallos bloquean el cambio de credenciales un rato.
+    private String credentialsAttemptKey(Long accountId) {
+        return "credentials|" + accountId;
+    }
+
+    private void requireNotBlocked(String key) {
+        if (loginAttemptService.isBlocked(key)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos. Espera unos minutos.");
+        }
+    }
+
+    private void recordCredentialsFailure(String key) {
+        loginAttemptService.recordFailure(key);
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        return forwardedFor == null || forwardedFor.isBlank()
+                ? request.getRemoteAddr()
+                : forwardedFor.split(",")[0].trim();
+    }
+
+    private String userAgent(HttpServletRequest request) {
+        String agent = request.getHeader("User-Agent");
+        return agent == null ? null : agent.trim();
     }
 
     private String loginAttemptKey(HttpServletRequest request, String username) {

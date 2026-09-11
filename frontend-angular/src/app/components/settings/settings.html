@@ -1,340 +1,354 @@
 <div class="settings-grid">
-  <div class="settings-main">
-    @if (store.hasFeature('ticket_customization')) {
-    <div class="card">
-      <div class="card-header">
-        <h3>{{ store.t('settings.ticket') }}</h3>
-        <button
-          class="btn btn-primary btn-sm"
-          [disabled]="store.isSavingTicketSettings"
-          (click)="store.saveTicketSettings()"
-        >
-          {{ store.isSavingTicketSettings ? store.t('common.saving') : store.t('common.save') }}
-        </button>
-      </div>
-      <div class="card-content settings-form">
-        <div class="settings-section field-wide">
-          <div class="settings-section-title">{{ store.t('settings.businessData') }}</div>
-          <div class="settings-subgrid">
-            <label class="field">
-              <span>{{ store.t('settings.storeName') }}</span>
-              <input [(ngModel)]="store.settingsForm.storeName" placeholder="Boutique OS" />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.phone') }}</span>
-              <input [(ngModel)]="store.settingsForm.phone" placeholder="812 000 0000" />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.contactEmail') }}</span>
-              <input
-                [(ngModel)]="store.settingsForm.contactEmail"
-                placeholder="hola@boutiqueos.mx"
-              />
-            </label>
-            <div class="field">
-              <span>{{ store.t('settings.socialNetwork') }}</span>
-              <select
-                [(ngModel)]="store.settingsForm.socialNetwork"
-                (ngModelChange)="store.refreshTicketQrPreview()"
-              >
-                <option value="INSTAGRAM">Instagram</option>
-                <option value="FACEBOOK">Facebook</option>
-                <option value="TIKTOK">TikTok</option>
-                <option value="WHATSAPP">WhatsApp</option>
-                <option value="CUSTOM">{{ store.t('settings.customLink') }}</option>
-              </select>
+  <!--
+    Formulario y vista previa en su propio contenedor: la vista previa es
+    sticky y, si compartiera contenedor con la fila de cuenta, bajaria encima
+    de ella al hacer scroll y taparia "Plan y suscripcion".
+  -->
+  <div class="settings-ticket-row">
+    <div class="settings-main">
+      @if (store.hasFeature('ticket_customization')) {
+      <div class="card">
+        <div class="card-header">
+          <h3>{{ store.t('settings.ticket') }}</h3>
+          <button
+            class="btn btn-primary btn-sm"
+            [disabled]="store.isSavingTicketSettings"
+            (click)="store.saveTicketSettings()"
+          >
+            {{ store.isSavingTicketSettings ? store.t('common.saving') : store.t('common.save') }}
+          </button>
+        </div>
+        <div class="card-content settings-form">
+          <div class="settings-section field-wide">
+            <div class="settings-section-title">{{ store.t('settings.businessData') }}</div>
+            <div class="settings-subgrid">
+              <label class="field">
+                <span>{{ store.t('settings.storeName') }}</span>
+                <input [(ngModel)]="store.settingsForm.storeName" placeholder="Boutique OS" />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.phone') }}</span>
+                <input [(ngModel)]="store.settingsForm.phone" placeholder="812 000 0000" />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.contactEmail') }}</span>
+                <input
+                  [(ngModel)]="store.settingsForm.contactEmail"
+                  placeholder="hola@boutiqueos.mx"
+                />
+              </label>
+              <div class="field">
+                <span>{{ store.t('settings.socialNetwork') }}</span>
+                <select
+                  [(ngModel)]="store.settingsForm.socialNetwork"
+                  (ngModelChange)="store.refreshTicketQrPreview()"
+                >
+                  <option value="INSTAGRAM">Instagram</option>
+                  <option value="FACEBOOK">Facebook</option>
+                  <option value="TIKTOK">TikTok</option>
+                  <option value="WHATSAPP">WhatsApp</option>
+                  <option value="CUSTOM">{{ store.t('settings.customLink') }}</option>
+                </select>
+              </div>
+              <label class="field">
+                <span>{{ store.t('settings.accountLink') }}</span>
+                <input
+                  [(ngModel)]="store.settingsForm.instagramHandle"
+                  (ngModelChange)="store.refreshTicketQrPreview()"
+                  [placeholder]="store.ticketSocialPlaceholder"
+                />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.street') }}</span>
+                <input
+                  [(ngModel)]="store.settingsForm.street"
+                  [placeholder]="store.t('settings.streetNumber')"
+                />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.neighborhood') }}</span>
+                <input
+                  [(ngModel)]="store.settingsForm.neighborhood"
+                  [placeholder]="store.t('settings.neighborhood')"
+                />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.city') }}</span>
+                <input [(ngModel)]="store.settingsForm.city" placeholder="Monterrey" />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.postalCode') }}</span>
+                <input [(ngModel)]="store.settingsForm.postalCode" placeholder="64000" />
+              </label>
             </div>
-            <label class="field">
-              <span>{{ store.t('settings.accountLink') }}</span>
-              <input
-                [(ngModel)]="store.settingsForm.instagramHandle"
-                (ngModelChange)="store.refreshTicketQrPreview()"
-                [placeholder]="store.ticketSocialPlaceholder"
-              />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.street') }}</span>
-              <input
-                [(ngModel)]="store.settingsForm.street"
-                [placeholder]="store.t('settings.streetNumber')"
-              />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.neighborhood') }}</span>
-              <input
-                [(ngModel)]="store.settingsForm.neighborhood"
-                [placeholder]="store.t('settings.neighborhood')"
-              />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.city') }}</span>
-              <input [(ngModel)]="store.settingsForm.city" placeholder="Monterrey" />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.postalCode') }}</span>
-              <input [(ngModel)]="store.settingsForm.postalCode" placeholder="64000" />
-            </label>
           </div>
-        </div>
-        <div class="settings-section field-wide">
-          <div class="settings-section-title">{{ store.t('settings.branding') }}</div>
-          <div class="settings-subgrid">
-            <label class="field">
-              <span>{{ store.t('settings.ticketPrefix') }}</span>
-              <input [(ngModel)]="store.settingsForm.ticketPrefix" placeholder="BOS" />
-            </label>
-            <label class="field">
-              <span>{{ store.t('settings.paperFormat') }}</span>
-              <select [(ngModel)]="store.settingsForm.ticketPaperSize">
-                @for (size of store.ticketPaperSizes; track size.value) {
-                  <option [ngValue]="size.value">{{ size.label }}</option>
-                }
-              </select>
-            </label>
-            <label class="field field-wide">
-              <span>{{ store.t('settings.thankYou') }}</span>
-              <input
-                [(ngModel)]="store.settingsForm.thankYouMessage"
-                [placeholder]="store.t('settings.thankYouPlaceholder')"
-              />
-            </label>
-            <label class="field field-wide">
-              <span>{{ store.t('settings.footerNote') }}</span>
-              <input
-                [(ngModel)]="store.settingsForm.ticketFooterNote"
-                [placeholder]="store.t('settings.footerNotePlaceholder')"
-              />
-            </label>
+          <div class="settings-section field-wide">
+            <div class="settings-section-title">{{ store.t('settings.branding') }}</div>
+            <div class="settings-subgrid">
+              <label class="field">
+                <span>{{ store.t('settings.ticketPrefix') }}</span>
+                <input [(ngModel)]="store.settingsForm.ticketPrefix" placeholder="BOS" />
+              </label>
+              <label class="field">
+                <span>{{ store.t('settings.paperFormat') }}</span>
+                <select [(ngModel)]="store.settingsForm.ticketPaperSize">
+                  @for (size of store.ticketPaperSizes; track size.value) {
+                    <option [ngValue]="size.value">{{ size.label }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field field-wide">
+                <span>{{ store.t('settings.thankYou') }}</span>
+                <input
+                  [(ngModel)]="store.settingsForm.thankYouMessage"
+                  [placeholder]="store.t('settings.thankYouPlaceholder')"
+                />
+              </label>
+              <label class="field field-wide">
+                <span>{{ store.t('settings.footerNote') }}</span>
+                <input
+                  [(ngModel)]="store.settingsForm.ticketFooterNote"
+                  [placeholder]="store.t('settings.footerNotePlaceholder')"
+                />
+              </label>
+            </div>
           </div>
-        </div>
-        <div class="logo-field field-wide">
-          <div class="logo-preview">
-            @if (store.settingsForm.logoUrl) {
-              <img [src]="store.settingsForm.logoUrl" [alt]="store.t('settings.logo')" />
-            } @else {
-              <span>{{ store.t('settings.logo') }}</span>
-            }
-          </div>
-          <div class="logo-actions">
-            <label class="btn btn-outline">
-              {{ store.t('settings.uploadLogo') }}
+          <div class="logo-field field-wide">
+            <div class="logo-preview">
+              @if (store.settingsForm.logoUrl) {
+                <img [src]="store.settingsForm.logoUrl" [alt]="store.t('settings.logo')" />
+              } @else {
+                <span>{{ store.t('settings.logo') }}</span>
+              }
+            </div>
+            <div class="logo-actions">
+              <label class="btn btn-outline">
+                {{ store.t('settings.uploadLogo') }}
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden-file-input"
+                  (change)="store.onLogoSelected($event)"
+                />
+              </label>
               <input
-                type="file"
-                accept="image/*"
-                class="hidden-file-input"
-                (change)="store.onLogoSelected($event)"
+                class="input-sm"
+                [(ngModel)]="store.settingsForm.logoUrl"
+                [placeholder]="store.t('settings.logoUrlPlaceholder')"
               />
-            </label>
-            <input
-              class="input-sm"
-              [(ngModel)]="store.settingsForm.logoUrl"
-              [placeholder]="store.t('settings.logoUrlPlaceholder')"
-            />
-            @if (store.logoFileName) {
-              <small>{{ store.logoFileName }}</small>
-            }
+              @if (store.logoFileName) {
+                <small>{{ store.logoFileName }}</small>
+              }
+            </div>
           </div>
-        </div>
-        <div class="settings-section field-wide">
-          <div class="settings-section-title">{{ store.t('settings.showOnTicket') }}</div>
-          <div class="toggle-grid">
-            <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showLogoOnTicket" />
-              <span>{{ store.t('settings.logoToggle') }}</span>
-            </label>
-            <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showAddressOnTicket" />
-              <span>{{ store.t('settings.addressToggle') }}</span>
-            </label>
-            <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showPhoneOnTicket" />
-              <span>{{ store.t('settings.phoneToggle') }}</span>
-            </label>
-            <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showCustomerOnTicket" />
-              <span>{{ store.t('settings.customerToggle') }}</span>
-            </label>
-            <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showSavingsOnTicket" />
-              <span>{{ store.t('settings.savingsToggle') }}</span>
-            </label>
-            <label class="toggle-option">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showChangeOnTicket" />
-              <span>{{ store.t('settings.changeToggle') }}</span>
-            </label>
-            <label class="toggle-option toggle-option-wide">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.showIvaOnTicket" />
-              <span>{{ store.t('settings.ivaToggle') }}</span>
-            </label>
-            <label class="toggle-option toggle-option-wide">
-              <input type="checkbox" [(ngModel)]="store.settingsForm.autoOpenTicket" />
-              <span>{{ store.t('settings.autoOpenTicket') }}</span>
-            </label>
+          <div class="settings-section field-wide">
+            <div class="settings-section-title">{{ store.t('settings.showOnTicket') }}</div>
+            <div class="toggle-grid">
+              <label class="toggle-option">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showLogoOnTicket" />
+                <span>{{ store.t('settings.logoToggle') }}</span>
+              </label>
+              <label class="toggle-option">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showAddressOnTicket" />
+                <span>{{ store.t('settings.addressToggle') }}</span>
+              </label>
+              <label class="toggle-option">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showPhoneOnTicket" />
+                <span>{{ store.t('settings.phoneToggle') }}</span>
+              </label>
+              <label class="toggle-option">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showCustomerOnTicket" />
+                <span>{{ store.t('settings.customerToggle') }}</span>
+              </label>
+              <label class="toggle-option">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showSavingsOnTicket" />
+                <span>{{ store.t('settings.savingsToggle') }}</span>
+              </label>
+              <label class="toggle-option">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showChangeOnTicket" />
+                <span>{{ store.t('settings.changeToggle') }}</span>
+              </label>
+              <label class="toggle-option toggle-option-wide">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.showIvaOnTicket" />
+                <span>{{ store.t('settings.ivaToggle') }}</span>
+              </label>
+              <label class="toggle-option toggle-option-wide">
+                <input type="checkbox" [(ngModel)]="store.settingsForm.autoOpenTicket" />
+                <span>{{ store.t('settings.autoOpenTicket') }}</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
+      }
     </div>
-    }
+
+    <div class="settings-side">
+      @if (store.hasFeature('ticket_customization')) {
+      <div class="card settings-preview-card">
+        <div class="card-header">
+          <h3>{{ store.t('settings.preview') }}</h3>
+        </div>
+        <div class="card-content">
+          <div class="ticket-preview-shell">
+            <div
+              class="ticket-preview"
+              [class.ticket-preview-wide]="store.settingsForm.ticketPaperSize === 'HALF_LETTER'"
+            >
+              @if (store.settingsForm.showLogoOnTicket) {
+                <div class="ticket-preview-logo">
+                  @if (store.settingsForm.logoUrl) {
+                    <img [src]="store.settingsForm.logoUrl" [alt]="store.t('settings.preview')" />
+                  } @else {
+                    <span>LOGO</span>
+                  }
+                </div>
+              }
+              <div class="ticket-preview-store">
+                {{ store.settingsForm.storeName || 'Boutique OS' }}
+              </div>
+              @if (store.settingsForm.showAddressOnTicket) {
+                <div class="ticket-preview-line">
+                  {{ store.settingsForm.street || store.t('settings.streetNumber') }}
+                </div>
+                <div class="ticket-preview-line">
+                  {{ store.settingsForm.neighborhood || store.t('settings.neighborhood') }}
+                  ·
+                  {{ store.settingsForm.city || store.t('settings.cityShort') }}
+                  @if (store.settingsForm.postalCode) {
+                    · CP {{ store.settingsForm.postalCode }}
+                  }
+                </div>
+              }
+              @if (store.settingsForm.showPhoneOnTicket && store.settingsForm.phone) {
+                <div class="ticket-preview-line">{{ store.settingsForm.phone }}</div>
+              }
+              @if (store.settingsForm.contactEmail) {
+                <div class="ticket-preview-line">{{ store.settingsForm.contactEmail }}</div>
+              }
+              @if (store.settingsForm.instagramHandle) {
+                <div class="ticket-preview-line">{{ store.settingsForm.instagramHandle }}</div>
+              }
+
+              <div class="ticket-preview-double-divider"></div>
+              <div class="ticket-preview-title">{{ store.t('settings.receiptTitle') }}</div>
+              <div class="ticket-preview-double-divider"></div>
+
+              <div class="ticket-preview-row">
+                <span>{{ store.t('settings.folio') }}</span>
+                <strong>{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</strong>
+              </div>
+              <div class="ticket-preview-row">
+                <span>{{ store.t('ticket.date') }}</span>
+                <strong>09/07/2026 08:00 PM</strong>
+              </div>
+              @if (store.settingsForm.showCustomerOnTicket) {
+                <div class="ticket-preview-row">
+                  <span>{{ store.t('settings.customerToggle') }}</span>
+                  <strong>{{ store.t('pos.counter') }}</strong>
+                </div>
+              }
+              <div class="ticket-preview-row">
+                <span>{{ store.t('settings.payment') }}</span>
+                <strong>{{ store.t('settings.cash') }}</strong>
+              </div>
+              <div class="ticket-preview-divider"></div>
+
+              <div class="ticket-preview-item-header">
+                <span>{{ store.t('ticket.itemQty') }}</span>
+                <span>{{ store.t('ticket.itemDesc') }}</span>
+                <span>{{ store.t('ticket.itemTotal') }}</span>
+              </div>
+              <div class="ticket-preview-dashed-divider"></div>
+
+              <div class="ticket-preview-item">
+                <div class="ticket-preview-item-qty">1</div>
+                <div class="ticket-preview-item-desc">Tenis blancos<div class="ticket-preview-item-detail">1 x {{ store.formatMoney(899) }}</div></div>
+                <div class="ticket-preview-item-price">{{ store.formatMoney(899) }}</div>
+              </div>
+              <div class="ticket-preview-item">
+                <div class="ticket-preview-item-qty">1</div>
+                <div class="ticket-preview-item-desc">Playera basica<div class="ticket-preview-item-detail">1 x {{ store.formatMoney(349) }}</div></div>
+                <div class="ticket-preview-item-price">{{ store.formatMoney(349) }}</div>
+              </div>
+              <div class="ticket-preview-dashed-divider"></div>
+
+              <div class="ticket-preview-row">
+                <span>{{ store.t('settings.subtotal') }}</span>
+                <strong>{{ store.formatMoney(1248) }}</strong>
+              </div>
+              @if (store.settingsForm.showSavingsOnTicket) {
+                <div class="ticket-preview-row ticket-preview-row-discount">
+                  <span>{{ store.t('settings.savings') }}</span>
+                  <strong>-{{ store.formatMoney(99) }}</strong>
+                </div>
+              }
+
+              @if (store.settingsForm.showIvaOnTicket) {
+                <div class="ticket-preview-divider"></div>
+                <div class="ticket-preview-row ticket-preview-row-indent">
+                  <span>{{ store.t('ticket.subtotalWithoutIva') }}</span>
+                  <span>{{ store.formatMoney(989.66) }}</span>
+                </div>
+                <div class="ticket-preview-row ticket-preview-row-indent">
+                  <span>{{ store.t('ticket.iva') }}</span>
+                  <span>{{ store.formatMoney(159.34) }}</span>
+                </div>
+              }
+
+              <div class="ticket-preview-double-divider"></div>
+              <div class="ticket-preview-row ticket-preview-row-total">
+                <span>{{ store.t('settings.total') }}</span>
+                <strong>{{ store.formatMoney(1149) }}</strong>
+              </div>
+              <div class="ticket-preview-double-divider"></div>
+
+              @if (store.settingsForm.showChangeOnTicket) {
+                <div class="ticket-preview-row">
+                  <span>{{ store.t('settings.changeToggle') }}</span>
+                  <strong>{{ store.formatMoney(51) }}</strong>
+                </div>
+              }
+              <div class="ticket-preview-row">
+                <span>{{ store.t('settings.pieces') }}</span>
+                <strong>2</strong>
+              </div>
+              <div class="ticket-preview-divider"></div>
+
+              @if (store.ticketQrDataUrl && store.ticketQrLabel) {
+                <div class="ticket-preview-qr">
+                  <img [src]="store.ticketQrDataUrl" [alt]="store.t('settings.qrAlt')" />
+                  <div class="ticket-preview-qr-label">{{ store.ticketQrLabel }}</div>
+                </div>
+                <div class="ticket-preview-divider"></div>
+              }
+              <div class="ticket-preview-thanks">
+                {{ store.settingsForm.thankYouMessage || store.t('settings.thankYouPlaceholder') }}
+              </div>
+              @if (store.settingsForm.ticketFooterNote) {
+                <div class="ticket-preview-note">{{ store.settingsForm.ticketFooterNote }}</div>
+              }
+
+              <div class="ticket-preview-double-divider"></div>
+              <div class="ticket-preview-barcode-placeholder">
+                <div class="ticket-preview-barcode-lines"></div>
+                <div class="ticket-preview-barcode-text">{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</div>
+              </div>
+              <div class="ticket-preview-divider"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      }
+    </div>
   </div>
 
-  <div class="settings-side">
-    @if (store.hasFeature('ticket_customization')) {
-    <div class="card settings-preview-card">
-      <div class="card-header">
-        <h3>{{ store.t('settings.preview') }}</h3>
-      </div>
-      <div class="card-content">
-        <div class="ticket-preview-shell">
-          <div
-            class="ticket-preview"
-            [class.ticket-preview-wide]="store.settingsForm.ticketPaperSize === 'HALF_LETTER'"
-          >
-            @if (store.settingsForm.showLogoOnTicket) {
-              <div class="ticket-preview-logo">
-                @if (store.settingsForm.logoUrl) {
-                  <img [src]="store.settingsForm.logoUrl" [alt]="store.t('settings.preview')" />
-                } @else {
-                  <span>LOGO</span>
-                }
-              </div>
-            }
-            <div class="ticket-preview-store">
-              {{ store.settingsForm.storeName || 'Boutique OS' }}
-            </div>
-            @if (store.settingsForm.showAddressOnTicket) {
-              <div class="ticket-preview-line">
-                {{ store.settingsForm.street || store.t('settings.streetNumber') }}
-              </div>
-              <div class="ticket-preview-line">
-                {{ store.settingsForm.neighborhood || store.t('settings.neighborhood') }}
-                ·
-                {{ store.settingsForm.city || store.t('settings.cityShort') }}
-                @if (store.settingsForm.postalCode) {
-                  · CP {{ store.settingsForm.postalCode }}
-                }
-              </div>
-            }
-            @if (store.settingsForm.showPhoneOnTicket && store.settingsForm.phone) {
-              <div class="ticket-preview-line">{{ store.settingsForm.phone }}</div>
-            }
-            @if (store.settingsForm.contactEmail) {
-              <div class="ticket-preview-line">{{ store.settingsForm.contactEmail }}</div>
-            }
-            @if (store.settingsForm.instagramHandle) {
-              <div class="ticket-preview-line">{{ store.settingsForm.instagramHandle }}</div>
-            }
-
-            <div class="ticket-preview-double-divider"></div>
-            <div class="ticket-preview-title">{{ store.t('settings.receiptTitle') }}</div>
-            <div class="ticket-preview-double-divider"></div>
-
-            <div class="ticket-preview-row">
-              <span>{{ store.t('settings.folio') }}</span>
-              <strong>{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</strong>
-            </div>
-            <div class="ticket-preview-row">
-              <span>{{ store.t('ticket.date') }}</span>
-              <strong>09/07/2026 08:00 PM</strong>
-            </div>
-            @if (store.settingsForm.showCustomerOnTicket) {
-              <div class="ticket-preview-row">
-                <span>{{ store.t('settings.customerToggle') }}</span>
-                <strong>{{ store.t('pos.counter') }}</strong>
-              </div>
-            }
-            <div class="ticket-preview-row">
-              <span>{{ store.t('settings.payment') }}</span>
-              <strong>{{ store.t('settings.cash') }}</strong>
-            </div>
-            <div class="ticket-preview-divider"></div>
-
-            <div class="ticket-preview-item-header">
-              <span>{{ store.t('ticket.itemQty') }}</span>
-              <span>{{ store.t('ticket.itemDesc') }}</span>
-              <span>{{ store.t('ticket.itemTotal') }}</span>
-            </div>
-            <div class="ticket-preview-dashed-divider"></div>
-
-            <div class="ticket-preview-item">
-              <div class="ticket-preview-item-qty">1</div>
-              <div class="ticket-preview-item-desc">Tenis blancos<div class="ticket-preview-item-detail">1 x {{ store.formatMoney(899) }}</div></div>
-              <div class="ticket-preview-item-price">{{ store.formatMoney(899) }}</div>
-            </div>
-            <div class="ticket-preview-item">
-              <div class="ticket-preview-item-qty">1</div>
-              <div class="ticket-preview-item-desc">Playera basica<div class="ticket-preview-item-detail">1 x {{ store.formatMoney(349) }}</div></div>
-              <div class="ticket-preview-item-price">{{ store.formatMoney(349) }}</div>
-            </div>
-            <div class="ticket-preview-dashed-divider"></div>
-
-            <div class="ticket-preview-row">
-              <span>{{ store.t('settings.subtotal') }}</span>
-              <strong>{{ store.formatMoney(1248) }}</strong>
-            </div>
-            @if (store.settingsForm.showSavingsOnTicket) {
-              <div class="ticket-preview-row ticket-preview-row-discount">
-                <span>{{ store.t('settings.savings') }}</span>
-                <strong>-{{ store.formatMoney(99) }}</strong>
-              </div>
-            }
-
-            @if (store.settingsForm.showIvaOnTicket) {
-              <div class="ticket-preview-divider"></div>
-              <div class="ticket-preview-row ticket-preview-row-indent">
-                <span>{{ store.t('ticket.subtotalWithoutIva') }}</span>
-                <span>{{ store.formatMoney(989.66) }}</span>
-              </div>
-              <div class="ticket-preview-row ticket-preview-row-indent">
-                <span>{{ store.t('ticket.iva') }}</span>
-                <span>{{ store.formatMoney(159.34) }}</span>
-              </div>
-            }
-
-            <div class="ticket-preview-double-divider"></div>
-            <div class="ticket-preview-row ticket-preview-row-total">
-              <span>{{ store.t('settings.total') }}</span>
-              <strong>{{ store.formatMoney(1149) }}</strong>
-            </div>
-            <div class="ticket-preview-double-divider"></div>
-
-            @if (store.settingsForm.showChangeOnTicket) {
-              <div class="ticket-preview-row">
-                <span>{{ store.t('settings.changeToggle') }}</span>
-                <strong>{{ store.formatMoney(51) }}</strong>
-              </div>
-            }
-            <div class="ticket-preview-row">
-              <span>{{ store.t('settings.pieces') }}</span>
-              <strong>2</strong>
-            </div>
-            <div class="ticket-preview-divider"></div>
-
-            @if (store.ticketQrDataUrl && store.ticketQrLabel) {
-              <div class="ticket-preview-qr">
-                <img [src]="store.ticketQrDataUrl" [alt]="store.t('settings.qrAlt')" />
-                <div class="ticket-preview-qr-label">{{ store.ticketQrLabel }}</div>
-              </div>
-              <div class="ticket-preview-divider"></div>
-            }
-            <div class="ticket-preview-thanks">
-              {{ store.settingsForm.thankYouMessage || store.t('settings.thankYouPlaceholder') }}
-            </div>
-            @if (store.settingsForm.ticketFooterNote) {
-              <div class="ticket-preview-note">{{ store.settingsForm.ticketFooterNote }}</div>
-            }
-
-            <div class="ticket-preview-double-divider"></div>
-            <div class="ticket-preview-barcode-placeholder">
-              <div class="ticket-preview-barcode-lines"></div>
-              <div class="ticket-preview-barcode-text">{{ (store.settingsForm.ticketPrefix || 'BOS').toUpperCase() }}-0001</div>
-            </div>
-            <div class="ticket-preview-divider"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    }
-
+  <!--
+    Cuenta y datos, a todo lo ancho y en columnas. Antes estas tarjetas iban
+    apiladas en la columna angosta de la derecha, junto a la vista previa del
+    ticket, y la pagina quedaba con un hueco enorme a la izquierda.
+  -->
+  <div class="settings-account">
     <div class="card">
       <div class="card-header">
         <h3>{{ store.t('settings.access') }}</h3>
@@ -343,9 +357,7 @@
           [disabled]="store.isSavingCredentials"
           (click)="store.saveCredentials()"
         >
-          {{
-            store.isSavingCredentials ? store.t('common.saving') : store.t('settings.saveAccess')
-          }}
+          {{ store.credentialsButtonLabel }}
         </button>
       </div>
       <div class="card-content settings-form">
@@ -369,6 +381,24 @@
             [placeholder]="store.t('settings.currentPasswordPlaceholder')"
           />
         </label>
+        @if (store.credentialsCodeSent) {
+          <label class="field field-wide">
+            <span>{{ store.t('settings.accessCode') }}</span>
+            <input
+              [(ngModel)]="store.credentialsForm.code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+            />
+          </label>
+        }
+        <div class="settings-note field-wide">
+          {{
+            store.twoFactorEmail
+              ? store.t('settings.twoFactorOn', { email: store.twoFactorEmail })
+              : store.t('settings.twoFactorOff')
+          }}
+        </div>
         <div class="settings-note field-wide">
           {{ store.t('settings.warning') }}
         </div>
@@ -378,22 +408,190 @@
       </div>
     </div>
 
-    @if (store.hasFeature('backup')) {
-    <div class="card">
-      <div class="card-header">
-        <h3>{{ store.t('settings.backup') }}</h3>
-      </div>
-      <div class="card-content backup-panel">
-        <div>
-          <strong>{{ store.t('settings.backupTitle') }}</strong>
-          <p>
-            {{ store.t('settings.backupCopy') }}
-          </p>
+    @if (store.canManageStaff) {
+      <!--
+        Usuarios de caja: cobran con su propio usuario y la venta queda a su
+        nombre, pero no cambian precios ni inventario, no devuelven ventas, no
+        cierran el corte y no entran a Configuracion (lo niega el servidor).
+      -->
+      <div class="card">
+        <div class="card-header">
+          <h3>{{ store.t('settings.staffTitle') }}</h3>
         </div>
-        <div class="backup-actions">
-          <button class="btn btn-outline" (click)="store.downloadBackup()">Excel</button>
-          <button class="btn btn-outline" (click)="store.downloadBackupCsv()">CSV</button>
-          <button class="btn btn-outline" (click)="store.downloadBackupPdf()">PDF</button>
+        <div class="card-content staff-panel">
+          <p class="settings-note">{{ store.t('settings.staffCopy') }}</p>
+
+          @for (member of store.staffMembers; track member.id) {
+            <div class="staff-row" [class.staff-off]="!member.active">
+              <div class="staff-who">
+                <strong>{{ member.name }}</strong>
+                <small>
+                  {{ member.username }} ·
+                  {{ member.active ? store.t('settings.staffActive') : store.t('settings.staffInactive') }}
+                </small>
+              </div>
+              <label class="staff-discount">
+                <span>{{ store.t('settings.staffMaxDiscount') }}</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  [ngModel]="member.maxDiscountPercent"
+                  (change)="store.saveStaffDiscount(member, $any($event.target).value)"
+                />
+              </label>
+              <div class="staff-actions">
+                <button class="btn btn-outline btn-sm" (click)="store.toggleStaffActive(member)">
+                  {{ member.active ? store.t('settings.staffDeactivate') : store.t('settings.staffActivate') }}
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="store.startStaffPassword(member)">
+                  {{ store.t('settings.staffPassword') }}
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="store.deleteStaff(member)">
+                  {{ store.t('settings.staffDelete') }}
+                </button>
+              </div>
+              @if (store.staffPasswordFor === member.id) {
+                <div class="staff-password">
+                  <input
+                    type="password"
+                    [(ngModel)]="store.staffNewPassword"
+                    [placeholder]="store.t('settings.staffPasswordPlaceholder')"
+                    autocomplete="new-password"
+                  />
+                  <button class="btn btn-primary btn-sm" (click)="store.saveStaffPassword(member)">
+                    {{ store.t('settings.staffPasswordSave') }}
+                  </button>
+                </div>
+              }
+            </div>
+          } @empty {
+            <p class="settings-note">{{ store.t('settings.staffEmpty') }}</p>
+          }
+
+          <div class="staff-new settings-form">
+            <label class="field">
+              <span>{{ store.t('settings.staffName') }}</span>
+              <input [(ngModel)]="store.staffForm.name" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>{{ store.t('settings.staffUsername') }}</span>
+              <input [(ngModel)]="store.staffForm.username" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>{{ store.t('settings.staffPasswordNew') }}</span>
+              <input
+                type="password"
+                [(ngModel)]="store.staffForm.password"
+                [placeholder]="store.t('settings.staffPasswordPlaceholder')"
+                autocomplete="new-password"
+              />
+            </label>
+            <label class="field">
+              <span>{{ store.t('settings.staffMaxDiscount') }}</span>
+              <input type="number" min="0" max="100" [(ngModel)]="store.staffForm.maxDiscountPercent" />
+            </label>
+            <button class="btn btn-primary" [disabled]="store.isSavingStaff" (click)="store.createStaff()">
+              {{ store.t('settings.staffCreate') }}
+            </button>
+          </div>
+          @if (store.staffMessage) {
+            <p class="settings-note" aria-live="polite">{{ store.staffMessage }}</p>
+          }
+        </div>
+      </div>
+    }
+
+    @if (store.hasFeature('backup')) {
+    <!-- Respaldo y restaurar van juntos: son las dos caras del mismo tema. -->
+    <div class="settings-account-col">
+      <div class="card">
+        <div class="card-header">
+          <h3>{{ store.t('settings.backup') }}</h3>
+        </div>
+        <div class="card-content backup-panel">
+          <div>
+            <strong>{{ store.t('settings.backupTitle') }}</strong>
+            <p>
+              {{ store.t('settings.backupCopy') }}
+            </p>
+          </div>
+          <div class="backup-actions">
+            <button class="btn btn-primary" (click)="store.downloadBackupJson()">
+              {{ store.t('settings.backupJson') }}
+            </button>
+            <span class="backup-readable-label">{{ store.t('settings.backupReadable') }}</span>
+            <button class="btn btn-outline" (click)="store.downloadBackup()">Excel</button>
+            <button class="btn btn-outline" (click)="store.downloadBackupCsv()">CSV</button>
+            <button class="btn btn-outline" (click)="store.downloadBackupPdf()">PDF</button>
+          </div>
+          <p class="backup-hint">{{ store.t('settings.backupJsonHint') }}</p>
+        </div>
+      </div>
+
+      <!--
+        Restaurar borra lo que hay en la cuenta, asi que el boton no se habilita
+        hasta que se elige un archivo valido Y se escribe el nombre de la tienda.
+      -->
+      <div class="card">
+        <div class="card-header">
+          <h3>{{ store.t('settings.restoreTitle') }}</h3>
+        </div>
+        <div class="card-content restore-panel">
+          <p class="restore-warning">{{ store.t('settings.restoreCopy') }}</p>
+
+          <label class="btn btn-outline restore-file-btn">
+            {{ store.t('settings.restorePick') }}
+            <input
+              type="file"
+              accept="application/json,.json"
+              hidden
+              (change)="store.pickRestoreFile($event)"
+            />
+          </label>
+
+          @if (store.restoreFileName) {
+            <p class="restore-file-name">{{ store.restoreFileName }}</p>
+
+            <label class="field">
+              <span>{{
+                store.t('settings.restoreConfirmLabel', { store: store.settingsForm.storeName })
+              }}</span>
+              <input
+                [(ngModel)]="store.restoreConfirmation"
+                [placeholder]="store.settingsForm.storeName"
+                [disabled]="store.isRestoring"
+              />
+            </label>
+
+            <div class="restore-actions">
+              <button
+                class="btn btn-danger"
+                [disabled]="!store.canRestore"
+                (click)="store.confirmRestore()"
+              >
+                {{
+                  store.isRestoring
+                    ? store.t('settings.restoreWorking')
+                    : store.t('settings.restoreButton')
+                }}
+              </button>
+              <button
+                class="btn btn-ghost"
+                [disabled]="store.isRestoring"
+                (click)="store.cancelRestore()"
+              >
+                {{ store.t('settings.restoreCancel') }}
+              </button>
+            </div>
+          }
+
+          @if (store.restoreError) {
+            <p class="restore-error" role="alert">{{ store.restoreError }}</p>
+          }
+          @if (store.restoreSummary) {
+            <p class="restore-ok" aria-live="polite">{{ store.restoreSummary }}</p>
+          }
         </div>
       </div>
     </div>

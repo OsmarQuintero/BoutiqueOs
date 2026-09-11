@@ -8,7 +8,11 @@ import java.util.Objects;
 @Embeddable
 public class AttemptKey implements Serializable {
 
-    @Column(length = 512)
+    /**
+     * La columna NO puede llamarse "key": es palabra reservada en H2 y Hibernate
+     * generaba SQL invalido, con lo que todo intento de login respondia 500.
+     */
+    @Column(name = "attempt_key", length = 512)
     private String key;
 
     public AttemptKey() {}

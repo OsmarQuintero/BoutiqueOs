@@ -10,4 +10,6 @@ public interface DailyCashCountRepository extends JpaRepository<DailyCashCount, 
     Optional<DailyCashCount> findByAccountIdAndBusinessDate(Long accountId, LocalDate businessDate);
 
     java.util.List<DailyCashCount> findAllByAccountIdOrderByBusinessDateDesc(Long accountId);
+
+    void deleteAllByAccountId(Long accountId);
 }

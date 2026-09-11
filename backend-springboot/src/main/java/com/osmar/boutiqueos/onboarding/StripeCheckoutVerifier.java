@@ -37,7 +37,10 @@ public class StripeCheckoutVerifier {
         try {
             String encodedSessionId = URLEncoder.encode(sessionId, StandardCharsets.UTF_8);
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.stripe.com/v1/checkout/sessions/" + encodedSessionId))
+                    // line_items expandido: si el checkout no trae metadata.plan,
+                    // el precio cobrado es la unica forma de saber que plan compro.
+                    .uri(URI.create("https://api.stripe.com/v1/checkout/sessions/"
+                            + encodedSessionId + "?expand[]=line_items"))
                     .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((stripeSecretKey + ":").getBytes(StandardCharsets.UTF_8)))
                     .header("Accept", "application/json")
                     .timeout(Duration.ofSeconds(10))
@@ -64,13 +67,15 @@ public class StripeCheckoutVerifier {
             String plan = payload.path("metadata").path("plan").asText("");
             String stripeCustomerId = payload.path("customer").asText("");
             String stripeSubscriptionId = payload.path("subscription").asText("");
+            String priceId = payload.path("line_items").path("data").path(0).path("price").path("id").asText("");
 
             return new StripeCheckoutDetails(
                     payload.path("id").asText(sessionId),
                     customerEmail.isBlank() ? null : customerEmail.trim(),
                     plan.isBlank() ? null : plan.trim(),
                     stripeCustomerId.isBlank() ? null : stripeCustomerId.trim(),
-                    stripeSubscriptionId.isBlank() ? null : stripeSubscriptionId.trim()
+                    stripeSubscriptionId.isBlank() ? null : stripeSubscriptionId.trim(),
+                    priceId.isBlank() ? null : priceId.trim()
             );
         } catch (ResponseStatusException exception) {
             throw exception;
@@ -79,6 +84,13 @@ public class StripeCheckoutVerifier {
         }
     }
 
-    public record StripeCheckoutDetails(String sessionId, String customerEmail, String plan, String stripeCustomerId, String stripeSubscriptionId) {
+    public record StripeCheckoutDetails(
+            String sessionId,
+            String customerEmail,
+            String plan,
+            String stripeCustomerId,
+            String stripeSubscriptionId,
+            String priceId
+    ) {
     }
 }

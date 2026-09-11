@@ -28,7 +28,7 @@
 .promo-card {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: #fbfcfd;
+  background: #fbfaf8;
   padding: 12px;
 }
 
@@ -74,6 +74,48 @@
 
 @media (max-width: 768px) {
   .promo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Recompensas de lealtad: debajo de las promociones, con el mismo lenguaje de
+// tarjetas para que se lean como parte de la misma vista.
+.rewards-section {
+  margin-top: 12px;
+}
+
+.rewards-subtitle {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 0.74rem;
+}
+
+.rewards-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.rewards-form-title {
+  font-size: 0.86rem;
+}
+
+// Pausada: se distingue por el fondo y el pill, no bajando la opacidad, para
+// que el texto no pierda contraste.
+.reward-paused {
+  background: var(--surface-soft);
+}
+
+.reward-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .rewards-layout {
     grid-template-columns: 1fr;
   }
 }

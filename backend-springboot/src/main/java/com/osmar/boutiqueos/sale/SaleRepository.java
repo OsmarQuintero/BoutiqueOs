@@ -29,4 +29,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     BigDecimal sumCashSalesTotal(@Param("accountId") Long accountId,
                                   @Param("start") Instant start,
                                   @Param("end") Instant end);
+
+    void deleteAllByAccountId(Long accountId);
 }

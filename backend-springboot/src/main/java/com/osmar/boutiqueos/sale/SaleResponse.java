@@ -20,7 +20,8 @@ public record SaleResponse(
         String customerName,
         Instant createdAt,
         Instant refundedAt,
-        List<Item> items
+        List<Item> items,
+        String soldByName
 ) {
     public static SaleResponse from(Sale sale) {
         return new SaleResponse(
@@ -39,7 +40,8 @@ public record SaleResponse(
                 sale.getCustomerName(),
                 sale.getCreatedAt(),
                 sale.getRefundedAt(),
-                sale.getItems().stream().map(Item::from).toList()
+                sale.getItems().stream().map(Item::from).toList(),
+                sale.getSoldByName()
         );
     }
 

@@ -1,4 +1,12 @@
+// La pagina son dos filas apiladas: el ticket (formulario + vista previa) y
+// abajo la cuenta. Van en contenedores separados para que la vista previa, que
+// es sticky, no pueda bajar mas alla de su fila y tapar la de cuenta.
 .settings-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-ticket-row {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
   gap: 12px;
@@ -11,9 +19,44 @@
   align-content: start;
 }
 
+// Ahora solo lleva la vista previa del ticket: asi el sticky sirve para que la
+// vista previa acompane mientras se edita el formulario de la izquierda.
 .settings-side {
   position: sticky;
   top: 18px;
+  // Sin esto la columna se estira al alto del formulario y el sticky no tiene
+  // espacio para moverse: la vista previa nunca acompanaba al hacer scroll.
+  align-self: start;
+}
+
+// Fila de cuenta y datos (Acceso, Respaldo + Restaurar, Plan). Se acomoda sola:
+// tres columnas en pantalla ancha, dos en laptop chica, una en celular. El min()
+// evita que los 320px desborden en pantallas mas angostas que eso.
+.settings-account {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.settings-account-col {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+// En la fila de cuenta cada columna puede medir apenas 320px: a dos columnas los
+// campos de Acceso quedaban de ~146px y el input (que no baja de ~170px) se salia
+// de la tarjeta. Tres campos de contrasena se leen mejor uno debajo del otro.
+.settings-account .settings-form {
+  grid-template-columns: 1fr;
+}
+
+// Sin esto un campo de rejilla no puede ser mas angosto que su contenido, y
+// cualquier input se desborda en vez de encogerse.
+.settings-form .field {
+  min-width: 0;
 }
 
 .settings-form {
@@ -32,7 +75,7 @@
   padding: 12px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: #fbfcfe;
+  background: #fbfaf8;
 }
 
 .settings-section-title {
@@ -63,7 +106,7 @@
   place-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: #f8f7f4;
   color: var(--text-tertiary);
   font-size: 0.78rem;
   font-weight: 700;
@@ -114,6 +157,74 @@
   line-height: 1.45;
 }
 
+.backup-readable-label {
+  align-self: center;
+  margin-left: 4px;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.backup-hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+.restore-panel {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.restore-panel .field {
+  width: min(360px, 100%);
+}
+
+.restore-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #efb6b6;
+  border-radius: var(--radius-sm);
+  background: var(--red-bg);
+  color: #7f2a2a;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+// El input de archivo real va oculto; la etiqueta es el boton visible.
+.restore-file-btn {
+  cursor: pointer;
+}
+
+.restore-file-name {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.restore-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.restore-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.78rem;
+}
+
+.restore-ok {
+  margin: 0;
+  color: var(--green);
+  font-size: 0.78rem;
+}
+
 .toggle-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -157,13 +268,13 @@
   display: grid;
   gap: 4px;
   padding: 14px 14px 16px;
-  border: 1px dashed #c9d2df;
+  border: 1px dashed #d3cfc6;
   border-radius: 18px;
   background:
-    linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    linear-gradient(180deg, #ffffff 0%, #f8f7f4 100%);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
   font-size: 0.76rem;
-  color: #0f172a;
+  color: #141312;
 }
 
 .ticket-preview-wide {
@@ -188,9 +299,9 @@
   place-items: center;
   width: 88px;
   height: 40px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed #d6d2ca;
   border-radius: 10px;
-  color: #64748b;
+  color: #6b6862;
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -219,22 +330,22 @@
 }
 
 .ticket-preview-line {
-  color: #475569;
+  color: #4f4c46;
   line-height: 1.35;
 }
 
 .ticket-preview-double-divider {
-  border-top: 2px solid #334155;
+  border-top: 2px solid #3a3834;
   margin: 5px 0;
 }
 
 .ticket-preview-divider {
-  border-top: 1px solid #94a3b8;
+  border-top: 1px solid #6b6862;
   margin: 4px 0;
 }
 
 .ticket-preview-dashed-divider {
-  border-top: 1px dashed #cbd5e1;
+  border-top: 1px dashed #d6d2ca;
   margin: 3px 0;
 }
 
@@ -247,7 +358,7 @@
 
 .ticket-preview-row span,
 .ticket-preview-item div:last-child {
-  color: #475569;
+  color: #4f4c46;
 }
 
 .ticket-preview-row strong,
@@ -269,7 +380,7 @@
 }
 
 .ticket-preview-row-indent span:last-child {
-  color: #64748b;
+  color: #6b6862;
 }
 
 .ticket-preview-item-header {
@@ -277,7 +388,7 @@
   gap: 6px;
   font-size: 0.68rem;
   font-weight: 800;
-  color: #64748b;
+  color: #6b6862;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 
@@ -314,7 +425,7 @@
 
 .ticket-preview-item-detail {
   font-weight: 400;
-  color: #64748b;
+  color: #6b6862;
   font-size: 0.68rem;
   margin-top: 1px;
 }
@@ -341,7 +452,7 @@
 .ticket-preview-qr-label {
   font-size: 0.76rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #141312;
   text-align: center;
 }
 
@@ -351,7 +462,7 @@
 }
 
 .ticket-preview-note {
-  color: #64748b;
+  color: #6b6862;
   line-height: 1.4;
   font-size: 0.7rem;
 }
@@ -369,16 +480,16 @@
   height: 28px;
   background: repeating-linear-gradient(
     90deg,
-    #1e293b 0px,
-    #1e293b 1.5px,
+    #1c1b19 0px,
+    #1c1b19 1.5px,
     transparent 1.5px,
     transparent 3px,
-    #1e293b 3px,
-    #1e293b 4px,
+    #1c1b19 3px,
+    #1c1b19 4px,
     transparent 4px,
     transparent 5.5px,
-    #1e293b 5.5px,
-    #1e293b 6px,
+    #1c1b19 5.5px,
+    #1c1b19 6px,
     transparent 6px,
     transparent 8px
   );
@@ -389,7 +500,7 @@
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: #334155;
+  color: #3a3834;
 }
 
 .settings-status {
@@ -404,7 +515,7 @@
 }
 
 @media (max-width: 900px) {
-  .settings-grid,
+  .settings-ticket-row,
   .settings-main,
   .settings-side,
   .settings-form,
@@ -422,4 +533,65 @@
     position: static;
     top: auto;
   }
+}
+
+// Usuarios de caja: una fila por persona, acciones abajo para que quepa en 320px.
+.staff-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.staff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #d9cfb5);
+  border-radius: var(--radius-sm);
+}
+
+.staff-row.staff-off {
+  opacity: 0.6;
+}
+
+.staff-who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.staff-who small {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.staff-discount {
+  display: grid;
+  gap: 2px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.staff-discount input {
+  width: 72px;
+}
+
+.staff-actions,
+.staff-password {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.staff-password input {
+  flex: 1;
+  min-width: 0;
+}
+
+.staff-new {
+  border-top: 1px solid var(--border, #d9cfb5);
+  padding-top: 10px;
 }

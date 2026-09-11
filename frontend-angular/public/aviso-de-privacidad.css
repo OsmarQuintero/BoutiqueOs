@@ -1,0 +1,330 @@
+/* Aviso de privacidad. Hoja propia (no depende de la landing ni del sistema)
+   para que la misma pagina viva en los dos lados. Mismo negro y oro que la landing. */
+
+:root {
+  --paper: #0a0a0a;
+  --surface: #131412;
+  --ink: #f5f4f2;
+  --ink-soft: #cbc9c4;
+  --ink-muted: #9e9b96;
+  --gold: #c9a961;
+  --gold-bright: #e2c684;
+  --gold-wash: rgba(201, 169, 97, 0.1);
+  --gold-hairline: rgba(201, 169, 97, 0.34);
+  --line: rgba(255, 255, 255, 0.12);
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+a {
+  color: var(--gold-bright);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.legal-skip {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  padding: 8px 14px;
+  background: var(--gold);
+  color: #0a0a0a;
+  font-weight: 600;
+  border-radius: 6px;
+  z-index: 10;
+}
+
+.legal-skip:focus {
+  top: 12px;
+}
+
+.legal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.legal-brand img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.legal-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--gold-hairline);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.legal-back:hover {
+  background: var(--gold-wash);
+  color: var(--ink);
+}
+
+.legal-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+/* En celular el indice llenaba la primera pantalla antes del titulo; el aviso ya va numerado. */
+@media (max-width: 959px) {
+  .legal-toc {
+    display: none;
+  }
+}
+
+@media (min-width: 960px) {
+  .legal-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 64px;
+    padding-top: 56px;
+  }
+
+  .legal-toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+}
+
+.legal-toc-title {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.legal-toc ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.legal-toc li {
+  padding: 3px 0;
+}
+
+/* En linea para que el numero quede junto a la primera linea si el titulo se parte. */
+.legal-toc a {
+  display: inline;
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.legal-toc a:hover {
+  color: var(--gold-bright);
+}
+
+.legal-doc {
+  max-width: 68ch;
+  min-width: 0;
+}
+
+.legal-eyebrow {
+  margin: 0 0 12px;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.legal-doc h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(2rem, 4.5vw, 3.1rem);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.legal-updated {
+  margin: 18px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.legal-summary {
+  margin: 36px 0 8px;
+  padding: 22px 24px;
+  border: 1px solid var(--gold-hairline);
+  border-radius: 14px;
+  background: var(--gold-wash);
+}
+
+.legal-summary h2 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.legal-summary ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.legal-doc section {
+  padding-top: 40px;
+  scroll-margin-top: 16px;
+}
+
+.legal-doc h2 {
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.legal-doc h3 {
+  margin: 22px 0 6px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.legal-doc p {
+  margin: 0 0 14px;
+}
+
+.legal-doc ul,
+.legal-doc ol {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+
+.legal-doc li + li {
+  margin-top: 6px;
+}
+
+.legal-doc strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Datos que faltan: se ven a proposito para que nadie publique el aviso sin llenarlos. */
+.legal-pending {
+  padding: 1px 6px;
+  border: 1px dashed var(--gold);
+  border-radius: 4px;
+  background: rgba(226, 198, 132, 0.18);
+  color: var(--gold-bright);
+}
+
+.legal-footer {
+  margin-top: 48px !important;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+    color: #111;
+  }
+
+  .legal-toc,
+  .legal-back,
+  .legal-skip {
+    display: none;
+  }
+
+  .legal-shell {
+    display: block;
+    padding: 0;
+  }
+
+  .legal-doc h1,
+  .legal-doc h2,
+  .legal-doc h3,
+  .legal-doc strong,
+  .legal-brand {
+    color: #000;
+  }
+
+  .legal-summary {
+    background: none;
+    border-color: #999;
+  }
+
+  a {
+    color: #000;
+  }
+}

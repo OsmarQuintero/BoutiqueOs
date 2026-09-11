@@ -182,9 +182,116 @@ SPRING_H2_CONSOLE_ENABLED=false
 APP_CORS_ALLOWED_ORIGINS=http://localhost:4200,https://tu-frontend.vercel.app,https://*.vercel.app
 ```
 
+## Cobro y activacion de cuenta
+
+Cuando alguien compra desde la landing, la cuenta todavia no existe, asi que el
+checkout no puede mandar `account_id`. El pago se registra por dos vias
+independientes y cualquiera de las dos basta:
+
+1. **Redirect del navegador** a `APP_FRONTEND_URL/?session_id=...` (camino feliz).
+2. **Webhook de Stripe** `checkout.session.completed`, que registra el pago y le
+   manda al cliente el enlace de activacion por correo.
+
+La segunda existe porque la primera se pierde si el cliente cierra la pestaña.
+**Sin el webhook configurado, un cliente que pague y cierre la pestaña queda sin
+registro en el sistema.**
+
+### Configurar el webhook
+
+1. En Stripe: Developers -> Webhooks -> Add endpoint.
+2. URL: `https://tu-backend.onrender.com/api/subscription/webhook`
+3. Eventos: `checkout.session.completed`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.payment_failed`.
+4. Copia el signing secret a `STRIPE_WEBHOOK_SECRET`.
+
+Sin `STRIPE_WEBHOOK_SECRET` el endpoint rechaza todo lo que llegue.
+
+### Correo de activacion
+
+```text
+APP_MAIL_FROM=hola@tudominio.com
+MAIL_HOST=smtp.tuproveedor.com
+MAIL_PORT=587
+MAIL_USERNAME=...
+MAIL_PASSWORD=...
+```
+
+Si no configuras SMTP el sistema no truena: escribe el enlace de activacion en
+el log con nivel WARN para que puedas rescatar la venta a mano. El enlace vive
+7 dias.
+
+### Crear tu cuenta de dueño
+
+Ya no existen credenciales por defecto: una instalacion nueva no acepta
+`admin/admin` ni ninguna otra combinacion hasta que se provisione una cuenta.
+Para crear la tuya (o restablecer su contraseña si la olvidas):
+
+```sh
+curl -X POST "https://tu-backend.onrender.com/api/admin/owner-account" \
+  -H "X-Admin-Secret: $APP_ADMIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"tu@correo.com","password":"unaContrasenaLarga","storeName":"BoutiqueOS"}'
+```
+
+Queda con rol admin y plan PRO, o sea acceso a todo. La contraseña debe tener al
+menos 12 caracteres y se guarda hasheada. Requiere `APP_ADMIN_SECRET`
+configurada; sin ella el endpoint responde 403 y no hay forma de entrar.
+
+### Reparar cuentas que pagaron y quedaron sin plan
+
+Un checkout sin `metadata.plan` dejaba la suscripcion con `plan = null`, y con el
+plan en null el sistema responde "No tienes una suscripcion activa" y bloquea
+todo aunque el cliente siga pagando. La causa esta corregida (`PlanResolver`),
+pero los registros que ya quedaron asi hay que repararlos.
+
+Primero revisa sin tocar nada (`dryRun` viene activado por defecto):
+
+```sh
+curl -X POST "https://tu-backend.onrender.com/api/admin/subscriptions/repair" \
+  -H "X-Admin-Secret: $APP_ADMIN_SECRET"
+```
+
+Si el listado se ve bien, aplica los cambios:
+
+```sh
+curl -X POST "https://tu-backend.onrender.com/api/admin/subscriptions/repair?dryRun=false" \
+  -H "X-Admin-Secret: $APP_ADMIN_SECRET"
+```
+
+Asigna BASIC y estado ACTIVE. Si alguna de esas cuentas habia pagado Pro,
+ajustala a mano despues. Es idempotente.
+
+## Verificacion en dos pasos y sesiones
+
+Desde septiembre de 2026, entrar desde un dispositivo nuevo, recuperar la
+contraseña y cambiarla piden un codigo de 6 digitos que llega por correo (vence
+en 10 minutos, 5 intentos). Al entrar se puede marcar "recordar este dispositivo"
+y no se vuelve a pedir en 30 dias.
+
+**Por eso el correo SMTP ya es obligatorio** (`APP_MAIL_FROM` y `MAIL_*`). Sin
+SMTP los codigos no llegan; como respaldo quedan escritos en el log de Render
+con nivel WARN ("Codigo de verificacion ... para ..."), para que la dueña pueda
+entrar mientras se configura el correo.
+
+El codigo va al usuario si es un correo; si no, al "correo de contacto" de
+Datos del negocio. Una cuenta sin ningun correo entra sin segundo paso y la
+pantalla le pide agregar uno.
+
+Cambiar la contraseña (desde Ajustes o recuperandola) **cierra todas las
+sesiones abiertas** y hace que todos los dispositivos recordados vuelvan a pedir
+codigo.
+
+### Clave de sesiones
+
+`APP_JWT_SECRET` firma las sesiones. Si falta, el servidor inventa una al
+arrancar y cada reinicio o deploy saca a todas las clientas. En Render el
+blueprint la genera sola (`generateValue`) y `APP_JWT_REQUIRE_SECRET=true` hace
+que el servidor **no arranque** si falta, en lugar de fallar en silencio.
+
 ## Notas importantes
 
-- `Render free` puede dormir el backend despues de inactividad.
+- `Render free` puede dormir el backend despues de inactividad. Stripe reintenta
+  los webhooks ante fallos, asi que un backend dormido no pierde el evento.
 - `SPRING_JPA_HIBERNATE_DDL_AUTO=update` sirve para arrancar rapido, pero despues conviene migrar a una estrategia con migraciones formales.
 - Si usas dominio propio en Vercel, agregalo tambien en `APP_CORS_ALLOWED_ORIGINS`.
 - Si quieres bloquear previews de Vercel, quita `https://*.vercel.app`.

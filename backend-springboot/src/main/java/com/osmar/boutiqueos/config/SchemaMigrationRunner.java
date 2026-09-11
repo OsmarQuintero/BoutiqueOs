@@ -50,6 +50,31 @@ public class SchemaMigrationRunner implements CommandLineRunner {
         alterColumnIfPossible("products", "image_url", "CLOB");
         dropUniqueConstraintIfPresent("product_categories", "NAME");
         dropUniqueConstraintIfPresent("daily_cash_counts", "BUSINESS_DATE");
+        dropLegacyLoginAttempts();
+    }
+
+    /**
+     * La columna se llamaba "key", palabra reservada en H2. Como la tabla solo
+     * guarda estado temporal de bloqueo por intentos, se descarta y Hibernate la
+     * vuelve a crear con el nombre nuevo; no se pierde nada de negocio.
+     */
+    private void dropLegacyLoginAttempts() {
+        try {
+            Integer legacy = jdbcTemplate.queryForObject(
+                    """
+                    SELECT COUNT(*)
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE UPPER(TABLE_NAME) = 'LOGIN_ATTEMPTS'
+                      AND UPPER(COLUMN_NAME) = 'KEY'
+                    """,
+                    Integer.class
+            );
+            if (legacy != null && legacy > 0) {
+                jdbcTemplate.execute("DROP TABLE login_attempts");
+            }
+        } catch (Exception ignored) {
+            // En esquemas nuevos la tabla no existe todavia y no hay nada que limpiar.
+        }
     }
 
     private void migrateEnum(String table, String column, String enumDefinition) {

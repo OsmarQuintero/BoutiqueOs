@@ -69,6 +69,24 @@ public class Sale {
 
     private Instant refundedAt;
 
+    // Desglose del descuento: cuanto fue manual y cuanto de la promocion (si hubo).
+    @Column(precision = 12, scale = 2)
+    private BigDecimal manualDiscount = BigDecimal.ZERO;
+
+    private Long promotionId;
+
+    @Column(length = 40)
+    private String promotionCode;
+
+    // Quien cobro: null + "Duena" si fue la duena, o la cuenta de caja.
+    private Long soldByStaffId;
+
+    @Column(length = 120)
+    private String soldByName;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal promotionDiscount = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<SaleItem> items = new ArrayList<>();
 
@@ -169,6 +187,12 @@ public class Sale {
         return createdAt;
     }
 
+    // Necesario para restaurar un respaldo: se reinserta con id nuevo y se
+    // conserva la fecha original, si no todo el historial quedaria fechado hoy.
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public Instant getRefundedAt() {
         return refundedAt;
     }
@@ -180,4 +204,17 @@ public class Sale {
     public List<SaleItem> getItems() {
         return items;
     }
+
+    public BigDecimal getManualDiscount() { return manualDiscount; }
+    public void setManualDiscount(BigDecimal manualDiscount) { this.manualDiscount = manualDiscount; }
+    public Long getPromotionId() { return promotionId; }
+    public void setPromotionId(Long promotionId) { this.promotionId = promotionId; }
+    public String getPromotionCode() { return promotionCode; }
+    public void setPromotionCode(String promotionCode) { this.promotionCode = promotionCode; }
+    public BigDecimal getPromotionDiscount() { return promotionDiscount; }
+    public void setPromotionDiscount(BigDecimal promotionDiscount) { this.promotionDiscount = promotionDiscount; }
+    public Long getSoldByStaffId() { return soldByStaffId; }
+    public void setSoldByStaffId(Long soldByStaffId) { this.soldByStaffId = soldByStaffId; }
+    public String getSoldByName() { return soldByName; }
+    public void setSoldByName(String soldByName) { this.soldByName = soldByName; }
 }

@@ -14,4 +14,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     @Query("SELECT DISTINCT c.accountId FROM Customer c")
     List<Long> findDistinctAccountIds();
+
+    List<Customer> findAllByAccountId(Long accountId);
+    void deleteAllByAccountId(Long accountId);
 }

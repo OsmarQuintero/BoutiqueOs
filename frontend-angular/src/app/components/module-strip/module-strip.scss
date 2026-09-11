@@ -7,7 +7,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, #f5f7fa 0%, #e8edf3 100%);
+  background: linear-gradient(180deg, #f5f4f1 0%, #e8e6e0 100%);
   box-shadow: var(--shadow);
 }
 
@@ -46,7 +46,7 @@
   padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #ffffff 0%, #edf1f5 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #edebe6 100%);
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
@@ -57,14 +57,14 @@
 }
 
 .module-chip:hover {
-  border-color: #8ea2b7;
-  background: linear-gradient(180deg, #ffffff 0%, #e7ecf2 100%);
+  border-color: #a39e93;
+  background: linear-gradient(180deg, #ffffff 0%, #e6e4de 100%);
 }
 
 .module-chip.active {
-  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
-  border-color: #274f80;
-  color: #fff;
+  background: linear-gradient(180deg, var(--ink-black-soft) 0%, var(--ink-black) 100%);
+  border-color: #000;
+  color: var(--gold-bright);
 }
 
 .module-chip-icon {
@@ -73,7 +73,7 @@
   width: 22px;
   height: 22px;
   border-radius: var(--radius-xs);
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(120, 114, 104, 0.16);
 }
 
 .module-chip-icon svg {
@@ -97,7 +97,7 @@
   padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: #f7f9fb;
+  background: #f7f6f3;
   color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 600;

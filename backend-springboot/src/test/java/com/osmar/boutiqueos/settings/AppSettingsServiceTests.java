@@ -20,31 +20,56 @@ class AppSettingsServiceTests {
     @Autowired
     private AppSettingsRepository appSettingsRepository;
 
-    @Autowired
-    private PasswordResetService passwordResetService;
-
-    @Autowired
-    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Test
-    void validatesDefaultAdminCredentials() {
+    void unaInstalacionNuevaNoAceptaCredencialesPorDefecto() {
         appSettingsRepository.deleteAll();
 
-        assertTrue(appSettingsService.validate(new LoginRequest("admin", "admin")));
+        // Antes admin/admin entraba en una base vacia. Ahora no existe cuenta
+        // que valga hasta que alguien la provisione con contraseña propia.
+        assertFalse(appSettingsService.validate(new LoginRequest("admin", "admin")));
+        assertFalse(appSettingsService.validate(new LoginRequest("admin", "")));
         assertFalse(appSettingsService.validate(new LoginRequest("admin", "wrong")));
-        assertNotEquals("admin", appSettingsService.get().getPassword());
+    }
+
+    @Test
+    void laCuentaCreadaAutomaticamenteNaceBloqueada() {
+        appSettingsRepository.deleteAll();
+
+        // get() puede crear la cuenta base al resolver configuracion; esa cuenta
+        // no debe poder usarse para entrar.
+        AppSettings creada = appSettingsService.get();
+
+        assertTrue(creada.getPassword() == null || creada.getPassword().isBlank());
+        assertFalse(appSettingsService.validate(new LoginRequest(creada.getUsername(), "admin")));
+    }
+
+    @Test
+    void provisionOwnerDejaEntrarConLaContrasenaElegida() {
+        appSettingsRepository.deleteAll();
+
+        appSettingsService.provisionOwner("osmar@boutique.test", "contrasenaLargaSegura", "Mi Boutique");
+
+        assertTrue(appSettingsService.validate(
+                new LoginRequest("osmar@boutique.test", "contrasenaLargaSegura")));
+        assertFalse(appSettingsService.validate(new LoginRequest("osmar@boutique.test", "otra")));
+        // guardada hasheada, nunca en claro
+        assertNotEquals(
+                "contrasenaLargaSegura",
+                appSettingsRepository.findByUsernameIgnoreCase("osmar@boutique.test").orElseThrow().getPassword());
     }
 
     @Test
     void updatesCredentialsOnlyWhenCurrentPasswordMatches() {
         appSettingsRepository.deleteAll();
-        appSettingsService.get();
+        appSettingsService.provisionOwner("osmar", "contrasenaInicial1", "Mi Boutique");
 
-        appSettingsService.updateCredentials(new CredentialsSettingsRequest("osmar", "admin", "nuevo"));
+        appSettingsService.updateCredentials(
+                new CredentialsSettingsRequest("osmar", "contrasenaInicial1", "NuevaContrasena1", null));
 
-        assertTrue(appSettingsService.validate(new LoginRequest("osmar", "nuevo")));
+        assertTrue(appSettingsService.validate(new LoginRequest("osmar", "NuevaContrasena1")));
         assertTrue(appSettingsRepository.existsByUsernameIgnoreCase("osmar"));
-        assertNotEquals("nuevo", appSettingsService.get().getPassword());
+        assertNotEquals("NuevaContrasena1", appSettingsService.get().getPassword());
     }
 
     @Test
@@ -89,43 +114,4 @@ class AppSettingsServiceTests {
         assertFalse(updated.isAutoOpenTicket());
     }
 
-    @Test
-    void resetsPasswordWithValidToken() {
-        appSettingsRepository.deleteAll();
-        passwordResetTokenRepository.deleteAll();
-        var settings = appSettingsService.get();
-        settings.setUsername("osmar@boutique.test");
-        settings.setStoreName("Boutique Demo");
-        settings.setPhone("+52 81 2191 8527");
-        settings.setPassword("admin");
-        appSettingsRepository.save(settings);
-
-        passwordResetService.requestReset("osmar@boutique.test");
-        PasswordResetToken token = passwordResetTokenRepository.findAll().getFirst();
-
-        assertTrue(passwordResetService.validateToken(token.getToken()).valid());
-        assertTrue(passwordResetService.confirmReset(
-                new PasswordResetConfirmRequest(token.getToken(), "NuevaClave1")
-        ).updated());
-        assertTrue(appSettingsService.validate(new LoginRequest("osmar@boutique.test", "NuevaClave1")));
-        assertFalse(appSettingsService.validate(new LoginRequest("osmar@boutique.test", "admin")));
-    }
-
-    @Test
-    void rejectsWeakPasswordsDuringReset() {
-        appSettingsRepository.deleteAll();
-        passwordResetTokenRepository.deleteAll();
-        var settings = appSettingsService.get();
-        settings.setUsername("osmar@boutique.test");
-        settings.setStoreName("Boutique Demo");
-        settings.setPhone("8180000000");
-        appSettingsRepository.save(settings);
-
-        passwordResetService.requestReset("osmar@boutique.test");
-        PasswordResetToken token = passwordResetTokenRepository.findAll().getFirst();
-
-        assertThrows(ResponseStatusException.class, () -> passwordResetService.confirmReset(
-                new PasswordResetConfirmRequest(token.getToken(), "debil123")
-        ));
-    }
 }

@@ -12,4 +12,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     long countByAccountId(Long accountId);
     java.util.Optional<Product> findByIdAndAccountId(Long id, Long accountId);
     void deleteByIdAndAccountId(Long id, Long accountId);
+
+    List<Product> findAllByAccountId(Long accountId);
+    void deleteAllByAccountId(Long accountId);
 }

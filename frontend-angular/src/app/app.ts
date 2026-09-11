@@ -91,7 +91,10 @@ export class App implements OnInit {
         'M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m7.2 3.5c0-.45-.05-.89-.14-1.31l1.62-1.26-1.6-2.77-1.91.77a7.7 7.7 0 0 0-2.27-1.31L14.6 4h-3.2l-.3 2.12a7.7 7.7 0 0 0-2.27 1.31l-1.91-.77-1.6 2.77 1.62 1.26A6.5 6.5 0 0 0 6.8 12c0 .45.05.89.14 1.31l-1.62 1.26 1.6 2.77 1.91-.77a7.7 7.7 0 0 0 2.27 1.31l.3 2.12h3.2l.3-2.12a7.7 7.7 0 0 0 2.27-1.31l1.91.77 1.6-2.77-1.62-1.26c.09-.42.14-.86.14-1.31',
     });
 
-    return all;
+    // La caja solo ve lo que puede usar; el servidor tambien se lo niega.
+    return this.store.isCashier
+      ? all.filter((item) => (this.store.cashierViews as string[]).includes(item.id))
+      : all;
   }
   constructor(protected store: StoreService, private elRef: ElementRef) {}
 

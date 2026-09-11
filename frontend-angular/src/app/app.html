@@ -45,8 +45,8 @@
           }
         </div>
         <div class="user-badge">
-          <span class="user-avatar">A</span>
-          <span class="user-label">{{ store.t('topbar.admin') }}</span>
+          <span class="user-avatar">{{ store.userInitial }}</span>
+          <span class="user-label">{{ store.userBadgeLabel }}</span>
         </div>
         <button class="btn btn-ghost btn-sm" (click)="store.logout()">
           {{ store.t('topbar.logout') }}
@@ -62,17 +62,25 @@
     />
 
     <div class="content">
-      <div class="metrics">
-        @for (stat of store.stats; track stat.label) {
-          <div class="metric">
-            <div class="metric-body">
-              <div class="metric-label">{{ stat.label }}</div>
-              <div class="metric-value">{{ stat.value }}</div>
+      <!--
+        Estas metricas son del carrito en curso (total, metodo de pago, pendientes),
+        asi que solo tienen sentido en el punto de venta. Antes se pintaban en todas
+        las vistas y en Corte diario aparecia "Venta actual" del POS, que no tiene
+        nada que ver con el reporte que se esta leyendo.
+      -->
+      @if (store.activeView === 'pos') {
+        <div class="metrics">
+          @for (stat of store.stats; track stat.label) {
+            <div class="metric">
+              <div class="metric-body">
+                <div class="metric-label">{{ stat.label }}</div>
+                <div class="metric-value">{{ stat.value }}</div>
+              </div>
+              <div class="metric-trend">{{ stat.trend }}</div>
             </div>
-            <div class="metric-trend">{{ stat.trend }}</div>
-          </div>
-        }
-      </div>
+          }
+        </div>
+      }
 
       @switch (store.activeView) {
         @case ('pos') {
@@ -179,6 +187,7 @@
               <label for="email">{{ store.t('onboarding.email') }}</label>
             </div>
           </div>
+          <div class="onboarding-optional-note">{{ store.t('onboarding.addressOptional') }}</div>
           <div class="login-field">
             <input
               [(ngModel)]="store.onboardingForm.street"
@@ -245,6 +254,12 @@
               <label for="confirmPassword">{{ store.t('onboarding.confirmPassword') }}</label>
             </div>
           </div>
+          <p class="onboarding-privacy">
+            {{ store.t('onboarding.privacyPrefix') }}
+            <a href="/aviso-de-privacidad.html" target="_blank" rel="noopener">{{
+              store.t('login.privacy')
+            }}</a>.
+          </p>
           <button
             type="submit"
             class="login-btn"
@@ -270,6 +285,7 @@
         <app-language-toggle class="login-lang-toggle" />
         <div class="login-title">Boutique OS</div>
       </div>
+      @if (!store.loginChallengeId) {
       <form class="login-form" (ngSubmit)="store.login()">
         <div class="login-field">
           <input
@@ -355,9 +371,19 @@
                 {{ store.t('recovery.hintEmail', { email: store.recoveryMaskedEmail }) }}
               </div>
             }
-            @if (store.recoveryTokenChecking) {
-              <div class="recovery-hint">{{ store.t('recovery.checking') }}</div>
-            } @else {
+            <div class="login-field">
+              <input
+                [(ngModel)]="store.recoveryToken"
+                name="recoveryCode"
+                id="recoveryCode"
+                placeholder=" "
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="6"
+                [disabled]="store.recoveryLoading"
+              />
+              <label for="recoveryCode">{{ store.t('recovery.codeLabel') }}</label>
+            </div>
               <div class="login-field">
                 <input
                   type="password"
@@ -383,30 +409,80 @@
               <div class="recovery-hint">
                 {{ store.t('recovery.passwordHint') }}
               </div>
-            }
             @if (store.recoveryInfo) {
               <div class="login-success">{{ store.recoveryInfo }}</div>
             }
             @if (store.recoveryError) {
               <div class="login-error">{{ store.recoveryError }}</div>
             }
-            @if (!store.recoveryTokenChecking) {
-              <button
-                type="submit"
-                class="login-btn login-btn-secondary"
-                [disabled]="store.recoveryLoading"
-              >
-                @if (store.recoveryLoading) {
-                  <span class="login-btn-spinner" aria-hidden="true"></span>
-                  {{ store.t('recovery.saving') }}
-                } @else {
-                  {{ store.t('recovery.savePassword') }}
-                }
-              </button>
-            }
+            <button
+              type="submit"
+              class="login-btn login-btn-secondary"
+              [disabled]="store.recoveryLoading"
+            >
+              @if (store.recoveryLoading) {
+                <span class="login-btn-spinner" aria-hidden="true"></span>
+                {{ store.t('recovery.saving') }}
+              } @else {
+                {{ store.t('recovery.savePassword') }}
+              }
+            </button>
           </form>
         }
       }
+      } @else {
+        <!-- Segundo paso: el codigo que llego al correo. -->
+        <form class="login-form" (ngSubmit)="store.verifyLoginCode()">
+          <div class="recovery-copy">
+            {{
+              store.loginCodeSentToOwner
+                ? store.t('login.codeSentOwner', { email: store.loginMaskedEmail })
+                : store.t('login.codeSent', { email: store.loginMaskedEmail })
+            }}
+          </div>
+          <div class="login-field">
+            <input
+              [(ngModel)]="store.loginCode"
+              name="loginCode"
+              id="loginCode"
+              placeholder=" "
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+            />
+            <label for="loginCode">{{ store.t('login.code') }}</label>
+          </div>
+          <label class="login-remember">
+            <input type="checkbox" [(ngModel)]="store.rememberDevice" name="rememberDevice" />
+            <span>{{ store.t('login.rememberDevice') }}</span>
+          </label>
+          @if (store.loginInfo) {
+            <div class="login-success">{{ store.loginInfo }}</div>
+          }
+          @if (store.loginError) {
+            <div class="login-error" role="alert">{{ store.loginError }}</div>
+          }
+          <button type="submit" class="login-btn" [disabled]="store.isVerifyingLogin">
+            @if (store.isVerifyingLogin) {
+              <span class="login-btn-spinner" aria-hidden="true"></span>
+              {{ store.t('login.verifying') }}
+            } @else {
+              {{ store.t('login.verify') }}
+            }
+          </button>
+        </form>
+        <div class="login-code-actions">
+          <button type="button" class="login-link-btn" (click)="store.resendLoginCode()">
+            {{ store.t('login.resend') }}
+          </button>
+          <button type="button" class="login-link-btn" (click)="store.cancelLoginCode()">
+            {{ store.t('login.otherAccount') }}
+          </button>
+        </div>
+      }
+      <a class="login-privacy" href="/aviso-de-privacidad.html" target="_blank" rel="noopener">
+        {{ store.t('login.privacy') }}
+      </a>
     </div>
     @if (store.alertMessage) {
       <div

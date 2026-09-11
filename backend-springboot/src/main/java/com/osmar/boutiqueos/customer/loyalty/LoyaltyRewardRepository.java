@@ -9,4 +9,6 @@ public interface LoyaltyRewardRepository extends JpaRepository<LoyaltyReward, Lo
     List<LoyaltyReward> findByAccountIdAndActiveTrueOrderByNameAsc(Long accountId);
 
     List<LoyaltyReward> findByAccountIdOrderByNameAsc(Long accountId);
+
+    void deleteAllByAccountId(Long accountId);
 }

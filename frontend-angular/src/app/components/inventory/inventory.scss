@@ -39,9 +39,9 @@
   border-radius: var(--radius-sm);
 }
 .panel-switch .btn.active {
-  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
-  color: white;
-  border-color: #274f80;
+  background: linear-gradient(180deg, var(--ink-black-soft) 0%, var(--ink-black) 100%);
+  color: var(--gold-bright);
+  border-color: #000;
 }
 .inventory-kpis {
   display: grid;
@@ -61,9 +61,9 @@
 }
 
 .inventory-category-filter .btn.active {
-  background: linear-gradient(180deg, #4172ad 0%, var(--primary) 100%);
-  color: #fff;
-  border-color: #274f80;
+  background: linear-gradient(180deg, var(--ink-black-soft) 0%, var(--ink-black) 100%);
+  color: var(--gold-bright);
+  border-color: #000;
 }
 
 .field select,

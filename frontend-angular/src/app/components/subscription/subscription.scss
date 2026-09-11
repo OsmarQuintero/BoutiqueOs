@@ -2,35 +2,17 @@
   display: block;
 }
 
+// La tarjeta, la cabecera y el relleno vienen de los estilos globales (.card),
+// igual que el resto de Configuracion. Antes este componente los redefinia con
+// otra letra, otro relleno y otro radio, y desentonaba junto a Acceso y Respaldo.
 .subscription-card {
-  background: var(--card-bg, #fff);
-  border-radius: 12px;
-  border: 1px solid var(--border, #e5e7eb);
   overflow: hidden;
-}
-
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-  }
-}
-
-.card-content {
-  padding: 20px;
 }
 
 .sub-loading {
   text-align: center;
   padding: 24px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, #6b6862);
 }
 
 .sub-current {
@@ -46,16 +28,16 @@
   margin-bottom: 12px;
 
   &.plan-free {
-    background: #f3f4f6;
-    color: #374151;
+    background: #f1efea;
+    color: #3a3834;
   }
   &.plan-basic {
-    background: #dbeafe;
-    color: #1e40af;
+    background: #efeee9;
+    color: #3a3834;
   }
   &.plan-pro {
-    background: #f3e8ff;
-    color: #7c3aed;
+    background: var(--primary-subtle);
+    color: var(--primary-text);
   }
 }
 
@@ -65,7 +47,7 @@
 }
 
 .sub-status-label {
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, #6b6862);
 }
 
 .sub-status-value {
@@ -75,19 +57,19 @@
     color: #059669;
   }
   &.status-trialing {
-    color: #2563eb;
+    color: var(--primary-text);
   }
   &.status-past_due {
     color: #dc2626;
   }
   &.status-cancelled {
-    color: #9ca3af;
+    color: #6b6862;
   }
 }
 
 .sub-period {
   font-size: 13px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, #6b6862);
 }
 
 .sub-usage {
@@ -111,7 +93,7 @@
 
 .usage-bar {
   height: 6px;
-  background: #e5e7eb;
+  background: #e7e4de;
   border-radius: 3px;
   overflow: hidden;
 }
@@ -135,14 +117,14 @@
 }
 
 .plan-card {
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border, #e7e4de);
   border-radius: 12px;
   padding: 20px;
   position: relative;
 
   &.plan-featured {
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 1px #7c3aed;
+    border-color: var(--gold-deep);
+    box-shadow: 0 0 0 1px var(--gold-deep);
   }
 }
 
@@ -150,8 +132,8 @@
   position: absolute;
   top: -10px;
   right: 16px;
-  background: #7c3aed;
-  color: #fff;
+  background: var(--ink-black);
+  color: var(--gold-bright);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
@@ -167,7 +149,7 @@
 .plan-price {
   font-size: 20px;
   font-weight: 700;
-  color: #7c3aed;
+  color: var(--primary-text);
   margin-bottom: 12px;
 }
 
@@ -179,7 +161,7 @@
   li {
     font-size: 13px;
     padding: 4px 0;
-    color: var(--text-secondary, #6b7280);
+    color: var(--text-secondary, #6b6862);
 
     &::before {
       content: '✓ ';
@@ -212,21 +194,21 @@
 }
 
 .btn-primary {
-  background: #7c3aed;
-  color: #fff;
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+  color: var(--ink-black);
 
   &:hover:not(:disabled) {
-    background: #6d28d9;
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
   }
 }
 
 .btn-outline {
   background: transparent;
-  border-color: #d1d5db;
-  color: #374151;
+  border-color: #d5d2ca;
+  color: #3a3834;
 
   &:hover:not(:disabled) {
-    background: #f9fafb;
+    background: #faf9f7;
   }
 }
 

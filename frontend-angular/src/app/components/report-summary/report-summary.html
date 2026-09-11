@@ -21,71 +21,22 @@
       </div>
     }
     <div class="executive-grid">
-      <div class="executive-card executive-card-primary">
-        <div class="kpi-label">{{ store.t('summary.netSold') }}</div>
-        <div class="kpi-value">{{ store.formatMoney(store.todayTotal) }}</div>
-        <small class="muted-line">{{
-          store.t('summary.ticketsCharged', { n: store.confirmedSalesToday.length })
-        }}</small>
-      </div>
-      <div class="executive-card">
-        <div class="kpi-label">{{ store.t('summary.netProfit') }}</div>
-        <div class="kpi-value kpi-green">{{ store.formatMoney(store.todayProfit) }}</div>
-        <small class="muted-line">{{
-          store.t('summary.margin', { n: store.averageMarginToday.toFixed(1) })
-        }}</small>
-      </div>
-      <div class="executive-card">
-        <div class="kpi-label">{{ store.t('summary.expectedBox') }}</div>
-        <div class="kpi-value">{{ store.formatMoney(store.expectedBoxTotal) }}</div>
-        <small class="muted-line"
-          >{{ store.t('summary.expectedCash') }} {{ store.formatMoney(store.cashExpected) }}</small
-        >
-      </div>
-      <div
-        class="executive-card"
-        [class.executive-card-risk]="store.cashDifferenceSeverity === 'risk'"
-        [class.executive-card-warn]="store.cashDifferenceSeverity === 'warn'"
-      >
-        <div class="kpi-label">{{ store.t('summary.difference') }}</div>
-        <div
-          class="kpi-value"
-          [class.kpi-green]="store.cashDifference >= 0"
-          [class.kpi-red]="store.cashDifference < 0"
-        >
-          {{ store.formatMoney(store.cashDifference) }}
+      @for (card of store.reportExecutiveCards; track card.label; let first = $first) {
+        <div class="executive-card" [class.executive-card-primary]="first">
+          <div class="kpi-label">{{ card.label }}</div>
+          <div class="kpi-value">{{ card.value }}</div>
+          <small class="muted-line">{{ card.hint }}</small>
+          <small
+            class="kpi-delta"
+            [class.kpi-delta-good]="card.tone === 'good'"
+            [class.kpi-delta-warn]="card.tone === 'warn'"
+            [class.kpi-delta-risk]="card.tone === 'risk'"
+            >{{ card.delta }}</small
+          >
         </div>
-        <small class="muted-line">{{
-          store.t('summary.pendingCount', { n: store.pendingSalesCount })
-        }}</small>
-      </div>
+      }
     </div>
   </div>
-</div>
-
-<div class="comparison-grid">
-  @for (item of store.reportComparisonItems; track item.title) {
-    <div class="card">
-      <div class="card-content comparison-card">
-        <div class="comparison-top">
-          <strong>{{ item.title }}</strong>
-          <span
-            class="pill"
-            [class.pill-green]="item.tone === 'good'"
-            [class.pill-amber]="item.tone === 'warn'"
-            [class.pill-red]="item.tone === 'risk'"
-          >
-            {{ store.t('summary.vsYesterday') }}
-          </span>
-        </div>
-        <div class="comparison-now">{{ item.current }}</div>
-        <small class="muted-line"
-          >{{ store.t('summary.yesterdayColon') }} {{ item.previous }}</small
-        >
-        <small class="comparison-detail">{{ item.detail }}</small>
-      </div>
-    </div>
-  }
 </div>
 
 <div class="summary-grid">
@@ -114,12 +65,16 @@
       </div>
     </div>
   }
+  <!--
+    Cierra la fila con la suma de los tres metodos, no con el efectivo esperado:
+    ese ya sale en "Corte de efectivo", que es donde se cuenta la caja.
+  -->
   <div class="card">
     <div class="card-content payment-card">
       <div class="payment-card-top">
-        <span class="pill">{{ store.t('summary.expectedCashPill') }}</span>
+        <span class="pill">{{ store.t('summary.expectedBoxPill') }}</span>
       </div>
-      <div class="payment-total">{{ store.formatMoney(store.cashExpected) }}</div>
+      <div class="payment-total">{{ store.formatMoney(store.expectedBoxTotal) }}</div>
     </div>
   </div>
 </div>

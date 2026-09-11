@@ -35,6 +35,7 @@ cd frontend-angular && npm start
 - `spring.jpa.open-in-view=false`, `ddl-auto=update`
 - Auth: `AuthSessionService` (JWT) + `ApiSessionInterceptor` (rutas publicas en `PUBLIC_API_PATHS`)
 - Onboarding: pago Stripe -> `onboarding/` crea cuenta; `settings/` maneja login, logout, password-reset y ticket
+- El pago de un cliente nuevo se registra por dos vias: el redirect a `?session_id=` y el webhook `checkout.session.completed` (que no trae `account_id` porque la cuenta aun no existe, y por eso llama a `OnboardingService.registerPaidCheckout`). El token de activacion dura 7 dias y el enlace tambien se manda por correo; ver DEPLOY.md
 
 ### Frontend (`frontend-angular/`)
 - Single standalone `App` component with view switching (no router — routes array is empty)

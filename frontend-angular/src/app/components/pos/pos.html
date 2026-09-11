@@ -3,10 +3,13 @@
     <div class="card-header">
       <h3>{{ store.t('section.pos.products') }}</h3>
       <div class="search-field">
+        <!-- Enter agrega: asi funciona el lector de codigo de barras (teclea el SKU y Enter). -->
         <input
           [(ngModel)]="store.searchTerm"
+          (keydown.enter)="store.addBySearch()"
           [placeholder]="store.t('pos.searchPlaceholder')"
           class="input-sm"
+          autocomplete="off"
         />
       </div>
     </div>

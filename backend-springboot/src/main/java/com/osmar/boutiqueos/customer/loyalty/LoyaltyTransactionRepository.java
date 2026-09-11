@@ -17,4 +17,7 @@ public interface LoyaltyTransactionRepository extends JpaRepository<LoyaltyTrans
     @Query("UPDATE LoyaltyTransaction lt SET lt.type = 'EXPIRED' " +
            "WHERE lt.accountId = :accountId AND lt.type = 'EARNED' AND lt.expiresAt < :now")
     int expireOldTransactions(Long accountId, Instant now);
+
+    java.util.List<LoyaltyTransaction> findAllByAccountId(Long accountId);
+    void deleteAllByAccountId(Long accountId);
 }

@@ -1,5 +1,9 @@
 package com.osmar.boutiqueos.sale;
 
+import com.osmar.boutiqueos.config.CurrentUser;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.osmar.boutiqueos.promotion.PromotionService;
 import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.customer.CustomerRepository;
 import com.osmar.boutiqueos.customer.loyalty.LoyaltyService;
@@ -35,8 +39,12 @@ public class SaleService {
     private final AccountContext accountContext;
     private final SubscriptionService subscriptionService;
     private final LoyaltyService loyaltyService;
+    private final PromotionService promotionService;
+    private final CurrentUser currentUser;
 
-    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext, SubscriptionService subscriptionService, LoyaltyService loyaltyService) {
+    public SaleService(SaleRepository saleRepository, SaleRefundRepository saleRefundRepository, ProductRepository productRepository, CustomerRepository customerRepository, InventoryService inventoryService, AccountContext accountContext, SubscriptionService subscriptionService, LoyaltyService loyaltyService, PromotionService promotionService, CurrentUser currentUser) {
+        this.promotionService = promotionService;
+        this.currentUser = currentUser;
         this.saleRepository = saleRepository;
         this.saleRefundRepository = saleRefundRepository;
         this.productRepository = productRepository;
@@ -89,7 +97,9 @@ public class SaleService {
         Sale sale = new Sale();
         sale.setAccountId(accountId);
         sale.setPaymentMethod(request.paymentMethod());
-        sale.setDiscount(request.discount() == null ? BigDecimal.ZERO : request.discount());
+        CurrentUser.Info seller = currentUser.get();
+        sale.setSoldByStaffId(seller.staffUserId());
+        sale.setSoldByName(seller.displayName());
         sale.setStatus(request.paymentMethod() == PaymentMethod.CASH ? SaleStatus.CONFIRMED : SaleStatus.PENDING);
 
         if (request.customerId() != null) {
@@ -131,8 +141,9 @@ public class SaleService {
             estimatedProfit = estimatedProfit.add(lineTotal.subtract(lineCost));
         }
 
+        applyDiscounts(sale, request, subtotal);
         BigDecimal total = subtotal.subtract(sale.getDiscount()).max(BigDecimal.ZERO);
-        BigDecimal cashReceived = request.cashReceived() == null ? BigDecimal.ZERO : request.cashReceived();
+        BigDecimal cashReceived = resolveCashReceived(sale.getPaymentMethod(), request.cashReceived(), total);
         sale.setSubtotal(subtotal);
         sale.setTotal(total);
         sale.setCashReceived(cashReceived);
@@ -146,6 +157,65 @@ public class SaleService {
         }
 
         return sale;
+    }
+
+    /**
+     * El descuento lo decide el servidor: el manual que dio la cajera y el de la
+     * promocion elegida, recalculado con las reglas del servidor. Antes se
+     * aceptaba el numero que mandara el navegador, fuera el que fuera.
+     */
+    private void applyDiscounts(Sale sale, SaleRequest request, BigDecimal subtotal) {
+        boolean legacy = request.promotionId() == null && request.manualDiscount() == null;
+        BigDecimal manual = legacy
+                ? (request.discount() == null ? BigDecimal.ZERO : request.discount())
+                : (request.manualDiscount() == null ? BigDecimal.ZERO : request.manualDiscount());
+        if (manual.signum() < 0) {
+            throw new IllegalArgumentException("El descuento no puede ser negativo");
+        }
+        manual = manual.min(subtotal).setScale(2, java.math.RoundingMode.HALF_UP);
+        if (currentUser.isCashier()) {
+            // Tope por cajera (lo fija la duena). Las promociones no cuentan: esas
+            // ya las valida el servidor.
+            int percent = currentUser.get().maxDiscountPercent() == null ? 0 : currentUser.get().maxDiscountPercent();
+            BigDecimal limit = subtotal.multiply(BigDecimal.valueOf(percent))
+                    .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+            if (manual.compareTo(limit) > 0) {
+                throw new IllegalArgumentException("Tu usuario de caja puede dar hasta " + percent
+                        + "% de descuento manual ($" + limit + "). Pide a la duena que lo autorice.");
+            }
+        }
+
+        BigDecimal promo = BigDecimal.ZERO;
+        if (request.promotionId() != null) {
+            subscriptionService.requireFeature("promotions");
+            var result = promotionService.discountFor(
+                    request.promotionId(), sale.getCustomerId(), subtotal, subtotal.subtract(manual));
+            promo = result.amount();
+            sale.setPromotionId(result.promotion().getId());
+            sale.setPromotionCode(result.promotion().getCode());
+        }
+        sale.setManualDiscount(manual);
+        sale.setPromotionDiscount(promo);
+        sale.setDiscount(manual.add(promo).min(subtotal));
+    }
+
+    /**
+     * Si la cajera no captura cuanto le dieron, se toma como pago exacto para no
+     * frenar la caja. Si captura menos que el total, se rechaza: antes pasaba y
+     * el efectivo esperado del corte quedaba descuadrado.
+     */
+    private BigDecimal resolveCashReceived(PaymentMethod method, BigDecimal received, BigDecimal total) {
+        if (method != PaymentMethod.CASH) {
+            return BigDecimal.ZERO;
+        }
+        if (received == null || received.signum() == 0) {
+            return total;
+        }
+        if (received.compareTo(total) < 0) {
+            throw new IllegalArgumentException("El efectivo recibido ($" + received.setScale(2, java.math.RoundingMode.HALF_UP)
+                    + ") no cubre el total ($" + total.setScale(2, java.math.RoundingMode.HALF_UP) + ")");
+        }
+        return received;
     }
 
     public List<Sale> listPending() {
@@ -332,14 +402,37 @@ public class SaleService {
         return sale.getItems().stream().allMatch(item -> item.getRefundedQuantity() >= item.getQuantity());
     }
 
+    /**
+     * Los puntos se suman DESPUES de que la venta quedo guardada, en su propia
+     * transaccion. Antes corrian dentro de la transaccion de la venta: si fallaban,
+     * el try/catch se tragaba el error pero la transaccion ya estaba marcada para
+     * deshacerse, y se perdia la venta completa. Asi, si los puntos fallan la venta
+     * sigue en pie, y nunca se regalan puntos por una venta que no se guardo.
+     */
     private void earnLoyaltyPoints(Sale sale) {
-        try {
-            int earned = loyaltyService.earnPoints(sale.getCustomerId(), sale.getTotal(), sale.getId());
-            if (earned > 0) {
-                log.info("Venta #{}: cliente {} acumuló {} puntos", sale.getId(), sale.getCustomerName(), earned);
+        Long saleId = sale.getId();
+        Long customerId = sale.getCustomerId();
+        BigDecimal total = sale.getTotal();
+        String customerName = sale.getCustomerName();
+        Runnable earn = () -> {
+            try {
+                int earned = loyaltyService.earnPoints(customerId, total, saleId);
+                if (earned > 0) {
+                    log.info("Venta #{}: cliente {} acumuló {} puntos", saleId, customerName, earned);
+                }
+            } catch (Exception e) {
+                log.warn("No se pudieron acumular puntos para venta #{}: {}", saleId, e.getMessage());
             }
-        } catch (Exception e) {
-            log.warn("No se pudieron acumular puntos para venta #{}: {}", sale.getId(), e.getMessage());
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    earn.run();
+                }
+            });
+        } else {
+            earn.run();
         }
     }
 }

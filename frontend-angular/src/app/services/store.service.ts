@@ -87,6 +87,22 @@ export interface LoyaltyReward {
   active: boolean;
 }
 
+/** Promocion tal como la devuelve /api/promotions. */
+export interface ServerPromotion {
+  id: number;
+  name: string;
+  code: string;
+  type: PromotionType;
+  value: number;
+  minSubtotal: number;
+  customerId: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  active: boolean;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface Promotion {
   id: string;
   name: string;
@@ -273,16 +289,42 @@ export interface AppSettings {
 interface LoginResponse {
   valid: boolean;
   token: string | null;
+  // Verificacion en dos pasos: si viene twoFactorRequired, falta el codigo del correo.
+  twoFactorRequired?: boolean;
+  challengeId?: string | null;
+  maskedEmail?: string | null;
+  deviceToken?: string | null;
+  twoFactorAvailable?: boolean;
+  // Quien entro: la duena o una cuenta de caja.
+  role?: 'OWNER' | 'CASHIER' | null;
+  displayName?: string | null;
+  // Cuenta de caja en un equipo nuevo: el codigo le llego a la duena.
+  codeSentToOwner?: boolean;
+}
+
+interface StaffMember {
+  id: number;
+  name: string;
+  username: string;
+  active: boolean;
+  maxDiscountPercent: number;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+interface CredentialsCodeResponse {
+  sent: boolean;
+  maskedEmail: string | null;
+  twoFactorAvailable: boolean;
+}
+
+interface CredentialsUpdateResponse {
+  settings: AppSettings;
+  token: string;
 }
 
 interface PasswordResetRequestResponse {
   accepted: boolean;
-}
-
-interface PasswordResetValidateResponse {
-  valid: boolean;
-  email: string | null;
-  expiresAt: string | null;
 }
 
 interface PasswordResetConfirmResponse {
@@ -323,6 +365,12 @@ export type AlertType = 'success' | 'error' | 'warning' | 'info';
 const PROMOS_STORAGE_KEY = 'boutiqueos.promotions.v1';
 
 const OFFLINE_QUEUE_KEY = 'boutiqueos.offline.sales.v1';
+// El id del checkout se guarda para que un refresh en medio de la activacion
+// no deje afuera a alguien que ya pago: la URL se limpia enseguida y el token
+// solo vive en memoria.
+const ONBOARDING_PENDING_KEY = 'boutiqueos.onboarding.pending.v1';
+// Token de "recordar este dispositivo" (30 dias). Lo emite el servidor.
+const TRUSTED_DEVICE_KEY = 'boutiqueos.trusted-device.v1';
 
 interface OfflineSaleEntry {
   id: string;
@@ -332,6 +380,9 @@ interface OfflineSaleEntry {
     cashReceived: number;
     customerId: number | null;
     items: Array<{ productId: number; quantity: number }>;
+    // Opcionales: las ventas que ya estaban en cola antes del cambio no los traen.
+    manualDiscount?: number;
+    promotionId?: number | null;
   };
   createdAt: string;
 }
@@ -379,7 +430,6 @@ export class StoreService {
   loginEndpoint = this.apiUrl('/settings/login');
   logoutEndpoint = this.apiUrl('/settings/logout');
   passwordResetRequestEndpoint = this.apiUrl('/settings/password-reset/request');
-  passwordResetValidateEndpoint = this.apiUrl('/settings/password-reset/validate');
   passwordResetConfirmEndpoint = this.apiUrl('/settings/password-reset/confirm');
   onboardingStartEndpoint = this.apiUrl('/onboarding/start');
   onboardingCompleteEndpoint = this.apiUrl('/onboarding/complete');
@@ -491,11 +541,14 @@ export class StoreService {
     status: 'ACTIVE' as ProductStatus,
   };
   categoryForm = {
-    presetName: 'Tenis',
+    // Vacio = categoria personalizada. Las sugerencias solo prellenan campos.
+    presetName: '',
     name: '',
     description: '',
+    sizeLabel: 'Talla',
     active: true,
   };
+  isSavingCategory = false;
   promoForm = {
     name: '',
     code: '',
@@ -510,6 +563,15 @@ export class StoreService {
   };
   productImageFileName = '';
   logoFileName = '';
+
+  // Restaurar respaldo. Borra todo lo de la cuenta, asi que la pantalla pide
+  // escribir el nombre de la tienda antes de dejar apretar el boton.
+  restoreFileName = '';
+  restoreConfirmation = '';
+  restoreError = '';
+  restoreSummary = '';
+  isRestoring = false;
+  private restorePayload: Record<string, unknown> | null = null;
   settings: AppSettings = {
     storeName: 'Boutique OS',
     phone: '',
@@ -566,7 +628,35 @@ export class StoreService {
     username: 'admin',
     currentPassword: '',
     newPassword: '',
+    code: '',
   };
+  // Cambio de credenciales en dos tiempos: primero se manda el codigo al correo.
+  credentialsCodeSent = false;
+  credentialsMaskedEmail = '';
+
+  // Segundo paso del login.
+  loginChallengeId = '';
+  loginMaskedEmail = '';
+  loginCode = '';
+  loginInfo = '';
+  rememberDevice = true;
+  isVerifyingLogin = false;
+  loginCodeSentToOwner = false;
+
+  // Quien usa el sistema (lo dice el servidor al entrar). Una cuenta de caja
+  // solo ve Punto de venta, Catalogo y Clientes; el servidor ademas le niega
+  // con 403 todo lo que no le toca, esto solo evita ensenarle botones inutiles.
+  userRole: 'OWNER' | 'CASHIER' = 'OWNER';
+  userDisplayName = '';
+  readonly cashierViews: ViewId[] = ['pos', 'catalog', 'customers'];
+
+  // Usuarios de caja (solo la duena, plan Pro).
+  staffMembers: StaffMember[] = [];
+  staffForm = { name: '', username: '', password: '', maxDiscountPercent: 10 };
+  staffMessage = '';
+  isSavingStaff = false;
+  staffPasswordFor: number | null = null;
+  staffNewPassword = '';
   onboardingForm = {
     storeName: '',
     phone: '',
@@ -661,7 +751,6 @@ export class StoreService {
     this.t = this.language.t;
     this.toggleLang = this.language.toggleLang;
     this._statusMessage = this.t('ok.ready');
-    this.loadPromotionsFromStorage();
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => this.flushOfflineSales());
     }
@@ -927,6 +1016,25 @@ export class StoreService {
       return;
     }
 
+    // Sin session_id en la URL puede haber una activacion a medias de un
+    // refresh o de una pestaña cerrada. El backend guarda la sesion 7 dias.
+    // Solo aplica a quien todavia no tiene cuenta: si ya inicio sesion, un
+    // pendiente viejo no debe mandarle peticiones en cada carga.
+    const pendingSessionId = this.readPendingOnboarding();
+    if (pendingSessionId && !this.loggedIn) {
+      this.startOnboarding(pendingSessionId);
+      return;
+    }
+    if (pendingSessionId && this.loggedIn) {
+      this.clearPendingOnboarding();
+    }
+
+    if (params.get('checkout') === 'cancelled') {
+      this.clearOnboardingQuery();
+      this.showAlert(this.t('onboarding.cancelled'), 'warning');
+      return;
+    }
+
     const subscriptionResult = params.get('subscription');
     if (subscriptionResult === 'success') {
       this.clearSubscriptionQuery();
@@ -942,9 +1050,13 @@ export class StoreService {
       return;
     }
 
-    const resetToken = params.get('resetToken');
-    if (resetToken) {
-      this.startPasswordReset(resetToken.trim());
+    if (params.get('resetToken')) {
+      // Los enlaces de recuperacion ya no se usan: ahora llega un codigo por
+      // correo. Quien abra un enlace viejo cae en la pantalla para pedir uno.
+      this.clearPasswordResetQuery();
+      this.recoveryOpen = true;
+      this.recoveryMode = 'request';
+      this.recoveryInfo = this.t('recovery.linkReplaced');
     }
   }
 
@@ -976,7 +1088,8 @@ export class StoreService {
       this.onboardingError = this.t('err.onboardingIncomplete');
       return;
     }
-    if (password.length < 8) {
+    // Misma regla en registro, recuperacion y cambio de contrasena.
+    if (!this.isStrongPassword(password)) {
       this.onboardingError = this.t('err.passwordTooShort');
       return;
     }
@@ -1011,6 +1124,7 @@ export class StoreService {
           this.onboardingActive = false;
           this.onboardingToken = '';
           this.onboardingSessionId = '';
+          this.clearPendingOnboarding();
           this.clearOnboardingQuery();
           this.showAlert(this.t('ok.accountCreated'), 'success');
         },
@@ -1495,6 +1609,55 @@ export class StoreService {
     ];
   }
 
+  /**
+   * Las cuatro cifras con las que abre el corte del dia.
+   *
+   * <p>Antes esto vivia en dos filas separadas: una de tarjetas grandes y otra
+   * de comparativas "vs ayer", con lo que "Vendido neto" y "Utilidad" salian
+   * dos veces con el mismo valor. Aqui van juntas: el numero manda y la
+   * comparativa es su pie. Se arma sobre {@link reportComparisonItems} para que
+   * la pantalla y el PDF nunca digan cosas distintas.
+   */
+  get reportExecutiveCards(): Array<{
+    label: string;
+    value: string;
+    hint: string;
+    delta: string;
+    tone: 'good' | 'warn' | 'risk';
+  }> {
+    const [netSold, profit, tickets, refunds] = this.reportComparisonItems;
+    return [
+      {
+        label: netSold.title,
+        value: netSold.current,
+        hint: this.t('summary.ticketsCharged', { n: this.confirmedSalesToday.length }),
+        delta: netSold.detail,
+        tone: netSold.tone,
+      },
+      {
+        label: this.t('summary.netProfit'),
+        value: profit.current,
+        hint: this.t('summary.margin', { n: this.averageMarginToday.toFixed(1) }),
+        delta: profit.detail,
+        tone: profit.tone,
+      },
+      {
+        label: tickets.title,
+        value: tickets.current,
+        hint: `${this.t('summary.averageTicketShort')} ${this.formatMoney(this.averageTicketToday)}`,
+        delta: tickets.detail,
+        tone: tickets.tone,
+      },
+      {
+        label: refunds.title,
+        value: refunds.current,
+        hint: this.t('summary.refundsHint', { n: this.refundedToday.length }),
+        delta: refunds.detail,
+        tone: refunds.tone,
+      },
+    ];
+  }
+
   get reportIncidentChips(): Array<{
     id: ReportIncidentFilter;
     label: string;
@@ -1909,7 +2072,13 @@ export class StoreService {
     this.refresh
       .track(
         this.t('refresh.signingIn'),
-        this.http.post<LoginResponse>(this.loginEndpoint, { username, password }).pipe(
+        this.http
+          .post<LoginResponse>(this.loginEndpoint, {
+            username,
+            password,
+            deviceToken: this.readTrustedDevice(),
+          })
+          .pipe(
           timeout({ first: LOGIN_TIMEOUT_MS }),
           retry({
             count: LOGIN_RETRY_COUNT,
@@ -1930,24 +2099,26 @@ export class StoreService {
       .pipe(finalize(() => (this.loginLoading = false)))
       .subscribe({
         next: (result) => {
-          if (!result.valid || !result.token) {
+          if (!result.valid) {
             this.loginError = this.t('err.invalidCredentials');
             return;
           }
-
-          this.sessionToken = result.token;
-          this.loggedIn = true;
-          this.loginError = '';
-          this.loadSettings();
-          this.loadProducts();
-          this.loadProductCategories();
-          this.loadSalesToday();
-          this.loadCustomers();
-          this.loadPendingSales();
-          this.loadSubscription();
-          this.loadFeatures();
-          this.refreshReportData();
-          this.flushOfflineSales();
+          if (result.twoFactorRequired && result.challengeId) {
+            // Contrasena correcta desde un dispositivo nuevo: falta el codigo.
+            this.loginChallengeId = result.challengeId;
+            this.loginMaskedEmail = result.maskedEmail || '';
+            this.loginCodeSentToOwner = !!result.codeSentToOwner;
+            this.loginCode = '';
+            this.loginInfo = '';
+            this.loginError = '';
+            this.loginPass = '';
+            return;
+          }
+          if (!result.token) {
+            this.loginError = this.t('err.invalidCredentials');
+            return;
+          }
+          this.completeSignIn(result.token, result.twoFactorAvailable !== false, result);
         },
         error: (error: unknown) => {
           this.sessionToken = '';
@@ -1960,6 +2131,239 @@ export class StoreService {
                 : this.t('err.backendUnreachable', { url: backendUrl });
         },
       });
+  }
+
+  verifyLoginCode(): void {
+    const code = this.loginCode.replace(/\s+/g, '');
+    if (!/^\d{6}$/.test(code)) {
+      this.loginError = this.t('err.loginCodeRequired');
+      return;
+    }
+    if (this.isVerifyingLogin) return;
+    this.isVerifyingLogin = true;
+    this.loginError = '';
+    this.refresh
+      .track(
+        this.t('refresh.verifyingCode'),
+        this.http.post<LoginResponse>(this.apiUrl('/settings/login/verify'), {
+          challengeId: this.loginChallengeId,
+          code,
+          rememberDevice: this.rememberDevice,
+        }),
+      )
+      .pipe(finalize(() => (this.isVerifyingLogin = false)))
+      .subscribe({
+        next: (result) => {
+          if (!result.token) {
+            this.loginError = this.t('err.invalidCredentials');
+            return;
+          }
+          if (result.deviceToken) {
+            this.saveTrustedDevice(result.deviceToken);
+          }
+          this.cancelLoginCode();
+          this.completeSignIn(result.token, true, result);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.loginError =
+            error.status === 429
+              ? this.t('err.tooManyAttempts')
+              : error.error?.message || this.t('err.invalidCredentials');
+        },
+      });
+  }
+
+  resendLoginCode(): void {
+    this.loginError = '';
+    this.loginInfo = '';
+    this.http
+      .post<{ challengeId: string; maskedEmail: string }>(this.apiUrl('/settings/login/resend'), {
+        challengeId: this.loginChallengeId,
+      })
+      .subscribe({
+        next: (result) => {
+          this.loginMaskedEmail = result.maskedEmail || this.loginMaskedEmail;
+          this.loginInfo = this.t('ok.loginCodeResent');
+        },
+        error: (error: HttpErrorResponse) => {
+          this.loginError = error.error?.message || this.t('err.tooManyAttempts');
+        },
+      });
+  }
+
+  cancelLoginCode(): void {
+    this.loginChallengeId = '';
+    this.loginMaskedEmail = '';
+    this.loginCode = '';
+    this.loginInfo = '';
+    this.loginCodeSentToOwner = false;
+  }
+
+  /** Lo que antes hacia el login al recibir el token: cargar la tienda. */
+  private completeSignIn(token: string, twoFactorAvailable: boolean, result?: LoginResponse): void {
+    this.sessionToken = token;
+    this.userRole = result?.role === 'CASHIER' ? 'CASHIER' : 'OWNER';
+    this.userDisplayName = result?.displayName || '';
+    if (this.isCashier && !this.cashierViews.includes(this.activeView)) {
+      this.activeView = 'pos';
+    }
+    this.loggedIn = true;
+    this.loginError = '';
+    this.loadSettings();
+    this.loadProducts();
+    this.loadProductCategories();
+    this.loadSalesToday();
+    this.loadCustomers();
+    this.loadPendingSales();
+    this.loadSubscription();
+    this.loadFeatures();
+    this.loadPromotions();
+    this.refreshReportData();
+    this.flushOfflineSales();
+    // Sin correo la duena es la unica que puede arreglarlo: a la caja no se le avisa.
+    if (!twoFactorAvailable && !this.isCashier) {
+      this.showAlert(this.t('warn.noTwoFactorEmail'), 'warning');
+    }
+  }
+
+  get isCashier(): boolean {
+    return this.userRole === 'CASHIER';
+  }
+
+  get userBadgeLabel(): string {
+    return this.isCashier ? this.userDisplayName || this.t('topbar.cashier') : this.t('topbar.owner');
+  }
+
+  get userInitial(): string {
+    return (this.userBadgeLabel.trim().charAt(0) || 'A').toUpperCase();
+  }
+
+  get canManageStaff(): boolean {
+    return !this.isCashier && this.hasFeature('multi_user');
+  }
+
+  loadStaff(): void {
+    if (!this.canManageStaff) return;
+    this.http.get<StaffMember[]>(this.apiUrl('/staff'), this.authOptions()).subscribe({
+      next: (list) => (this.staffMembers = list),
+      error: () => {},
+    });
+  }
+
+  createStaff(): void {
+    const name = this.staffForm.name.trim();
+    const username = this.staffForm.username.trim();
+    const password = this.staffForm.password.trim();
+    if (!name || !username) {
+      this.staffMessage = this.t('err.staffRequired');
+      return;
+    }
+    if (!this.isStrongPassword(password)) {
+      this.staffMessage = this.t('err.passwordTooShort');
+      return;
+    }
+    if (this.isSavingStaff) return;
+    this.isSavingStaff = true;
+    this.staffMessage = '';
+    this.http
+      .post<StaffMember>(
+        this.apiUrl('/staff'),
+        { name, username, password, maxDiscountPercent: this.clampPercent(this.staffForm.maxDiscountPercent) },
+        this.authOptions(),
+      )
+      .pipe(finalize(() => (this.isSavingStaff = false)))
+      .subscribe({
+        next: (created) => {
+          this.staffMembers = [...this.staffMembers, created];
+          this.staffForm = { name: '', username: '', password: '', maxDiscountPercent: 10 };
+          this.staffMessage = this.t('ok.staffCreated', { name: created.name });
+        },
+        error: (error: HttpErrorResponse) => {
+          this.staffMessage = error.error?.message || this.t('err.staffFailed');
+        },
+      });
+  }
+
+  toggleStaffActive(member: StaffMember): void {
+    this.updateStaff(member, { active: !member.active });
+  }
+
+  saveStaffDiscount(member: StaffMember, value: number | string): void {
+    const percent = this.clampPercent(Number(value));
+    if (percent === member.maxDiscountPercent) return;
+    this.updateStaff(member, { maxDiscountPercent: percent });
+  }
+
+  private updateStaff(member: StaffMember, changes: { active?: boolean; maxDiscountPercent?: number }): void {
+    this.http
+      .put<StaffMember>(this.apiUrl(`/staff/${member.id}`), { name: member.name, ...changes }, this.authOptions())
+      .subscribe({
+        next: (updated) => {
+          this.staffMembers = this.staffMembers.map((m) => (m.id === updated.id ? updated : m));
+          this.staffMessage = '';
+        },
+        error: (error: HttpErrorResponse) => {
+          this.staffMessage = error.error?.message || this.t('err.staffFailed');
+        },
+      });
+  }
+
+  startStaffPassword(member: StaffMember): void {
+    this.staffPasswordFor = this.staffPasswordFor === member.id ? null : member.id;
+    this.staffNewPassword = '';
+  }
+
+  saveStaffPassword(member: StaffMember): void {
+    const password = this.staffNewPassword.trim();
+    if (!this.isStrongPassword(password)) {
+      this.staffMessage = this.t('err.passwordTooShort');
+      return;
+    }
+    this.http
+      .post<StaffMember>(this.apiUrl(`/staff/${member.id}/password`), { password }, this.authOptions())
+      .subscribe({
+        next: () => {
+          this.staffPasswordFor = null;
+          this.staffNewPassword = '';
+          this.staffMessage = this.t('ok.staffPasswordChanged', { name: member.name });
+        },
+        error: (error: HttpErrorResponse) => {
+          this.staffMessage = error.error?.message || this.t('err.staffFailed');
+        },
+      });
+  }
+
+  deleteStaff(member: StaffMember): void {
+    if (!window.confirm(this.t('settings.staffDeleteConfirm', { name: member.name }))) return;
+    this.http.delete(this.apiUrl(`/staff/${member.id}`), this.authOptions()).subscribe({
+      next: () => {
+        this.staffMembers = this.staffMembers.filter((m) => m.id !== member.id);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.staffMessage = error.error?.message || this.t('err.staffFailed');
+      },
+    });
+  }
+
+  private clampPercent(value: number): number {
+    const n = Math.round(Number(value) || 0);
+    return Math.min(100, Math.max(0, n));
+  }
+
+  private readTrustedDevice(): string | null {
+    try {
+      return window.localStorage.getItem(TRUSTED_DEVICE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  private saveTrustedDevice(token: string): void {
+    try {
+      window.localStorage.setItem(TRUSTED_DEVICE_KEY, token);
+    } catch {
+      // modo privado: pedira codigo la proxima vez, nada mas
+    }
   }
 
   toggleRecovery(): void {
@@ -1999,7 +2403,10 @@ export class StoreService {
       .pipe(finalize(() => (this.recoveryLoading = false)))
       .subscribe({
         next: () => {
-          this.recoveryInfo = this.t('ok.recoveryEmailSent');
+          // No dice si la cuenta existe: el mensaje es el mismo en ambos casos.
+          this.recoveryMode = 'confirm';
+          this.recoveryToken = '';
+          this.recoveryInfo = this.t('ok.recoveryCodeSent');
           this.recoveryError = '';
         },
         error: (error: unknown) => {
@@ -2015,12 +2422,13 @@ export class StoreService {
   }
 
   completePasswordReset(): void {
-    const token = this.recoveryToken.trim();
+    // recoveryToken ahora guarda el codigo de 6 digitos que llego al correo.
+    const code = this.recoveryToken.replace(/\s+/g, '');
     const newPassword = this.recoveryPass.trim();
     const confirmPassword = this.recoveryConfirmPass.trim();
 
-    if (!token) {
-      this.recoveryError = this.t('err.resetLinkInvalid');
+    if (!/^\d{6}$/.test(code)) {
+      this.recoveryError = this.t('err.loginCodeRequired');
       this.recoveryInfo = '';
       return;
     }
@@ -2037,6 +2445,12 @@ export class StoreService {
       return;
     }
 
+    if (!this.isStrongPassword(newPassword)) {
+      this.recoveryError = this.t('err.passwordTooShort');
+      this.recoveryInfo = '';
+      return;
+    }
+
     this.recoveryError = '';
     this.recoveryInfo = '';
     this.recoveryLoading = true;
@@ -2045,7 +2459,8 @@ export class StoreService {
         this.t('refresh.updatingPassword'),
         this.http
           .post<PasswordResetConfirmResponse>(this.passwordResetConfirmEndpoint, {
-            token,
+            username: this.recoveryUser.trim(),
+            code,
             newPassword,
           })
           .pipe(timeout({ first: LOGIN_TIMEOUT_MS })),
@@ -2066,7 +2481,8 @@ export class StoreService {
         },
         error: (error: unknown) => {
           this.recoveryInfo = '';
-          this.recoveryError = this.describePasswordResetError(error);
+          const reason = error instanceof HttpErrorResponse ? error.error?.message : '';
+          this.recoveryError = reason || this.describePasswordResetError(error);
         },
       });
   }
@@ -2084,6 +2500,7 @@ export class StoreService {
     this.onboardingError = '';
     this.onboardingInfo = this.t('onboarding.checking');
     this.onboardingSessionId = sessionId;
+    this.savePendingOnboarding(sessionId);
 
     this.http
       .post<OnboardingStartResponse>(this.onboardingStartEndpoint, { sessionId })
@@ -2111,6 +2528,13 @@ export class StoreService {
         },
         error: (error: unknown) => {
           this.ngZone.run(() => {
+            // 409 = ya se activo, 410 = expiro. En ambos casos reintentar no
+            // sirve, asi que se suelta el pendiente para no dejar al cliente
+            // atrapado en esta pantalla cada vez que abra la app.
+            const status = (error as { status?: number })?.status;
+            if (status === 409 || status === 410) {
+              this.clearPendingOnboarding();
+            }
             this.onboardingError = this.describeOnboardingError(
               error,
               this.t('err.onboardingStripeFailed'),
@@ -2120,42 +2544,45 @@ export class StoreService {
       });
   }
 
-  private startPasswordReset(token: string): void {
-    this.recoveryOpen = true;
-    this.recoveryMode = 'confirm';
-    this.recoveryToken = token;
-    this.recoveryMaskedEmail = '';
-    this.recoveryPass = '';
-    this.recoveryConfirmPass = '';
-    this.recoveryError = '';
-    this.recoveryInfo = '';
-    this.recoveryTokenChecking = true;
+  private savePendingOnboarding(sessionId: string): void {
+    if (typeof window === 'undefined' || !sessionId) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(ONBOARDING_PENDING_KEY, sessionId);
+    } catch {
+      // modo privado o storage lleno: se sigue sin persistir
+    }
+  }
 
-    this.http
-      .get<PasswordResetValidateResponse>(this.passwordResetValidateEndpoint, {
-        params: { token },
-      })
-      .pipe(
-        timeout({ first: LOGIN_TIMEOUT_MS }),
-        finalize(() => (this.recoveryTokenChecking = false)),
-      )
-      .subscribe({
-        next: (result) => {
-          if (!result.valid) {
-            this.recoveryError = this.t('err.resetLinkInvalid');
-            return;
-          }
-          this.recoveryMaskedEmail = result.email || '';
-          this.recoveryInfo = this.t('ok.createNewPassword');
-        },
-        error: (error: unknown) => {
-          this.recoveryError = this.describePasswordResetError(error);
-        },
-      });
+  private readPendingOnboarding(): string {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    try {
+      return (window.localStorage.getItem(ONBOARDING_PENDING_KEY) || '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  private clearPendingOnboarding(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.removeItem(ONBOARDING_PENDING_KEY);
+    } catch {
+      // sin storage no hay nada que limpiar
+    }
   }
 
   setView(view: ViewId, section?: ViewSectionId): void {
-    this.refresh.flash(this.t('refresh.loadingView', { view: this.viewLabel(view) }));
+    if (this.isCashier && !this.cashierViews.includes(view)) return;
+    // Antes esto disparaba un overlay a pantalla completa con 350 ms fijos que
+    // no esperaban a ninguna peticion: cambiar de modulo se sentia lento por
+    // una demora inventada. El progreso real lo marca la barra superior, que se
+    // enciende con las peticiones que de verdad estan corriendo.
     this.activeView = view;
     if (section) {
       this.activeSections = { ...this.activeSections, [view]: section };
@@ -2172,6 +2599,7 @@ export class StoreService {
     }
     if (view === 'settings') {
       this.loadSettings();
+      this.loadStaff();
     }
     if (view === 'inventory') {
       this.refreshInventoryData();
@@ -2198,6 +2626,28 @@ export class StoreService {
     this.lastTicket = null;
     this.statusMessage = this.t('ok.ready');
     this.setView('pos', 'sale');
+  }
+
+  /**
+   * Lector de codigo de barras: teclea el SKU y un Enter. Antes el Enter no hacia
+   * nada y la cajera tenia que buscar el producto en la lista y darle clic.
+   */
+  addBySearch(): void {
+    const query = this.searchTerm.trim();
+    if (!query) return;
+    const lower = query.toLowerCase();
+    const bySku = this.products.find((product) => (product.sku || '').trim().toLowerCase() === lower);
+    const candidates = bySku ? [bySku] : this.filteredProducts.filter((product) => product.status !== 'ARCHIVED');
+    if (candidates.length === 1) {
+      this.addToCart(candidates[0]);
+      // Listo para el siguiente escaneo.
+      this.searchTerm = '';
+      return;
+    }
+    this.statusMessage =
+      candidates.length === 0
+        ? this.t('warn.scanNotFound', { code: query })
+        : this.t('warn.scanManyMatches', { n: candidates.length });
   }
 
   addToCart(product: Product): void {
@@ -2280,6 +2730,12 @@ export class StoreService {
       return;
     }
 
+    // Si captura efectivo, tiene que cubrir el total; en 0 se toma como pago exacto.
+    if (this.selectedPayment === 'CASH' && this.cashReceived > 0 && this.cashReceived < this.cartTotal) {
+      this.statusMessage = this.t('err.cashNotEnough');
+      return;
+    }
+
     this.isCharging = true;
     this.refresh
       .track(
@@ -2290,6 +2746,8 @@ export class StoreService {
           cashReceived: this.selectedPayment === 'CASH' ? this.cashReceived : 0,
           customerId: this.selectedCustomerId,
           items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
+          manualDiscount: this.manualCartDiscount,
+          promotionId: this.activeCartPromo ? Number(this.activeCartPromo.id) : null,
         }),
       )
       .subscribe({
@@ -2327,6 +2785,8 @@ export class StoreService {
               cashReceived: this.selectedPayment === 'CASH' ? this.cashReceived : 0,
               customerId: this.selectedCustomerId,
               items: this.cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
+              manualDiscount: this.manualCartDiscount,
+              promotionId: this.activeCartPromo ? Number(this.activeCartPromo.id) : null,
             });
             this.cart = [];
             this.selectedCustomerId = null;
@@ -2337,7 +2797,11 @@ export class StoreService {
             this.statusMessage = this.t('warn.offlineQueued');
             return;
           }
-          this.statusMessage = this.t('err.checkoutFailed');
+          // El servidor explica por que rechazo la venta (promocion vencida,
+          // efectivo que no alcanza, sin stock...). Se muestra tal cual.
+          const reason =
+            error instanceof HttpErrorResponse && error.status === 400 ? error.error?.message : '';
+          this.statusMessage = reason || this.t('err.checkoutFailed');
           this.isCharging = false;
         },
       });
@@ -2479,15 +2943,27 @@ export class StoreService {
   }
 
   createCategory(): void {
-    if (!this.categoryForm.name.trim()) {
+    const name = this.categoryForm.name.trim();
+    if (!name) {
       this.statusMessage = this.t('err.categoryNameRequired');
+      return;
+    }
+    if (this.isSavingCategory) return;
+
+    // Antes el servidor rechazaba el nombre repetido pero la pantalla solo decia
+    // "no se pudo crear", y parecia que ya no se podian agregar mas categorias.
+    const duplicate = this.productCategories.find(
+      (category) => category.id !== this.editingCategoryId && this.sameCategory(category.name, name),
+    );
+    if (duplicate) {
+      this.statusMessage = this.t('err.categoryExists', { name: duplicate.name });
       return;
     }
 
     const payload = {
-      name: this.categoryForm.name.trim(),
+      name,
       description: this.categoryForm.description.trim() || null,
-      sizeLabel: this.categorySizeLabelPreview,
+      sizeLabel: this.categoryForm.sizeLabel.trim() || this.categorySizeLabelPreview,
       active: this.categoryForm.active,
     };
 
@@ -2498,6 +2974,7 @@ export class StoreService {
         )
       : this.http.post<ProductCategory>(this.apiUrl('/product-categories'), payload);
 
+    this.isSavingCategory = true;
     this.refresh
       .track(
         this.editingCategoryId
@@ -2507,16 +2984,21 @@ export class StoreService {
       )
       .subscribe({
         next: () => {
+          this.isSavingCategory = false;
           this.statusMessage = this.editingCategoryId
             ? this.t('ok.categoryUpdated')
             : this.t('ok.categoryCreated');
           this.resetCategoryForm();
           this.loadProductCategories();
         },
-        error: () => {
-          this.statusMessage = this.editingCategoryId
-            ? this.t('err.categoryUpdateFailed')
-            : this.t('err.categoryCreateFailed');
+        error: (error: HttpErrorResponse) => {
+          this.isSavingCategory = false;
+          const message = String(error?.error?.message || '');
+          this.statusMessage = message.includes('already exists')
+            ? this.t('err.categoryExists', { name })
+            : this.editingCategoryId
+              ? this.t('err.categoryUpdateFailed')
+              : this.t('err.categoryCreateFailed');
         },
       });
   }
@@ -2528,6 +3010,7 @@ export class StoreService {
       presetName: this.inferCategoryPresetName(category),
       name: category.name,
       description: category.description || '',
+      sizeLabel: category.sizeLabel || 'Talla',
       active: category.active,
     };
     this.setView('categories', 'categories');
@@ -2594,6 +3077,7 @@ export class StoreService {
       presetName: preset.name,
       name: preset.name,
       description: preset.description || '',
+      sizeLabel: preset.sizeLabel || 'Talla',
       active: true,
     };
     this.productForm.category = preset.name;
@@ -2614,6 +3098,7 @@ export class StoreService {
     if (!this.categoryForm.description.trim()) {
       this.categoryForm.description = preset.description;
     }
+    this.categoryForm.sizeLabel = preset.sizeLabel;
   }
 
   editProduct(product: Product): void {
@@ -2890,8 +3375,7 @@ export class StoreService {
       return;
     }
 
-    const nextPromo: Promotion = {
-      id: this.editingPromoId ?? this.generatePromoId(),
+    const payload = {
       name,
       code,
       type: this.promoForm.type,
@@ -2901,20 +3385,23 @@ export class StoreService {
       startsAt: this.promoForm.startsAt || this.todayDateString(),
       endsAt: this.promoForm.endsAt || null,
       active: this.promoForm.active,
-      notes: this.promoForm.notes.trim(),
-      createdAt:
-        this.promotions.find((promo) => promo.id === this.editingPromoId)?.createdAt ??
-        new Date().toISOString(),
+      notes: this.promoForm.notes.trim() || null,
     };
-
-    this.promotions = this.promotions.some((promo) => promo.id === nextPromo.id)
-      ? this.promotions.map((promo) => (promo.id === nextPromo.id ? nextPromo : promo))
-      : [nextPromo, ...this.promotions];
-    this.persistPromotions();
-    this.syncSelectedPromo();
-    this.statusMessage = this.editingPromoId ? this.t('ok.promoUpdated') : this.t('ok.promoSaved');
-    this.resetPromoForm();
-    this.activeSections = { ...this.activeSections, promos: 'list' };
+    const editing = this.editingPromoId;
+    const request = editing
+      ? this.http.put<ServerPromotion>(this.apiUrl(`/promotions/${editing}`), payload)
+      : this.http.post<ServerPromotion>(this.apiUrl('/promotions'), payload);
+    this.refresh.track(this.t('refresh.savingPromo'), request).subscribe({
+      next: () => {
+        this.statusMessage = editing ? this.t('ok.promoUpdated') : this.t('ok.promoSaved');
+        this.resetPromoForm();
+        this.activeSections = { ...this.activeSections, promos: 'list' };
+        this.loadPromotions();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.statusMessage = error?.error?.message || this.t('err.promoSaveFailed');
+      },
+    });
   }
 
   editPromo(promo: Promotion): void {
@@ -2940,15 +3427,21 @@ export class StoreService {
 
   deletePromo(promo: Promotion): void {
     if (!window.confirm(this.t('confirm.deletePromo', { name: promo.name }))) return;
-    this.promotions = this.promotions.filter((item) => item.id !== promo.id);
-    if (this.selectedPromoId === promo.id) {
-      this.selectedPromoId = null;
-    }
-    if (this.editingPromoId === promo.id) {
-      this.resetPromoForm();
-    }
-    this.persistPromotions();
-    this.statusMessage = this.t('ok.promoDeleted');
+    this.http.delete(this.apiUrl(`/promotions/${promo.id}`)).subscribe({
+      next: () => {
+        if (this.selectedPromoId === promo.id) {
+          this.selectedPromoId = null;
+        }
+        if (this.editingPromoId === promo.id) {
+          this.resetPromoForm();
+        }
+        this.statusMessage = this.t('ok.promoDeleted');
+        this.loadPromotions();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.statusMessage = error?.error?.message || this.t('err.promoSaveFailed');
+      },
+    });
   }
 
   deleteCustomer(customer: Customer): void {
@@ -3116,6 +3609,28 @@ export class StoreService {
       });
   }
 
+  /** Misma regla que el servidor: 12 caracteres, mayuscula, minuscula y numero. */
+  isStrongPassword(value: string): boolean {
+    return value.length >= 12 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /\d/.test(value);
+  }
+
+  /** Correo al que llegan los codigos (el mismo criterio que el servidor), o '' si no hay. */
+  get twoFactorEmail(): string {
+    const looksLikeEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+    const username = this.credentialsForm.username || '';
+    const contact = this.settingsForm.contactEmail || '';
+    if (looksLikeEmail(username)) return username.trim();
+    if (looksLikeEmail(contact)) return contact.trim();
+    return '';
+  }
+
+  get credentialsButtonLabel(): string {
+    if (this.isSavingCredentials) return this.t('common.saving');
+    return this.credentialsCodeSent || !this.twoFactorEmail
+      ? this.t('settings.saveAccess')
+      : this.t('settings.sendAccessCode');
+  }
+
   saveCredentials(): void {
     if (!this.credentialsForm.username.trim()) {
       this.credentialsMessage = this.t('err.usernameRequired');
@@ -3127,30 +3642,84 @@ export class StoreService {
       this.statusMessage = this.credentialsMessage;
       return;
     }
+    const newPassword = this.credentialsForm.newPassword.trim();
+    if (newPassword && !this.isStrongPassword(newPassword)) {
+      this.credentialsMessage = this.t('err.passwordTooShort');
+      this.statusMessage = this.credentialsMessage;
+      return;
+    }
+    if (this.isSavingCredentials) return;
 
+    // Paso 1: con correo, primero se confirma la contrasena actual y llega un codigo.
+    if (!this.credentialsCodeSent && this.twoFactorEmail) {
+      this.isSavingCredentials = true;
+      this.http
+        .post<CredentialsCodeResponse>(
+          this.apiUrl('/settings/credentials/code'),
+          { currentPassword: this.credentialsForm.currentPassword },
+          this.authOptions(),
+        )
+        .pipe(finalize(() => (this.isSavingCredentials = false)))
+        .subscribe({
+          next: (result) => {
+            if (result.sent) {
+              this.credentialsCodeSent = true;
+              this.credentialsMaskedEmail = result.maskedEmail || '';
+              this.credentialsMessage = this.t('ok.accessCodeSent', { email: this.credentialsMaskedEmail });
+              return;
+            }
+            // El servidor no encontro correo: se guarda sin codigo.
+            this.submitCredentials();
+          },
+          error: (error: HttpErrorResponse) => {
+            this.credentialsMessage = error.error?.message || this.t('err.credentialsFailed');
+            this.statusMessage = this.credentialsMessage;
+          },
+        });
+      return;
+    }
+    this.submitCredentials();
+  }
+
+  private submitCredentials(): void {
     this.isSavingCredentials = true;
     this.refresh
       .track(
         this.t('refresh.savingAccess'),
         this.http
-          .put<AppSettings>(
+          .put<CredentialsUpdateResponse>(
             this.apiUrl('/settings/credentials'),
-            this.credentialsForm,
+            {
+              username: this.credentialsForm.username,
+              currentPassword: this.credentialsForm.currentPassword,
+              newPassword: this.credentialsForm.newPassword || null,
+              code: this.credentialsForm.code.replace(/\s+/g, '') || null,
+            },
             this.authOptions(),
           )
           .pipe(timeout({ first: SAVE_TIMEOUT_MS })),
       )
       .pipe(finalize(() => (this.isSavingCredentials = false)))
       .subscribe({
-        next: (settings) => {
-          this.applySettings(settings);
+        next: (result) => {
+          // El cambio cerro todas las sesiones, incluida esta: se adopta la nueva.
+          if (result.token) {
+            this.sessionToken = result.token;
+          }
+          this.applySettings(result.settings);
           this.credentialsForm.currentPassword = '';
           this.credentialsForm.newPassword = '';
+          this.credentialsForm.code = '';
+          this.credentialsCodeSent = false;
+          this.credentialsMaskedEmail = '';
           this.credentialsMessage = this.t('ok.credentialsSaved');
           this.statusMessage = this.t('ok.accessUpdated');
         },
-        error: () => {
-          this.credentialsMessage = this.t('err.credentialsFailed');
+        error: (error: HttpErrorResponse) => {
+          this.credentialsMessage =
+            error.status === 429
+              ? this.t('err.tooManyAttempts')
+              : error.error?.message || this.t('err.credentialsFailed');
           this.statusMessage = this.credentialsMessage;
         },
       });
@@ -3194,8 +3763,460 @@ export class StoreService {
     });
   }
 
+  /**
+   * El unico formato que se puede volver a cargar.
+   *
+   * <p>Excel, CSV y PDF sirven para leer o mandarle numeros al contador, pero no
+   * para recuperar la tienda: van aplanados y sin las referencias entre venta,
+   * producto y cliente. Este JSON es el respaldo de verdad.
+   */
+  downloadBackupJson(): void {
+    this.runBackupExport(this.t('refresh.generatingBackup'), (backup) => {
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      this.downloadBlob(blob, `boutique-os-respaldo-${this.todayDateString()}.json`);
+      this.settingsMessage = this.t('ok.backupJson');
+    });
+  }
+
+  pickRestoreFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    this.restoreError = '';
+    this.restoreSummary = '';
+    this.restorePayload = null;
+    this.restoreFileName = '';
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ''));
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('formato');
+        }
+        this.restorePayload = parsed as Record<string, unknown>;
+        this.restoreFileName = file.name;
+      } catch {
+        // Es facil escoger por error el CSV o el PDF, que estan junto al JSON
+        // en la carpeta de descargas.
+        this.restoreError = this.t('err.restoreNotJson');
+      }
+    };
+    reader.onerror = () => {
+      this.restoreError = this.t('err.restoreNotJson');
+    };
+    reader.readAsText(file);
+  }
+
+  get canRestore(): boolean {
+    return (
+      !this.isRestoring &&
+      this.restorePayload !== null &&
+      this.restoreConfirmation.trim().toLowerCase() ===
+        (this.settingsForm.storeName || '').trim().toLowerCase() &&
+      this.restoreConfirmation.trim().length > 0
+    );
+  }
+
+  confirmRestore(): void {
+    if (!this.canRestore || !this.restorePayload) {
+      return;
+    }
+    this.isRestoring = true;
+    this.restoreError = '';
+    this.restoreSummary = '';
+
+    this.refresh
+      .track(
+        this.t('refresh.restoring'),
+        this.http.post<{ restored: boolean; counts: Record<string, number> }>(
+          this.apiUrl('/backup/restore'),
+          { confirmation: this.restoreConfirmation.trim(), backup: this.restorePayload },
+          this.authOptions(),
+        ),
+      )
+      .subscribe({
+        next: (response) => {
+          this.isRestoring = false;
+          this.restorePayload = null;
+          this.restoreFileName = '';
+          this.restoreConfirmation = '';
+          const counts = response.counts || {};
+          this.restoreSummary = this.t('ok.restoreSummary', {
+            products: counts['products'] ?? 0,
+            customers: counts['customers'] ?? 0,
+            sales: counts['sales'] ?? 0,
+          });
+          this.settingsMessage = this.restoreSummary;
+          // La tienda quedo con datos distintos: lo que hay en memoria ya no vale.
+          this.reloadAccountData();
+        },
+        error: (error: { error?: { message?: string } }) => {
+          this.isRestoring = false;
+          this.restoreError = error?.error?.message || this.t('err.restoreFailed');
+        },
+      });
+  }
+
+  cancelRestore(): void {
+    this.restorePayload = null;
+    this.restoreFileName = '';
+    this.restoreConfirmation = '';
+    this.restoreError = '';
+  }
+
+  /** Vuelve a leer del servidor lo que se tenia cargado en memoria. */
+  private reloadAccountData(): void {
+    this.loadSettings();
+    this.loadPromotions();
+    this.loadProducts();
+    this.loadProductCategories();
+    this.loadSalesToday();
+    this.loadCustomers();
+    this.loadPendingSales();
+    this.refreshReportData();
+  }
+
   exportDailyReportPdf(): void {
     void this.openDailyReportPdf();
+  }
+
+  // ----- Corte diario: CSV del panel abierto -----
+
+  get reportPanelLabel(): string {
+    return this.reportPanels.find((panel) => panel.id === this.reportPanel)?.label ?? '';
+  }
+
+  /**
+   * Descarga en CSV lo que se ve en el panel abierto del corte, con las mismas
+   * columnas que la tabla de la pantalla.
+   *
+   * <p>Las cifras van sin signo de pesos ni separador de miles: asi Excel las
+   * toma como numeros y se pueden sumar o graficar sin limpiarlas a mano.
+   */
+  exportReportPanelCsv(): void {
+    const table = this.reportPanelTable();
+    // El BOM va al inicio porque sin el Excel abre el archivo como ANSI y
+    // "Devolución" sale como "DevoluciÃ³n".
+    const csv =
+      '﻿' +
+      [table.headers, ...table.rows]
+        .map((row) => row.map((cell) => this.csvCell(cell)).join(','))
+        .join('\r\n');
+    this.downloadBlob(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      `corte-${this.reportDate}-${table.slug}.csv`,
+    );
+    this.statusMessage = this.t('ok.reportCsv');
+  }
+
+  private reportPanelTable(): { slug: string; headers: string[]; rows: string[][] } {
+    const money = (value: number | null | undefined) => Number(value || 0).toFixed(2);
+    const counter = this.t('pos.counter');
+
+    switch (this.reportPanel) {
+      case 'sales':
+        return {
+          slug: 'ventas',
+          headers: [
+            '#',
+            this.t('sales.customer'),
+            this.t('customers.method'),
+            this.t('customers.status'),
+            this.t('sales.total'),
+            this.t('sales.profit'),
+          ],
+          rows: this.filteredSalesToday.map((sale) => [
+            String(sale.id),
+            sale.customerName || counter,
+            this.paymentLabel(sale.paymentMethod),
+            this.saleStatusLabel(sale.status),
+            money(sale.total),
+            money(sale.estimatedProfit),
+          ]),
+        };
+      case 'tickets':
+        return {
+          slug: 'tickets',
+          headers: [
+            this.t('tickets.ticket'),
+            this.t('customers.date'),
+            this.t('sales.customer'),
+            this.t('customers.status'),
+            this.t('sales.total'),
+            this.t('csv.refunded'),
+          ],
+          rows: this.filteredTicketHistory.map((sale) => [
+            String(sale.id),
+            this.formatDateTime(sale.createdAt),
+            sale.customerName || counter,
+            this.saleStatusLabel(sale.status),
+            money(sale.total),
+            money(sale.refundedTotal),
+          ]),
+        };
+      case 'refunds':
+        return {
+          slug: 'devoluciones',
+          headers: [
+            this.t('refunds.folio'),
+            this.t('tickets.ticket'),
+            this.t('customers.date'),
+            this.t('sales.customer'),
+            this.t('customers.method'),
+            this.t('sales.total'),
+          ],
+          rows: this.filteredRefundedToday.map((refund) => [
+            String(refund.id),
+            String(refund.saleId),
+            this.formatDateTime(refund.createdAt),
+            refund.customerName || counter,
+            this.paymentLabel(refund.paymentMethod),
+            money(refund.total),
+          ]),
+        };
+      case 'movements':
+        return {
+          slug: 'movimientos',
+          headers: [
+            this.t('movements.date'),
+            this.t('movements.product'),
+            this.t('movements.type'),
+            this.t('movements.quantity'),
+            this.t('movements.cost'),
+            this.t('movements.note'),
+          ],
+          rows: this.filteredReportInventoryMovements.map((movement) => [
+            this.formatDateTime(movement.createdAt),
+            movement.productName,
+            this.inventoryMovementLabel(movement.type),
+            String(movement.quantity),
+            movement.unitCost ? money(movement.unitCost) : '',
+            movement.note || '',
+          ]),
+        };
+      case 'history':
+        return {
+          slug: 'historial',
+          headers: [
+            this.t('customers.date'),
+            this.t('history.status'),
+            this.t('history.actualCash'),
+            this.t('history.lastMovement'),
+            this.t('promos.notes'),
+          ],
+          rows: this.reportHistory.map((entry) => [
+            entry.businessDate,
+            entry.closed ? this.t('history.closed') : this.t('history.openBadge'),
+            money(entry.actualCash),
+            this.formatDateTime(entry.updatedAt),
+            entry.notes || '',
+          ]),
+        };
+      default:
+        return {
+          slug: 'resumen',
+          headers: [this.t('csv.concept'), this.t('csv.value')],
+          rows: [
+            [this.t('summary.netSold'), money(this.todayTotal)],
+            [this.t('summary.netProfit'), money(this.todayProfit)],
+            [this.t('comparison.tickets'), String(this.confirmedSalesToday.length)],
+            [this.t('comparison.refunds'), money(this.refundedTodayTotal)],
+            ...this.paymentSummary.map((item) => [item.label, money(item.total)]),
+            [this.t('summary.expectedBoxPill'), money(this.expectedBoxTotal)],
+            [this.t('summary.expectedCashPill'), money(this.cashExpected)],
+            [this.t('summary.difference'), money(this.cashDifference)],
+          ],
+        };
+    }
+  }
+
+  // ----- Recompensas de lealtad: alta, edicion y baja -----
+  //
+  // El backend ya tenia todo (POST/PUT/DELETE /loyalty/rewards); faltaba la
+  // pantalla. Sin ella las clientas juntaban puntos que no tenian en que canjear.
+
+  allLoyaltyRewards: LoyaltyReward[] = [];
+  editingRewardId: number | null = null;
+  isSavingReward = false;
+  rewardError = '';
+  rewardForm: {
+    name: string;
+    description: string;
+    pointsRequired: number | null;
+    rewardType: 'DISCOUNT' | 'PRODUCT';
+    discountAmount: number | null;
+    productId: number | null;
+    active: boolean;
+  } = {
+    name: '',
+    description: '',
+    pointsRequired: 100,
+    rewardType: 'DISCOUNT',
+    discountAmount: 100,
+    productId: null,
+    active: true,
+  };
+
+  /** Prendas que se pueden regalar: las archivadas ya no estan a la venta. */
+  get rewardProducts() {
+    return this.products.filter((product) => product.status !== 'ARCHIVED');
+  }
+
+  loadAllLoyaltyRewards(): void {
+    this.http.get<LoyaltyReward[]>(this.apiUrl('/loyalty/rewards/all')).subscribe({
+      next: (rewards) => {
+        this.allLoyaltyRewards = rewards;
+      },
+      error: () => {
+        this.allLoyaltyRewards = [];
+      },
+    });
+  }
+
+  rewardSummary(reward: LoyaltyReward): string {
+    if (reward.rewardType === 'PRODUCT') {
+      const product = this.products.find((item) => item.id === reward.productId);
+      return product
+        ? this.t('rewards.productGift', { name: product.name })
+        : this.t('rewards.productMissing');
+    }
+    return this.t('rewards.discountOf', { amount: this.formatMoney(reward.discountAmount || 0) });
+  }
+
+  /**
+   * El backend no exige que un descuento lleve monto ni que un regalo lleve
+   * prenda, asi que la regla vive aqui. Sin ella se podia guardar un
+   * "descuento" de $0 que la clienta canjeaba sin recibir nada.
+   */
+  private get rewardValidationError(): string {
+    const form = this.rewardForm;
+    const points = Number(form.pointsRequired);
+    if (!form.name.trim()) return this.t('err.rewardName');
+    if (!Number.isInteger(points) || points < 1) return this.t('err.rewardPoints');
+    if (form.rewardType === 'DISCOUNT' && !(Number(form.discountAmount) > 0)) {
+      return this.t('err.rewardAmount');
+    }
+    if (form.rewardType === 'PRODUCT' && !form.productId) return this.t('err.rewardProduct');
+    return '';
+  }
+
+  saveReward(): void {
+    if (this.isSavingReward) return;
+    const problem = this.rewardValidationError;
+    if (problem) {
+      this.rewardError = problem;
+      return;
+    }
+
+    const form = this.rewardForm;
+    const body = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      pointsRequired: Number(form.pointsRequired),
+      rewardType: form.rewardType,
+      // Solo el dato que corresponde al tipo, para no dejar un monto viejo
+      // colgado en una recompensa que ahora es de prenda (o al reves).
+      discountAmount: form.rewardType === 'DISCOUNT' ? Number(form.discountAmount) : null,
+      productId: form.rewardType === 'PRODUCT' ? form.productId : null,
+      active: form.active,
+    };
+    const request = this.editingRewardId
+      ? this.http.put<LoyaltyReward>(this.apiUrl(`/loyalty/rewards/${this.editingRewardId}`), body)
+      : this.http.post<LoyaltyReward>(this.apiUrl('/loyalty/rewards'), body);
+
+    this.isSavingReward = true;
+    this.rewardError = '';
+    this.refresh.track(this.t('refresh.savingReward'), request).subscribe({
+      next: () => {
+        this.isSavingReward = false;
+        this.statusMessage = this.t('ok.rewardSaved');
+        this.resetRewardForm();
+        this.loadAllLoyaltyRewards();
+        this.loadLoyaltyRewards();
+      },
+      error: (err) => {
+        this.isSavingReward = false;
+        this.rewardError = err?.error?.message || this.t('err.rewardSave');
+      },
+    });
+  }
+
+  editReward(reward: LoyaltyReward): void {
+    this.editingRewardId = reward.id;
+    this.rewardError = '';
+    this.rewardForm = {
+      name: reward.name,
+      description: reward.description || '',
+      pointsRequired: reward.pointsRequired,
+      rewardType: reward.rewardType,
+      discountAmount: reward.discountAmount,
+      productId: reward.productId,
+      active: reward.active,
+    };
+  }
+
+  cancelRewardEdit(): void {
+    this.resetRewardForm();
+  }
+
+  /** Pausar es la salida recomendada: conserva la recompensa y su historial. */
+  toggleRewardActive(reward: LoyaltyReward): void {
+    this.http
+      .put<LoyaltyReward>(this.apiUrl(`/loyalty/rewards/${reward.id}`), {
+        name: reward.name,
+        description: reward.description,
+        pointsRequired: reward.pointsRequired,
+        rewardType: reward.rewardType,
+        discountAmount: reward.discountAmount,
+        productId: reward.productId,
+        active: !reward.active,
+      })
+      .subscribe({
+        next: () => {
+          this.loadAllLoyaltyRewards();
+          this.loadLoyaltyRewards();
+        },
+        error: (err) => {
+          this.statusMessage = err?.error?.message || this.t('err.rewardSave');
+        },
+      });
+  }
+
+  deleteReward(reward: LoyaltyReward): void {
+    // Borrar no se puede deshacer; la confirmacion sugiere pausar en su lugar.
+    if (!window.confirm(this.t('rewards.deleteConfirm', { name: reward.name }))) {
+      return;
+    }
+    this.http.delete(this.apiUrl(`/loyalty/rewards/${reward.id}`)).subscribe({
+      next: () => {
+        if (this.editingRewardId === reward.id) this.resetRewardForm();
+        this.statusMessage = this.t('ok.rewardDeleted');
+        this.loadAllLoyaltyRewards();
+        this.loadLoyaltyRewards();
+      },
+      error: (err) => {
+        this.statusMessage = err?.error?.message || this.t('err.rewardSave');
+      },
+    });
+  }
+
+  private resetRewardForm(): void {
+    this.editingRewardId = null;
+    this.rewardError = '';
+    this.rewardForm = {
+      name: '',
+      description: '',
+      pointsRequired: 100,
+      rewardType: 'DISCOUNT',
+      discountAmount: 100,
+      productId: null,
+      active: true,
+    };
   }
 
   saveCashCount(): void {
@@ -3716,7 +4737,7 @@ export class StoreService {
 
     const section = (title: string) => {
       ensureSpace(12);
-      doc.setFillColor(239, 243, 248);
+      doc.setFillColor(239, 238, 233);
       doc.roundedRect(margin, y - 5, contentWidth, 8, 1.5, 1.5, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
@@ -3880,7 +4901,7 @@ export class StoreService {
         margin: 1,
         width: 240,
         color: {
-          dark: '#111827',
+          dark: '#141312',
           light: '#FFFFFF',
         },
       });
@@ -3899,7 +4920,7 @@ export class StoreService {
         height: 40,
         displayValue: false,
         margin: 0,
-        lineColor: '#111827',
+        lineColor: '#141312',
         background: '#FFFFFF',
       });
       return canvas.toDataURL('image/png');
@@ -3955,13 +4976,13 @@ export class StoreService {
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: Arial, sans-serif; color: #1f2933; }
+    body { font-family: Arial, sans-serif; color: #161614; }
     h1 { font-size: 20px; margin: 0 0 4px; }
-    h2 { font-size: 15px; margin: 24px 0 8px; background: #e8edf3; padding: 8px; border: 1px solid #c8d1db; }
-    .meta { color: #66717f; margin-bottom: 16px; }
+    h2 { font-size: 15px; margin: 24px 0 8px; background: #e8e6e0; padding: 8px; border: 1px solid #d5d2ca; }
+    .meta { color: #6b6862; margin-bottom: 16px; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
-    th { background: #2f5f98; color: #ffffff; font-weight: bold; }
-    th, td { border: 1px solid #c8d1db; padding: 6px; font-size: 12px; vertical-align: top; }
+    th { background: #151614; color: #ffffff; font-weight: bold; }
+    th, td { border: 1px solid #d5d2ca; padding: 6px; font-size: 12px; vertical-align: top; }
     td { mso-number-format:"\\@"; }
   </style>
 </head>
@@ -4128,8 +5149,8 @@ export class StoreService {
 
     for (const [section, rows] of this.backupSections(backup)) {
       ensureSpace(14);
-      doc.setDrawColor(210, 218, 228);
-      doc.setFillColor(232, 237, 243);
+      doc.setDrawColor(213, 210, 202);
+      doc.setFillColor(232, 230, 224);
       doc.roundedRect(margin, y - 5, maxWidth, 8, 1.5, 1.5, 'FD');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
@@ -4242,6 +5263,7 @@ export class StoreService {
       username: settings.username || 'admin',
       currentPassword: '',
       newPassword: '',
+      code: '',
     };
     void this.refreshTicketQrPreview();
   }
@@ -4495,19 +5517,104 @@ export class StoreService {
     };
   }
 
-  private persistPromotions(): void {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(PROMOS_STORAGE_KEY, JSON.stringify(this.promotions));
+  /**
+   * Las promociones viven en el servidor. Antes vivian en el localStorage: otra
+   * caja no las veia, se perdian al limpiar el navegador y el servidor no podia
+   * validar el descuento de una venta.
+   */
+  loadPromotions(): void {
+    this.http.get<ServerPromotion[]>(this.apiUrl('/promotions')).subscribe({
+      next: (list) => {
+        this.promotions = list.map((promo) => this.fromServerPromotion(promo));
+        this.syncSelectedPromo();
+        this.migrateLocalPromotions();
+      },
+      error: () => {
+        // Plan sin promociones (403) o servidor caido: la caja sigue sin ellas.
+        this.promotions = [];
+      },
+    });
   }
 
-  private loadPromotionsFromStorage(): void {
-    if (typeof window === 'undefined') return;
+  private fromServerPromotion(promo: ServerPromotion): Promotion {
+    return {
+      id: String(promo.id),
+      name: promo.name,
+      code: promo.code,
+      type: promo.type === 'FIXED' ? 'FIXED' : 'PERCENT',
+      value: Number(promo.value) || 0,
+      minSubtotal: Number(promo.minSubtotal) || 0,
+      customerId: promo.customerId ?? null,
+      startsAt: promo.startsAt || '',
+      endsAt: promo.endsAt || null,
+      active: promo.active,
+      notes: promo.notes || '',
+      createdAt: promo.createdAt,
+    };
+  }
+
+  /**
+   * Sube una sola vez las promociones que hubieran quedado guardadas en este
+   * navegador con la version anterior, y las borra de aqui. Las que ya existen
+   * en el servidor (mismo codigo) se saltan.
+   */
+  private migrateLocalPromotions(): void {
+    const local = this.readLocalPromotions();
+    if (!local.length) return;
+    const existing = new Set(this.promotions.map((promo) => promo.code.toUpperCase()));
+    const pending = local.filter((promo) => promo.code && !existing.has(promo.code.toUpperCase()));
+    const failed: Promotion[] = [];
+    let uploaded = 0;
+    const next = (index: number) => {
+      if (index >= pending.length) {
+        if (failed.length) {
+          window.localStorage.setItem(PROMOS_STORAGE_KEY, JSON.stringify(failed));
+        } else {
+          window.localStorage.removeItem(PROMOS_STORAGE_KEY);
+        }
+        if (uploaded) {
+          this.statusMessage = this.t('ok.promosMigrated', { n: uploaded });
+          this.loadPromotions();
+        }
+        return;
+      }
+      const promo = pending[index];
+      this.http
+        .post<ServerPromotion>(this.apiUrl('/promotions'), {
+          name: promo.name || promo.code,
+          code: promo.code,
+          type: promo.type,
+          value: promo.value,
+          minSubtotal: promo.minSubtotal,
+          customerId: promo.customerId,
+          startsAt: promo.startsAt || null,
+          endsAt: promo.endsAt || null,
+          active: promo.active,
+          notes: promo.notes || null,
+        })
+        .subscribe({
+          next: () => {
+            uploaded += 1;
+            next(index + 1);
+          },
+          error: (error: HttpErrorResponse) => {
+            // 400 = datos que el servidor no acepta (p. ej. codigo repetido): no se reintenta.
+            if (error.status !== 400) failed.push(promo);
+            next(index + 1);
+          },
+        });
+    };
+    next(0);
+  }
+
+  private readLocalPromotions(): Promotion[] {
+    if (typeof window === 'undefined') return [];
     const raw = window.localStorage.getItem(PROMOS_STORAGE_KEY);
-    if (!raw) return;
+    if (!raw) return [];
     try {
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
-      this.promotions = parsed
+      if (!Array.isArray(parsed)) return [];
+      return parsed
         .filter((item) => item && typeof item === 'object')
         .map((item) => ({
           id: String(item.id ?? this.generatePromoId()),
@@ -4516,19 +5623,16 @@ export class StoreService {
           type: (item.type === 'FIXED' ? 'FIXED' : 'PERCENT') as PromotionType,
           value: Math.max(Number(item.value) || 0, 0),
           minSubtotal: Math.max(Number(item.minSubtotal) || 0, 0),
-          customerId:
-            item.customerId == null || Number.isNaN(Number(item.customerId))
-              ? null
-              : Number(item.customerId),
-          startsAt: String(item.startsAt ?? this.todayDateString()),
+          customerId: item.customerId == null ? null : Number(item.customerId),
+          startsAt: String(item.startsAt ?? ''),
           endsAt: item.endsAt ? String(item.endsAt) : null,
-          active: Boolean(item.active),
+          active: item.active !== false,
           notes: String(item.notes ?? ''),
           createdAt: String(item.createdAt ?? new Date().toISOString()),
         }))
-        .filter((promo) => promo.name && promo.code);
+        .filter((promo) => promo.value > 0);
     } catch {
-      this.promotions = [];
+      return [];
     }
   }
 
@@ -4685,6 +5789,7 @@ export class StoreService {
     const url = new URL(window.location.href);
     url.searchParams.delete('session_id');
     url.searchParams.delete('checkout_session_id');
+    url.searchParams.delete('checkout');
     window.history.replaceState({}, '', url.toString());
   }
 
@@ -4831,9 +5936,10 @@ export class StoreService {
   private resetCategoryForm(): void {
     this.editingCategoryId = null;
     this.categoryForm = {
-      presetName: this.categoryPresets[0].name,
+      presetName: '',
       name: '',
       description: '',
+      sizeLabel: 'Talla',
       active: true,
     };
   }
@@ -5026,6 +6132,11 @@ export class StoreService {
     this.cashReceived = 0;
     this.lastTicket = null;
     this.subscription = null;
+    this.userRole = 'OWNER';
+    this.userDisplayName = '';
+    this.staffMembers = [];
+    this.staffMessage = '';
+    this.loginCodeSentToOwner = false;
   }
 
   private clearRecoveryState(): void {

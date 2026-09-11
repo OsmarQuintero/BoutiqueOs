@@ -1,5 +1,6 @@
 package com.osmar.boutiqueos.customer.loyalty;
 
+import org.springframework.transaction.annotation.Propagation;
 import com.osmar.boutiqueos.config.AccountContext;
 import com.osmar.boutiqueos.customer.Customer;
 import com.osmar.boutiqueos.customer.CustomerRepository;
@@ -13,7 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -43,7 +44,9 @@ public class LoyaltyService {
         this.accountContext = accountContext;
     }
 
-    @Transactional
+    // REQUIRES_NEW: se llama despues del commit de la venta, cuando ya no hay
+    // transaccion propia en curso (ver SaleService.earnLoyaltyPoints).
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int earnPoints(Long customerId, BigDecimal saleTotal, Long saleId) {
         Long accountId = accountContext.requireAccountId();
         Customer customer = customerRepository.findByIdAndAccountId(customerId, accountId)
@@ -55,7 +58,10 @@ public class LoyaltyService {
         }
 
         Instant now = Instant.now();
-        Instant expiresAt = now.plus(POINTS_EXPIRY_MONTHS, ChronoUnit.MONTHS);
+        // Instant no admite sumar meses (lanza "Unsupported unit: Months"): hay que
+        // pasar por la fecha en la zona de la tienda. Ese error hacia fallar TODA
+        // venta con clienta, porque corria dentro de la transaccion de la venta.
+        Instant expiresAt = now.atZone(ZoneId.systemDefault()).plusMonths(POINTS_EXPIRY_MONTHS).toInstant();
 
         customer.setLoyaltyPoints(customer.getLoyaltyPoints() + points);
         customerRepository.save(customer);

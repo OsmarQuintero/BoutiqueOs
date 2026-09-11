@@ -20,4 +20,6 @@ public interface SaleRefundRepository extends JpaRepository<SaleRefund, Long> {
     BigDecimal sumCashRefundsTotal(@Param("accountId") Long accountId,
                                     @Param("start") Instant start,
                                     @Param("end") Instant end);
+
+    void deleteAllByAccountId(Long accountId);
 }

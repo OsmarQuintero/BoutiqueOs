@@ -1,27 +1,19 @@
 package com.osmar.boutiqueos.settings;
 
 import com.osmar.boutiqueos.config.AccountContext;
-import com.osmar.boutiqueos.customer.CustomerRepository;
-import com.osmar.boutiqueos.inventory.InventoryMovementRepository;
-import com.osmar.boutiqueos.product.ProductRepository;
-import com.osmar.boutiqueos.productcategory.ProductCategoryRepository;
-import com.osmar.boutiqueos.purchase.PurchaseRepository;
-import com.osmar.boutiqueos.report.DailyCashCountRepository;
-import com.osmar.boutiqueos.sale.SaleRefundRepository;
-import com.osmar.boutiqueos.sale.SaleRefundResponse;
-import com.osmar.boutiqueos.sale.SaleRepository;
-import com.osmar.boutiqueos.sale.SaleResponse;
 import com.osmar.boutiqueos.subscription.SubscriptionService;
-import org.springframework.web.bind.annotation.GetMapping;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -30,65 +22,74 @@ public class BackupController {
 
     private final AppSettingsService appSettingsService;
     private final AuthSessionService authSessionService;
-    private final ProductRepository productRepository;
-    private final ProductCategoryRepository productCategoryRepository;
-    private final CustomerRepository customerRepository;
-    private final SaleRepository saleRepository;
-    private final SaleRefundRepository saleRefundRepository;
-    private final PurchaseRepository purchaseRepository;
-    private final InventoryMovementRepository inventoryMovementRepository;
-    private final DailyCashCountRepository dailyCashCountRepository;
+    private final BackupService backupService;
     private final AccountContext accountContext;
     private final SubscriptionService subscriptionService;
 
     public BackupController(
             AppSettingsService appSettingsService,
             AuthSessionService authSessionService,
-            ProductRepository productRepository,
-            ProductCategoryRepository productCategoryRepository,
-            CustomerRepository customerRepository,
-            SaleRepository saleRepository,
-            SaleRefundRepository saleRefundRepository,
-            PurchaseRepository purchaseRepository,
-            InventoryMovementRepository inventoryMovementRepository,
-            DailyCashCountRepository dailyCashCountRepository,
+            BackupService backupService,
             AccountContext accountContext,
             SubscriptionService subscriptionService
     ) {
         this.appSettingsService = appSettingsService;
         this.authSessionService = authSessionService;
-        this.productRepository = productRepository;
-        this.productCategoryRepository = productCategoryRepository;
-        this.customerRepository = customerRepository;
-        this.saleRepository = saleRepository;
-        this.saleRefundRepository = saleRefundRepository;
-        this.purchaseRepository = purchaseRepository;
-        this.inventoryMovementRepository = inventoryMovementRepository;
-        this.dailyCashCountRepository = dailyCashCountRepository;
+        this.backupService = backupService;
         this.accountContext = accountContext;
         this.subscriptionService = subscriptionService;
     }
 
     @GetMapping
-    @Transactional(readOnly = true)
-    public Map<String, Object> export(@RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token) {
+    public BackupPayload export(
+            @RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token
+    ) {
+        requireSession(token);
+        return backupService.export(accountContext.requireAccountId());
+    }
+
+    /**
+     * Deja la cuenta como venia en el archivo: borra lo que hay y carga el respaldo.
+     *
+     * <p>No mezcla. Mezclar duplicaria ventas y descuadraria el inventario, que es
+     * peor que no restaurar. Por eso pide el nombre de la tienda en
+     * {@code confirmation}: es una operacion que no se puede deshacer.
+     */
+    @PostMapping("/restore")
+    public Map<String, Object> restore(
+            @RequestHeader(value = AuthSessionService.SESSION_HEADER, required = false) String token,
+            @Valid @RequestBody BackupRestoreRequest request
+    ) {
+        requireSession(token);
+
+        String storeName = appSettingsService.getCurrent().getStoreName();
+        if (!matches(request.confirmation(), storeName)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Para restaurar tienes que escribir el nombre de la tienda tal como esta guardado");
+        }
+
+        Map<String, Integer> restored = backupService.restore(
+                accountContext.requireAccountId(), request.backup());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("restored", true);
+        response.put("counts", restored);
+        return response;
+    }
+
+    private void requireSession(String token) {
         if (!authSessionService.isValid(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
         }
         subscriptionService.requireFeature("backup");
+    }
 
-        Long accountId = accountContext.requireAccountId();
-        Map<String, Object> backup = new LinkedHashMap<>();
-        backup.put("generatedAt", Instant.now());
-        backup.put("settings", AppSettingsResponse.from(appSettingsService.getCurrent()));
-        backup.put("products", productRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId));
-        backup.put("productCategories", productCategoryRepository.findAllByAccountIdOrderByNameAsc(accountId));
-        backup.put("customers", customerRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId));
-        backup.put("sales", saleRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId).stream().map(SaleResponse::from).toList());
-        backup.put("saleRefunds", saleRefundRepository.findAllByAccountIdOrderByCreatedAtDesc(accountId).stream().map(SaleRefundResponse::from).toList());
-        backup.put("purchases", purchaseRepository.findTop30ByAccountIdOrderByCreatedAtDesc(accountId));
-        backup.put("inventoryMovements", inventoryMovementRepository.findTop50ByAccountIdOrderByCreatedAtDesc(accountId));
-        backup.put("dailyCashCounts", dailyCashCountRepository.findAllByAccountIdOrderByBusinessDateDesc(accountId));
-        return backup;
+    private boolean matches(String provided, String storeName) {
+        if (provided == null || storeName == null || storeName.isBlank()) {
+            return false;
+        }
+        return provided.trim().toLowerCase(Locale.ROOT)
+                .equals(storeName.trim().toLowerCase(Locale.ROOT));
     }
 }

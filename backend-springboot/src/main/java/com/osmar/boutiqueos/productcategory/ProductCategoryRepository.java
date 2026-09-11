@@ -9,4 +9,6 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
     List<ProductCategory> findAllByAccountIdOrderByNameAsc(Long accountId);
     Optional<ProductCategory> findByAccountIdAndNameIgnoreCase(Long accountId, String name);
     Optional<ProductCategory> findByIdAndAccountId(Long id, Long accountId);
+
+    void deleteAllByAccountId(Long accountId);
 }
