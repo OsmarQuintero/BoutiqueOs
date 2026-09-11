@@ -465,6 +465,9 @@ const OFFLINE_QUEUE_KEY = 'boutiqueos.offline.sales.v1';
 const ONBOARDING_PENDING_KEY = 'boutiqueos.onboarding.pending.v1';
 // Token de "recordar este dispositivo" (30 dias). Lo emite el servidor.
 const TRUSTED_DEVICE_KEY = 'boutiqueos.trusted-device.v1';
+// Sesion abierta. Va en sessionStorage (no en localStorage) a proposito: recargar
+// la pagina ya no saca al login, pero al cerrar el navegador la caja queda cerrada.
+const SESSION_KEY = 'boutiqueos.session.v1';
 
 interface OfflineSaleEntry {
   id: string;
@@ -886,6 +889,7 @@ export class StoreService {
     this._statusMessage = this.t('ok.ready');
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => this.flushOfflineSales());
+      this.restoreSession();
     }
   }
 
@@ -2426,6 +2430,7 @@ export class StoreService {
     }
     this.loggedIn = true;
     this.loginError = '';
+    this.saveSession();
     this.loadSettings();
     this.loadProducts();
     this.loadProductCategories();
@@ -2440,6 +2445,69 @@ export class StoreService {
     // Sin correo la duena es la unica que puede arreglarlo: a la caja no se le avisa.
     if (!twoFactorAvailable && !this.isCashier) {
       this.showAlert(this.t('warn.noTwoFactorEmail'), 'warning');
+    }
+  }
+
+  private saveSession(): void {
+    this.writeSession(
+      JSON.stringify({
+        token: this.sessionToken,
+        role: this.userRole,
+        displayName: this.userDisplayName,
+      }),
+    );
+  }
+
+  /** Al abrir la pagina se retoma la sesion guardada en vez de mandar al login. */
+  private restoreSession(): void {
+    const raw = this.readSession();
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as { token?: string; role?: string; displayName?: string };
+      const token = (saved.token || '').trim();
+      if (!token || this.tokenExpired(token)) {
+        this.writeSession(null);
+        return;
+      }
+      this.completeSignIn(token, true, {
+        role: saved.role === 'CASHIER' ? 'CASHIER' : 'OWNER',
+        displayName: saved.displayName || '',
+      } as LoginResponse);
+    } catch {
+      this.writeSession(null);
+    }
+  }
+
+  /** Un token vencido no se restaura: el servidor lo rechazaria de todos modos. */
+  private tokenExpired(token: string): boolean {
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return false;
+      const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now();
+    } catch {
+      // Si no se puede leer, que decida el servidor.
+      return false;
+    }
+  }
+
+  private readSession(): string | null {
+    try {
+      return window.sessionStorage.getItem(SESSION_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  private writeSession(value: string | null): void {
+    try {
+      if (value === null) {
+        window.sessionStorage.removeItem(SESSION_KEY);
+      } else {
+        window.sessionStorage.setItem(SESSION_KEY, value);
+      }
+    } catch {
+      // Navegador en modo privado o con el almacenamiento bloqueado.
     }
   }
 
@@ -3653,10 +3721,11 @@ export class StoreService {
         request,
       )
       .subscribe({
-        next: () => {
+        next: (saved) => {
           this.statusMessage = this.editingProductId
             ? this.t('ok.productUpdated')
             : this.t('ok.productCreated');
+          this.products = this.upsertById(this.products, saved);
           this.closeProductForm();
           this.loadProducts();
         },
@@ -3709,11 +3778,12 @@ export class StoreService {
         request,
       )
       .subscribe({
-        next: () => {
+        next: (saved) => {
           this.isSavingCategory = false;
           this.statusMessage = this.editingCategoryId
             ? this.t('ok.categoryUpdated')
             : this.t('ok.categoryCreated');
+          this.productCategories = this.upsertById(this.productCategories, saved);
           this.resetCategoryForm();
           this.loadProductCategories();
         },
@@ -4038,10 +4108,11 @@ export class StoreService {
         request,
       )
       .subscribe({
-        next: () => {
+        next: (saved) => {
           this.statusMessage = this.editingCustomerId
             ? this.t('ok.customerUpdated')
             : this.t('ok.customerAdded');
+          this.customers = this.upsertById(this.customers, saved);
           this.resetCustomerForm();
           this.loadCustomers();
         },
@@ -4433,6 +4504,7 @@ export class StoreService {
           // El cambio cerro todas las sesiones, incluida esta: se adopta la nueva.
           if (result.token) {
             this.sessionToken = result.token;
+            this.saveSession();
           }
           this.applySettings(result.settings);
           this.credentialsForm.currentPassword = '';
@@ -5710,6 +5782,20 @@ export class StoreService {
     this.newCustomerNotes = '';
   }
 
+  /**
+   * Deja en la lista lo que acaba de responder el servidor. Antes la pantalla
+   * esperaba una segunda consulta, y con conexion lenta parecia que no se habia
+   * guardado nada; la recarga posterior solo confirma el orden del servidor.
+   */
+  private upsertById<T extends { id: number }>(list: T[], saved: T | null | undefined): T[] {
+    if (!saved || typeof saved.id !== 'number') return list;
+    const index = list.findIndex((item) => item.id === saved.id);
+    if (index === -1) return [...list, saved];
+    const copy = [...list];
+    copy[index] = saved;
+    return copy;
+  }
+
   loadProducts(): void {
     this.http.get<Product[]>(this.apiUrl('/products')).subscribe({
       next: (products) => {
@@ -6941,6 +7027,7 @@ export class StoreService {
   private clearSessionState(clearCredentials: boolean): void {
     this.loggedIn = false;
     this.sessionToken = '';
+    this.writeSession(null);
     if (clearCredentials) {
       this.loginUser = '';
       this.loginPass = '';
