@@ -54,6 +54,11 @@ public class SchemaMigrationRunner implements CommandLineRunner {
         addColumnIfMissing("sale_refunds", "account_id", "BIGINT DEFAULT 1 NOT NULL");
         addColumnIfMissing("daily_cash_counts", "account_id", "BIGINT DEFAULT 1 NOT NULL");
         addColumnIfMissing("onboarding_sessions", "account_id", "BIGINT");
+        // Columnas del corte que Hibernate no pudo agregar en tablas con filas
+        // (NOT NULL sin default): sin ellas el corte de caja falla en Postgres.
+        addColumnIfMissing("daily_cash_counts", "opening_float", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
+        addColumnIfMissing("daily_cash_counts", "expected_cash", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
+        addColumnIfMissing("daily_cash_counts", "difference", "DECIMAL(12,2) DEFAULT 0 NOT NULL");
         alterColumnIfPossible("products", "image_url", "CLOB");
         dropUniqueConstraintIfPresent("product_categories", "NAME");
         dropUniqueConstraintIfPresent("daily_cash_counts", "BUSINESS_DATE");
@@ -62,8 +67,10 @@ public class SchemaMigrationRunner implements CommandLineRunner {
 
     /**
      * La columna se llamaba "key", palabra reservada en H2. Como la tabla solo
-     * guarda estado temporal de bloqueo por intentos, se descarta y Hibernate la
-     * vuelve a crear con el nombre nuevo; no se pierde nada de negocio.
+     * guarda estado temporal de bloqueo por intentos, se descarta y se vuelve a
+     * crear aqui mismo con el nombre nuevo: este runner corre DESPUES de que
+     * Hibernate actualizo el esquema, asi que si solo se borrara, la tabla no
+     * existiria hasta el siguiente reinicio y todo login responderia 500.
      */
     private void dropLegacyLoginAttempts() {
         try {
@@ -78,6 +85,16 @@ public class SchemaMigrationRunner implements CommandLineRunner {
             );
             if (legacy != null && legacy > 0) {
                 jdbcTemplate.execute("DROP TABLE login_attempts");
+                jdbcTemplate.execute(
+                        """
+                        CREATE TABLE login_attempts (
+                            attempt_key VARCHAR(512) NOT NULL PRIMARY KEY,
+                            count INTEGER NOT NULL,
+                            window_expires_at TIMESTAMP(6) WITH TIME ZONE NOT NULL,
+                            blocked_until TIMESTAMP(6) WITH TIME ZONE
+                        )
+                        """
+                );
             }
         } catch (Exception ignored) {
             // En esquemas nuevos la tabla no existe todavia y no hay nada que limpiar.
